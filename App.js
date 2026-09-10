@@ -1,8 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, {
+  useEffect,
+  useState,
+} from 'react';
+
 import {
   SafeAreaView,
   StatusBar,
   StyleSheet,
+  ActivityIndicator,
+  View,
 } from 'react-native';
 
 import HomeScreen from './src/screens/HomeScreen';
@@ -20,7 +26,25 @@ import {
   deleteProject,
 } from './src/storage/projectStorage';
 
+import {
+  ThemeProvider,
+  useTheme,
+} from './src/theme/ThemeContext';
+
 export default function App() {
+  return (
+    <ThemeProvider>
+      <GCodeApp />
+    </ThemeProvider>
+  );
+}
+
+function GCodeApp() {
+  const {
+    colors,
+    loaded: themeLoaded,
+  } = useTheme();
+
   const [projects, setProjects] = useState([]);
   const [screen, setScreen] = useState('home');
   const [activeProject, setActiveProject] = useState(null);
@@ -78,7 +102,9 @@ export default function App() {
   }
 
   function newProject() {
-    const project = createProject('Nouveau projet');
+    const project = createProject(
+      'Nouveau projet'
+    );
 
     setProjects((current) => [
       project,
@@ -122,6 +148,25 @@ export default function App() {
     setScreen('projects');
   }
 
+  if (!themeLoaded || !loaded) {
+    return (
+      <View
+        style={[
+          styles.loading,
+          {
+            backgroundColor:
+              colors.background,
+          },
+        ]}
+      >
+        <ActivityIndicator
+          size="large"
+          color={colors.purple}
+        />
+      </View>
+    );
+  }
+
   let content = null;
 
   if (screen === 'home') {
@@ -154,7 +199,9 @@ export default function App() {
         project={activeProject}
         onChange={updateProject}
         onBack={goHome}
-        onPreview={() => setScreen('preview')}
+        onPreview={() =>
+          setScreen('preview')
+        }
       />
     );
   }
@@ -166,7 +213,9 @@ export default function App() {
     content = (
       <PreviewScreen
         project={activeProject}
-        onBack={() => setScreen('workbench')}
+        onBack={() =>
+          setScreen('workbench')
+        }
       />
     );
   }
@@ -176,10 +225,24 @@ export default function App() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView
+      style={[
+        styles.container,
+        {
+          backgroundColor:
+            colors.background,
+        },
+      ]}
+    >
       <StatusBar
-        barStyle="light-content"
-        backgroundColor="#070914"
+        barStyle={
+          colors.background === '#070914'
+            ? 'light-content'
+            : 'dark-content'
+        }
+        backgroundColor={
+          colors.background
+        }
       />
 
       {content}
@@ -189,12 +252,16 @@ export default function App() {
           <BottomNav
             active={screen}
             onChange={(nextScreen) => {
-              if (nextScreen === 'projects') {
+              if (
+                nextScreen === 'projects'
+              ) {
                 openProjects();
                 return;
               }
 
-              if (nextScreen === 'home') {
+              if (
+                nextScreen === 'home'
+              ) {
                 goHome();
                 return;
               }
@@ -210,6 +277,11 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#070914',
+  },
+
+  loading: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
