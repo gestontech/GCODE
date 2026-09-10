@@ -8,7 +8,8 @@ import {
 } from 'react-native';
 
 function FileIcon({ name }) {
-  const extension = name.split('.').pop();
+  const extension =
+    name.split('.').pop()?.toLowerCase();
 
   const icons = {
     html: '◇',
@@ -29,40 +30,21 @@ export default function FileExplorer({
   project,
   activeFile,
   onOpenFile,
-  onNewFile,
 }) {
-  const files =
-    project?.files || [
-      {
-        id: 'index.html',
-        name: 'index.html',
-        language: 'html',
-      },
-      {
-        id: 'style.css',
-        name: 'style.css',
-        language: 'css',
-      },
-      {
-        id: 'script.js',
-        name: 'script.js',
-        language: 'javascript',
-      },
-    ];
+  const files = project?.files || [];
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.title}>EXPLORATEUR</Text>
+          <Text style={styles.title}>
+            EXPLORATEUR
+          </Text>
+
           <Text style={styles.projectName}>
             {project?.name || 'GCODE'}
           </Text>
         </View>
-
-        <Pressable onPress={onNewFile}>
-          <Text style={styles.add}>＋</Text>
-        </Pressable>
       </View>
 
       <ScrollView
@@ -70,15 +52,25 @@ export default function FileExplorer({
         contentContainerStyle={styles.content}
       >
         <View style={styles.folder}>
-          <Text style={styles.folderArrow}>⌄</Text>
-          <Text style={styles.folderIcon}>□</Text>
-          <Text style={styles.folderName}>src</Text>
+          <Text style={styles.folderArrow}>
+            ⌄
+          </Text>
+
+          <Text style={styles.folderIcon}>
+            □
+          </Text>
+
+          <Text style={styles.folderName}>
+            projet
+          </Text>
         </View>
 
         {files.map((file) => (
           <Pressable
             key={file.id}
-            onPress={() => onOpenFile(file)}
+            onPress={() =>
+              onOpenFile?.(file)
+            }
             style={[
               styles.file,
               activeFile?.id === file.id &&
@@ -100,16 +92,38 @@ export default function FileExplorer({
           </Pressable>
         ))}
 
+        {files.length === 0 && (
+          <Text style={styles.empty}>
+            Aucun fichier
+          </Text>
+        )}
+
         <View style={styles.folder}>
-          <Text style={styles.folderArrow}>›</Text>
-          <Text style={styles.folderIcon}>□</Text>
-          <Text style={styles.folderName}>assets</Text>
+          <Text style={styles.folderArrow}>
+            ›
+          </Text>
+
+          <Text style={styles.folderIcon}>
+            □
+          </Text>
+
+          <Text style={styles.folderName}>
+            assets
+          </Text>
         </View>
 
         <View style={styles.folder}>
-          <Text style={styles.folderArrow}>›</Text>
-          <Text style={styles.folderIcon}>□</Text>
-          <Text style={styles.folderName}>components</Text>
+          <Text style={styles.folderArrow}>
+            ›
+          </Text>
+
+          <Text style={styles.folderIcon}>
+            □
+          </Text>
+
+          <Text style={styles.folderName}>
+            components
+          </Text>
         </View>
       </ScrollView>
     </View>
@@ -130,7 +144,6 @@ const styles = StyleSheet.create({
     borderBottomColor: '#242943',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
   },
 
   title: {
@@ -145,11 +158,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     marginTop: 5,
-  },
-
-  add: {
-    color: '#a88bff',
-    fontSize: 25,
   },
 
   content: {
@@ -207,5 +215,12 @@ const styles = StyleSheet.create({
 
   activeFileName: {
     color: '#ffffff',
+  },
+
+  empty: {
+    color: '#666d86',
+    fontSize: 12,
+    paddingHorizontal: 38,
+    paddingVertical: 12,
   },
 });
