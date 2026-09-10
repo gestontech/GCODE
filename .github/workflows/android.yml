@@ -19,7 +19,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24
-          cache: npm
 
       - name: Vérifier Node.js et npm
         run: |
@@ -27,9 +26,9 @@ jobs:
           npm --version
 
       - name: Installer les dépendances
-        run: npm ci
+        run: npm install
 
-      - name: Vérifier les dépendances Expo
+      - name: Vérifier Expo
         run: npx expo-doctor
 
       - name: Générer le projet Android
@@ -45,23 +44,24 @@ jobs:
       - name: Rendre Gradle exécutable
         run: chmod +x android/gradlew
 
-      - name: Vérifier la configuration Android
+      - name: Nettoyer Gradle
         working-directory: android
-        run: ./gradlew --version
+        run: ./gradlew clean --no-daemon
 
       - name: Construire APK Release
         working-directory: android
         run: ./gradlew assembleRelease --no-daemon --stacktrace
 
-      - name: Vérifier que l'APK existe
+      - name: Vérifier l'APK
         run: |
-          ls -lah android/app/build/outputs/apk/release/
+          echo "Recherche de l'APK..."
+          find android/app/build/outputs/apk/release -type f -name "*.apk" -print
           test -f android/app/build/outputs/apk/release/app-release.apk
 
-      - name: Renommer l'APK
+      - name: Préparer l'APK V3
         run: |
-          cp android/app/build/outputs/apk/release/app-release.apk \
-             GCODE-Mobile-V3.apk
+          cp android/app/build/outputs/apk/release/app-release.apk GCODE-Mobile-V3.apk
+          ls -lh GCODE-Mobile-V3.apk
 
       - name: Publier l'APK V3
         uses: actions/upload-artifact@v4
