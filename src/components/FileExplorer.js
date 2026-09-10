@@ -1,18 +1,22 @@
-import React, { useMemo, useState } from 'react';
+import React, {
+  useMemo,
+  useState,
+} from 'react';
+
 import {
   Alert,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 
 import { useTheme } from '../theme/ThemeContext';
 
 function getFileIcon(name = '') {
-  const extension = name.split('.').pop()?.toLowerCase();
+  const extension =
+    name.split('.').pop()?.toLowerCase();
 
   const icons = {
     html: '◇',
@@ -33,9 +37,13 @@ function getFileIcon(name = '') {
 }
 
 function getLanguage(name = '') {
-  const extension = name.split('.').pop()?.toLowerCase();
+  const extension =
+    name.split('.').pop()?.toLowerCase();
 
-  if (extension === 'html' || extension === 'htm') {
+  if (
+    extension === 'html' ||
+    extension === 'htm'
+  ) {
     return 'html';
   }
 
@@ -43,11 +51,17 @@ function getLanguage(name = '') {
     return 'css';
   }
 
-  if (['js', 'jsx'].includes(extension)) {
+  if (
+    extension === 'js' ||
+    extension === 'jsx'
+  ) {
     return 'javascript';
   }
 
-  if (['ts', 'tsx'].includes(extension)) {
+  if (
+    extension === 'ts' ||
+    extension === 'tsx'
+  ) {
     return 'typescript';
   }
 
@@ -62,12 +76,6 @@ function getLanguage(name = '') {
   return 'plaintext';
 }
 
-function createId(prefix = 'file') {
-  return `${prefix}-${Date.now()}-${Math.random()
-    .toString(36)
-    .slice(2, 8)}`;
-}
-
 export default function FileExplorer({
   project,
   activeFile,
@@ -79,111 +87,99 @@ export default function FileExplorer({
   onRenameFolder,
   onDeleteFolder,
 }) {
-  const { colors, spacing, radius } = useTheme();
+  const {
+    colors,
+    spacing,
+    radius,
+  } = useTheme();
 
-  const [expandedFolders, setExpandedFolders] = useState(
-    new Set(['root'])
-  );
+  const [expandedFolders, setExpandedFolders] =
+    useState(
+      new Set(['root'])
+    );
 
-  const [menuVisible, setMenuVisible] = useState(false);
+  const [menuVisible, setMenuVisible] =
+    useState(false);
 
   const files = useMemo(() => {
-    if (!Array.isArray(project?.files)) {
-      return [];
-    }
-
-    return project.files;
+    return Array.isArray(project?.files)
+      ? project.files
+      : [];
   }, [project?.files]);
 
   const folders = useMemo(() => {
-    if (!Array.isArray(project?.folders)) {
-      return [];
-    }
-
-    return project.folders;
+    return Array.isArray(project?.folders)
+      ? project.folders
+      : [];
   }, [project?.folders]);
 
-  const toggleFolder = (folderId) => {
-    setExpandedFolders((previous) => {
-      const next = new Set(previous);
+  /*
+   * Ouvre/ferme un dossier.
+   */
+  function toggleFolder(folderId) {
+    setExpandedFolders(
+      (previous) => {
+        const next =
+          new Set(previous);
 
-      if (next.has(folderId)) {
-        next.delete(folderId);
-      } else {
-        next.add(folderId);
+        if (
+          next.has(folderId)
+        ) {
+          next.delete(folderId);
+        } else {
+          next.add(folderId);
+        }
+
+        return next;
       }
+    );
+  }
 
-      return next;
-    });
-  };
-
-  const closeMenu = () => {
+  /*
+   * Menu création.
+   */
+  function requestCreateFile() {
     setMenuVisible(false);
-  };
+    onCreateFile?.();
+  }
 
-  const requestCreateFile = () => {
-    closeMenu();
+  function requestCreateFolder() {
+    setMenuVisible(false);
+    onCreateFolder?.();
+  }
 
-    if (onCreateFile) {
-      onCreateFile();
+  /*
+   * Actions fichier.
+   */
+  function requestRenameFile(file) {
+    if (!file) {
       return;
     }
 
-    Alert.alert(
-      'Nouveau fichier',
-      'La création réelle sera raccordée au stockage à l’étape suivante.'
-    );
-  };
+    onRenameFile?.(file);
+  }
 
-  const requestCreateFolder = () => {
-    closeMenu();
-
-    if (onCreateFolder) {
-      onCreateFolder();
+  function requestDeleteFile(file) {
+    if (!file) {
       return;
     }
 
-    Alert.alert(
-      'Nouveau dossier',
-      'La création réelle sera raccordée au stockage à l’étape suivante.'
-    );
-  };
-
-  const requestRenameFile = (file) => {
-    Alert.prompt?.(
-      'Renommer le fichier',
-      `Nouveau nom pour ${file.name}`,
-      [
-        {
-          text: 'Annuler',
-          style: 'cancel',
-        },
-        {
-          text: 'Renommer',
-          onPress: (value) => {
-            const name = value?.trim();
-
-            if (!name) {
-              return;
-            }
-
-            onRenameFile?.(file, name);
-          },
-        },
-      ],
-      'plain-text',
-      file.name
-    );
-
-    if (!Alert.prompt) {
+    if (
+      file.name === 'index.html'
+    ) {
       Alert.alert(
-        'Renommer',
-        'La saisie du nouveau nom sera activée dans la prochaine étape.'
+        'Fichier protégé',
+        'index.html est nécessaire au Preview de GCODE et ne peut pas être supprimé.',
+        [
+          {
+            text: 'OK',
+          },
+        ]
       );
-    }
-  };
 
-  const requestDeleteFile = (file) => {
+      return;
+    }
+
     Alert.alert(
       'Supprimer le fichier',
       `Voulez-vous vraiment supprimer « ${file.name} » ?`,
@@ -195,52 +191,36 @@ export default function FileExplorer({
         {
           text: 'Supprimer',
           style: 'destructive',
-          onPress: () => {
-            onDeleteFile?.(file);
-          },
+          onPress: () =>
+            onDeleteFile?.(file),
         },
       ]
     );
-  };
+  }
 
-  const requestRenameFolder = (folder) => {
-    Alert.prompt?.(
-      'Renommer le dossier',
-      `Nouveau nom pour ${folder.name}`,
-      [
-        {
-          text: 'Annuler',
-          style: 'cancel',
-        },
-        {
-          text: 'Renommer',
-          onPress: (value) => {
-            const name = value?.trim();
-
-            if (!name) {
-              return;
-            }
-
-            onRenameFolder?.(folder, name);
-          },
-        },
-      ],
-      'plain-text',
-      folder.name
-    );
-
-    if (!Alert.prompt) {
-      Alert.alert(
-        'Renommer',
-        'La saisie du nouveau nom sera activée dans la prochaine étape.'
-      );
+  /*
+   * Actions dossier.
+   */
+  function requestRenameFolder(
+    folder
+  ) {
+    if (!folder) {
+      return;
     }
-  };
 
-  const requestDeleteFolder = (folder) => {
+    onRenameFolder?.(folder);
+  }
+
+  function requestDeleteFolder(
+    folder
+  ) {
+    if (!folder) {
+      return;
+    }
+
     Alert.alert(
       'Supprimer le dossier',
-      `Voulez-vous vraiment supprimer « ${folder.name} » et son contenu ?`,
+      `Voulez-vous supprimer « ${folder.name} » et tout son contenu ?`,
       [
         {
           text: 'Annuler',
@@ -249,66 +229,173 @@ export default function FileExplorer({
         {
           text: 'Supprimer',
           style: 'destructive',
-          onPress: () => {
-            onDeleteFolder?.(folder);
-          },
+          onPress: () =>
+            onDeleteFolder?.(
+              folder
+            ),
         },
       ]
     );
-  };
+  }
 
-  const renderFile = (file, index) => {
-    const isActive = activeFile?.id === file.id;
+  /*
+   * Menu contextuel fichier.
+   */
+  function showFileActions(file) {
+    Alert.alert(
+      file.name,
+      'Choisissez une action',
+      [
+        {
+          text: 'Ouvrir',
+          onPress: () =>
+            onOpenFile?.(file),
+        },
+        {
+          text: 'Renommer',
+          onPress: () =>
+            requestRenameFile(
+              file
+            ),
+        },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: () =>
+            requestDeleteFile(
+              file
+            ),
+        },
+        {
+          text: 'Annuler',
+          style: 'cancel',
+        },
+      ]
+    );
+  }
+
+  /*
+   * Menu contextuel dossier.
+   */
+  function showFolderActions(
+    folder
+  ) {
+    Alert.alert(
+      folder.name,
+      'Choisissez une action',
+      [
+        {
+          text: 'Ouvrir / Fermer',
+          onPress: () =>
+            toggleFolder(
+              folder.id
+            ),
+        },
+        {
+          text: 'Renommer',
+          onPress: () =>
+            requestRenameFolder(
+              folder
+            ),
+        },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: () =>
+            requestDeleteFolder(
+              folder
+            ),
+        },
+        {
+          text: 'Annuler',
+          style: 'cancel',
+        },
+      ]
+    );
+  }
+
+  /*
+   * Récupère les fichiers d'un dossier.
+   */
+  function getFilesForFolder(
+    folderId
+  ) {
+    return files.filter(
+      (file) =>
+        (file.folderId ||
+          file.parentId ||
+          null) === folderId
+    );
+  }
+
+  /*
+   * Récupère les sous-dossiers.
+   */
+  function getChildrenForFolder(
+    folderId
+  ) {
+    return folders.filter(
+      (folder) =>
+        (folder.parentId ||
+          null) === folderId
+    );
+  }
+
+  /*
+   * Rend un fichier.
+   */
+  function renderFile(
+    file,
+    depth = 0
+  ) {
+    const isActive =
+      activeFile?.id ===
+      file.id;
 
     return (
-      <View key={file.id || `${file.name}-${index}`}>
-        <Pressable
-          onPress={() => onOpenFile?.(file)}
-          onLongPress={() => {
-            Alert.alert(
-              file.name,
-              'Choisissez une action',
-              [
-                {
-                  text: 'Renommer',
-                  onPress: () => requestRenameFile(file),
-                },
-                {
-                  text: 'Supprimer',
-                  style: 'destructive',
-                  onPress: () => requestDeleteFile(file),
-                },
-                {
-                  text: 'Annuler',
-                  style: 'cancel',
-                },
-              ]
-            );
-          }}
-          style={({ pressed }) => [
-            styles.file,
-            {
-              paddingLeft: 40,
-              backgroundColor: isActive
+      <Pressable
+        key={file.id}
+        onPress={() =>
+          onOpenFile?.(file)
+        }
+        onLongPress={() =>
+          showFileActions(file)
+        }
+        style={({ pressed }) => [
+          styles.file,
+          {
+            paddingLeft:
+              14 +
+              depth * 18,
+            backgroundColor:
+              isActive
                 ? colors.panel2
                 : 'transparent',
-              opacity: pressed ? 0.7 : 1,
+            opacity:
+              pressed ? 0.7 : 1,
+          },
+        ]}
+      >
+        <Text
+          style={[
+            styles.fileIcon,
+            {
+              color: isActive
+                ? colors.blue
+                : colors.purple,
             },
           ]}
         >
-          <Text
-            style={[
-              styles.fileIcon,
-              {
-                color: isActive
-                  ? colors.blue
-                  : colors.purple,
-              },
-            ]}
-          >
-            {getFileIcon(file.name)}
-          </Text>
+          {getFileIcon(
+            file.name
+          )}
+        </Text>
 
+        <View
+          style={
+            styles.fileInfo
+          }
+        >
           <Text
             numberOfLines={1}
             style={[
@@ -323,122 +410,218 @@ export default function FileExplorer({
             {file.name}
           </Text>
 
-          <Text style={styles.language}>
-            {getLanguage(file.name)}
+          <Text
+            numberOfLines={1}
+            style={[
+              styles.fileLanguage,
+              {
+                color:
+                  colors.muted,
+              },
+            ]}
+          >
+            {getLanguage(
+              file.name
+            )}
           </Text>
-        </Pressable>
-      </View>
+        </View>
+      </Pressable>
     );
-  };
+  }
 
-  const renderFolder = (folder, index) => {
+  /*
+   * Rend récursivement un dossier.
+   */
+  function renderFolder(
+    folder,
+    depth = 0
+  ) {
     const folderId =
-      folder.id || folder.path || `folder-${index}`;
+      folder.id;
 
-    const expanded = expandedFolders.has(folderId);
+    const expanded =
+      expandedFolders.has(
+        folderId
+      );
 
-    const folderFiles = files.filter((file) => {
-      const parentId =
-        file.folderId ||
-        file.parentId ||
-        '';
+    const childFolders =
+      getChildrenForFolder(
+        folderId
+      );
 
-      return parentId === folderId;
-    });
+    const folderFiles =
+      getFilesForFolder(
+        folderId
+      );
 
     return (
-      <View key={folderId}>
+      <View
+        key={folderId}
+      >
         <Pressable
-          onPress={() => toggleFolder(folderId)}
-          onLongPress={() => {
-            Alert.alert(
-              folder.name,
-              'Choisissez une action',
-              [
-                {
-                  text: 'Renommer',
-                  onPress: () =>
-                    requestRenameFolder(folder),
-                },
-                {
-                  text: 'Supprimer',
-                  style: 'destructive',
-                  onPress: () =>
-                    requestDeleteFolder(folder),
-                },
-                {
-                  text: 'Annuler',
-                  style: 'cancel',
-                },
-              ]
-            );
-          }}
+          onPress={() =>
+            toggleFolder(
+              folderId
+            )
+          }
+          onLongPress={() =>
+            showFolderActions(
+              folder
+            )
+          }
           style={({ pressed }) => [
             styles.folder,
             {
-              opacity: pressed ? 0.7 : 1,
+              paddingLeft:
+                8 +
+                depth * 18,
+              opacity:
+                pressed ? 0.7 : 1,
             },
           ]}
         >
           <Text
             style={[
               styles.arrow,
-              { color: colors.muted },
+              {
+                color:
+                  colors.muted,
+              },
             ]}
           >
-            {expanded ? '⌄' : '›'}
+            {expanded
+              ? '⌄'
+              : '›'}
           </Text>
 
           <Text
             style={[
               styles.folderIcon,
-              { color: colors.purple },
+              {
+                color:
+                  colors.purple,
+              },
             ]}
           >
-            □
+            {expanded
+              ? '▾'
+              : '□'}
           </Text>
 
           <Text
             numberOfLines={1}
             style={[
               styles.folderName,
-              { color: colors.text },
+              {
+                color:
+                  colors.text,
+              },
             ]}
           >
             {folder.name}
           </Text>
         </Pressable>
 
-        {expanded &&
-          folderFiles.map((file, fileIndex) =>
-            renderFile(file, fileIndex)
-          )}
+        {expanded && (
+          <View>
+            {childFolders.map(
+              (child) =>
+                renderFolder(
+                  child,
+                  depth + 1
+                )
+            )}
+
+            {folderFiles.map(
+              (file) =>
+                renderFile(
+                  file,
+                  depth + 1
+                )
+            )}
+
+            {childFolders.length ===
+              0 &&
+              folderFiles.length ===
+                0 && (
+                <Text
+                  style={[
+                    styles.emptyFolder,
+                    {
+                      color:
+                        colors.muted,
+                      paddingLeft:
+                        36 +
+                        depth *
+                          18,
+                    },
+                  ]}
+                >
+                  Dossier vide
+                </Text>
+              )}
+          </View>
+        )}
       </View>
     );
-  };
+  }
+
+  /*
+   * Fichiers racine.
+   */
+  const rootFiles =
+    files.filter(
+      (file) =>
+        !file.folderId &&
+        !file.parentId
+    );
+
+  /*
+   * Dossiers racine.
+   */
+  const rootFolders =
+    folders.filter(
+      (folder) =>
+        !folder.parentId
+    );
+
+  const rootExpanded =
+    expandedFolders.has(
+      'root'
+    );
 
   return (
     <View
       style={[
         styles.container,
         {
-          backgroundColor: colors.panel,
+          backgroundColor:
+            colors.panel,
         },
       ]}
     >
+      {/* HEADER */}
       <View
         style={[
           styles.header,
           {
-            borderBottomColor: colors.border,
+            borderBottomColor:
+              colors.border,
           },
         ]}
       >
-        <View style={styles.headerText}>
+        <View
+          style={
+            styles.headerText
+          }
+        >
           <Text
             style={[
               styles.title,
-              { color: colors.muted },
+              {
+                color:
+                  colors.muted,
+              },
             ]}
           >
             EXPLORATEUR
@@ -448,30 +631,43 @@ export default function FileExplorer({
             numberOfLines={1}
             style={[
               styles.projectName,
-              { color: colors.text },
+              {
+                color:
+                  colors.text,
+              },
             ]}
           >
-            {project?.name || 'GCODE'}
+            {project?.name ||
+              'GCODE'}
           </Text>
         </View>
 
         <Pressable
           onPress={() =>
-            setMenuVisible((value) => !value)
+            setMenuVisible(
+              (value) =>
+                !value
+            )
           }
           style={({ pressed }) => [
             styles.moreButton,
             {
-              backgroundColor: colors.panel2,
-              borderColor: colors.border,
-              opacity: pressed ? 0.7 : 1,
+              backgroundColor:
+                colors.panel2,
+              borderColor:
+                colors.border,
+              opacity:
+                pressed ? 0.7 : 1,
             },
           ]}
         >
           <Text
             style={[
               styles.moreText,
-              { color: colors.text },
+              {
+                color:
+                  colors.text,
+              },
             ]}
           >
             ⋮
@@ -479,25 +675,36 @@ export default function FileExplorer({
         </Pressable>
       </View>
 
+      {/* MENU */}
       {menuVisible && (
         <View
           style={[
             styles.actionMenu,
             {
-              backgroundColor: colors.panel2,
-              borderColor: colors.border,
-              borderRadius: radius.md,
+              backgroundColor:
+                colors.panel2,
+              borderColor:
+                colors.border,
+              borderRadius:
+                radius.md,
             },
           ]}
         >
           <Pressable
-            onPress={requestCreateFile}
-            style={styles.menuItem}
+            onPress={
+              requestCreateFile
+            }
+            style={
+              styles.menuItem
+            }
           >
             <Text
               style={[
                 styles.menuIcon,
-                { color: colors.blue },
+                {
+                  color:
+                    colors.blue,
+                },
               ]}
             >
               ＋
@@ -506,7 +713,10 @@ export default function FileExplorer({
             <Text
               style={[
                 styles.menuText,
-                { color: colors.text },
+                {
+                  color:
+                    colors.text,
+                },
               ]}
             >
               Nouveau fichier
@@ -514,13 +724,20 @@ export default function FileExplorer({
           </Pressable>
 
           <Pressable
-            onPress={requestCreateFolder}
-            style={styles.menuItem}
+            onPress={
+              requestCreateFolder
+            }
+            style={
+              styles.menuItem
+            }
           >
             <Text
               style={[
                 styles.menuIcon,
-                { color: colors.purple },
+                {
+                  color:
+                    colors.purple,
+                },
               ]}
             >
               □
@@ -529,7 +746,10 @@ export default function FileExplorer({
             <Text
               style={[
                 styles.menuText,
-                { color: colors.text },
+                {
+                  color:
+                    colors.text,
+                },
               ]}
             >
               Nouveau dossier
@@ -538,26 +758,38 @@ export default function FileExplorer({
         </View>
       )}
 
+      {/* ARBRE */}
       <ScrollView
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={
+          false
+        }
         contentContainerStyle={[
           styles.content,
           {
-            paddingBottom: spacing.lg,
+            paddingBottom:
+              spacing.lg,
           },
         ]}
       >
+        {/* RACINE */}
         <Pressable
-          onPress={() => toggleFolder('root')}
+          onPress={() =>
+            toggleFolder(
+              'root'
+            )
+          }
           style={styles.rootFolder}
         >
           <Text
             style={[
               styles.arrow,
-              { color: colors.muted },
+              {
+                color:
+                  colors.muted,
+              },
             ]}
           >
-            {expandedFolders.has('root')
+            {rootExpanded
               ? '⌄'
               : '›'}
           </Text>
@@ -565,41 +797,65 @@ export default function FileExplorer({
           <Text
             style={[
               styles.folderIcon,
-              { color: colors.purple },
+              {
+                color:
+                  colors.purple,
+              },
             ]}
           >
-            □
+            {rootExpanded
+              ? '▾'
+              : '□'}
           </Text>
 
           <Text
+            numberOfLines={1}
             style={[
               styles.folderName,
-              { color: colors.text },
+              {
+                color:
+                  colors.text,
+              },
             ]}
           >
             projet
           </Text>
         </Pressable>
 
-        {expandedFolders.has('root') && (
+        {rootExpanded && (
           <>
-            {folders.map(renderFolder)}
+            {rootFolders.map(
+              (folder) =>
+                renderFolder(
+                  folder,
+                  0
+                )
+            )}
 
-            {files
-              .filter(
-                (file) =>
-                  !file.folderId &&
-                  !file.parentId
-              )
-              .map(renderFile)}
+            {rootFiles.map(
+              (file) =>
+                renderFile(
+                  file,
+                  0
+                )
+            )}
 
-            {folders.length === 0 &&
-              files.length === 0 && (
-                <View style={styles.emptyContainer}>
+            {rootFolders.length ===
+              0 &&
+              rootFiles.length ===
+                0 && (
+                <View
+                  style={
+                    styles.emptyContainer
+                  }
+                >
                   <Text
                     style={[
                       styles.emptyTitle,
-                      { color: colors.text },
+                      {
+                        color:
+                          colors.text,
+                      },
                     ]}
                   >
                     Aucun fichier
@@ -608,10 +864,15 @@ export default function FileExplorer({
                   <Text
                     style={[
                       styles.emptyText,
-                      { color: colors.muted },
+                      {
+                        color:
+                          colors.muted,
+                      },
                     ]}
                   >
-                    Utilise ＋ pour commencer.
+                    Utilise ⋮ pour
+                    créer un fichier
+                    ou un dossier.
                   </Text>
                 </View>
               )}
@@ -619,26 +880,33 @@ export default function FileExplorer({
         )}
       </ScrollView>
 
+      {/* FOOTER */}
       <View
         style={[
           styles.footer,
           {
-            borderTopColor: colors.border,
+            borderTopColor:
+              colors.border,
           },
         ]}
       >
         <Text
           style={[
             styles.footerText,
-            { color: colors.muted },
+            {
+              color:
+                colors.muted,
+            },
           ]}
         >
           {files.length} fichier
-          {files.length !== 1 ? 's' : ''}
-          {folders.length > 0
-            ? ` • ${folders.length} dossier${
-                folders.length !== 1 ? 's' : ''
-              }`
+          {files.length !== 1
+            ? 's'
+            : ''}
+          {' • '}
+          {folders.length} dossier
+          {folders.length !== 1
+            ? 's'
             : ''}
         </Text>
       </View>
@@ -652,30 +920,29 @@ const styles = StyleSheet.create({
   },
 
   header: {
-    minHeight: 72,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    minHeight: 70,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
   },
 
   headerText: {
     flex: 1,
-    paddingRight: 12,
+    paddingRight: 10,
   },
 
   title: {
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.8,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.9,
   },
 
   projectName: {
-    fontSize: 14,
-    fontWeight: '700',
-    marginTop: 5,
+    fontSize: 13,
+    fontWeight: '800',
+    marginTop: 4,
   },
 
   moreButton: {
@@ -689,19 +956,19 @@ const styles = StyleSheet.create({
 
   moreText: {
     fontSize: 22,
-    lineHeight: 24,
-    fontWeight: '700',
+    lineHeight: 22,
+    fontWeight: '900',
   },
 
   actionMenu: {
     position: 'absolute',
     top: 62,
-    right: 12,
-    zIndex: 50,
-    minWidth: 210,
+    right: 10,
+    zIndex: 100,
+    elevation: 12,
+    minWidth: 190,
     borderWidth: 1,
     paddingVertical: 6,
-    elevation: 8,
   },
 
   menuItem: {
@@ -714,95 +981,111 @@ const styles = StyleSheet.create({
   menuIcon: {
     width: 28,
     fontSize: 17,
-    fontWeight: '800',
+    fontWeight: '900',
   },
 
   menuText: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 
   content: {
-    paddingVertical: 8,
+    paddingTop: 8,
   },
 
   rootFolder: {
-    height: 40,
-    paddingHorizontal: 12,
+    minHeight: 40,
+    paddingHorizontal: 8,
     flexDirection: 'row',
     alignItems: 'center',
   },
 
   folder: {
-    minHeight: 40,
-    paddingLeft: 24,
-    paddingRight: 12,
+    minHeight: 38,
+    paddingRight: 8,
     flexDirection: 'row',
     alignItems: 'center',
   },
 
   arrow: {
     width: 20,
-    fontSize: 17,
     textAlign: 'center',
+    fontSize: 17,
   },
 
   folderIcon: {
+    width: 24,
     fontSize: 15,
-    marginRight: 8,
+    fontWeight: '900',
+    textAlign: 'center',
   },
 
   folderName: {
     flex: 1,
-    fontSize: 13,
-    fontWeight: '600',
+    marginLeft: 5,
+    fontSize: 12,
+    fontWeight: '700',
   },
 
   file: {
-    minHeight: 40,
-    paddingRight: 10,
+    minHeight: 42,
+    paddingRight: 8,
     flexDirection: 'row',
     alignItems: 'center',
   },
 
   fileIcon: {
-    width: 28,
-    fontSize: 13,
-    fontWeight: '800',
+    width: 30,
+    textAlign: 'center',
+    fontSize: 11,
+    fontWeight: '900',
+  },
+
+  fileInfo: {
+    flex: 1,
+    marginLeft: 3,
   },
 
   fileName: {
-    flex: 1,
-    fontSize: 13,
+    fontSize: 12,
+    fontWeight: '700',
   },
 
-  language: {
-    display: 'none',
+  fileLanguage: {
+    fontSize: 9,
+    marginTop: 2,
   },
 
   emptyContainer: {
-    paddingHorizontal: 38,
-    paddingVertical: 22,
+    paddingHorizontal: 22,
+    paddingVertical: 30,
   },
 
   emptyTitle: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '800',
   },
 
   emptyText: {
+    fontSize: 11,
     marginTop: 5,
-    fontSize: 12,
+    lineHeight: 17,
+  },
+
+  emptyFolder: {
+    fontSize: 10,
+    fontStyle: 'italic',
+    paddingVertical: 8,
   },
 
   footer: {
     minHeight: 32,
     borderTopWidth: 1,
-    paddingHorizontal: 12,
     justifyContent: 'center',
+    paddingHorizontal: 12,
   },
 
   footerText: {
-    fontSize: 10,
+    fontSize: 9,
   },
 });
