@@ -7,6 +7,29 @@ import {
   StyleSheet,
 } from 'react-native';
 
+function getIcon(name) {
+  if (name.endsWith('.html')) {
+    return '◇';
+  }
+
+  if (name.endsWith('.css')) {
+    return '#';
+  }
+
+  if (
+    name.endsWith('.js') ||
+    name.endsWith('.jsx')
+  ) {
+    return 'JS';
+  }
+
+  if (name.endsWith('.json')) {
+    return '{}';
+  }
+
+  return '•';
+}
+
 export default function EditorTabs({
   files = [],
   activeFile,
@@ -21,7 +44,7 @@ export default function EditorTabs({
         {files.map((file) => (
           <Pressable
             key={file.id}
-            onPress={() => onSelect(file)}
+            onPress={() => onSelect?.(file)}
             style={[
               styles.tab,
               activeFile?.id === file.id &&
@@ -29,11 +52,7 @@ export default function EditorTabs({
             ]}
           >
             <Text style={styles.icon}>
-              {file.name.endsWith('.html')
-                ? '◇'
-                : file.name.endsWith('.css')
-                ? '#'
-                : 'JS'}
+              {getIcon(file.name)}
             </Text>
 
             <Text
@@ -48,7 +67,9 @@ export default function EditorTabs({
             </Text>
 
             {activeFile?.id === file.id && (
-              <Text style={styles.close}>×</Text>
+              <Text style={styles.close}>
+                ×
+              </Text>
             )}
           </Pressable>
         ))}
