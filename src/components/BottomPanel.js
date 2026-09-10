@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -13,8 +13,13 @@ const tabs = [
   ['output', 'SORTIE'],
 ];
 
-export default function BottomPanel() {
-  const [active, setActive] = useState('terminal');
+export default function BottomPanel({
+  active = 'terminal',
+  onChange,
+}) {
+  const selectTab = (id) => {
+    onChange?.(id);
+  };
 
   return (
     <View style={styles.container}>
@@ -26,7 +31,7 @@ export default function BottomPanel() {
           {tabs.map(([id, label]) => (
             <Pressable
               key={id}
-              onPress={() => setActive(id)}
+              onPress={() => selectTab(id)}
               style={[
                 styles.tab,
                 active === id && styles.activeTab,
@@ -44,38 +49,46 @@ export default function BottomPanel() {
           ))}
         </ScrollView>
 
-        <Text style={styles.close}>×</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Fermer le panneau inférieur"
+          onPress={() => selectTab(null)}
+        >
+          <Text style={styles.close}>×</Text>
+        </Pressable>
       </View>
 
-      <View style={styles.body}>
-        {active === 'terminal' && (
-          <>
-            <Text style={styles.prompt}>
-              GCODE Mobile Terminal
+      {active && (
+        <View style={styles.body}>
+          {active === 'terminal' && (
+            <>
+              <Text style={styles.prompt}>
+                GCODE Mobile Terminal
+              </Text>
+
+              <Text style={styles.line}>
+                $ ready
+              </Text>
+
+              <Text style={styles.cursor}>
+                $
+              </Text>
+            </>
+          )}
+
+          {active === 'problems' && (
+            <Text style={styles.empty}>
+              ✓ Aucun problème détecté
             </Text>
+          )}
 
-            <Text style={styles.line}>
-              $ ready
+          {active === 'output' && (
+            <Text style={styles.empty}>
+              GCODE Output — prêt
             </Text>
-
-            <Text style={styles.cursor}>
-              $
-            </Text>
-          </>
-        )}
-
-        {active === 'problems' && (
-          <Text style={styles.empty}>
-            ✓ Aucun problème détecté
-          </Text>
-        )}
-
-        {active === 'output' && (
-          <Text style={styles.empty}>
-            GCODE Output — prêt
-          </Text>
-        )}
-      </View>
+          )}
+        </View>
+      )}
     </View>
   );
 }
