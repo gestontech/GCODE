@@ -16,6 +16,7 @@ import FileExplorer from '../components/FileExplorer';
 import EditorTabs from '../components/EditorTabs';
 import BottomPanel from '../components/BottomPanel';
 import StatusBar from '../components/StatusBar';
+import CodeEditor from '../components/CodeEditor';
 
 import { useTheme } from '../theme/ThemeContext';
 
@@ -25,7 +26,7 @@ export default function WorkbenchScreen({
   onBack,
   onPreview,
 }) {
-  const { colors, spacing, radius } = useTheme();
+  const { colors, radius } = useTheme();
 
   const files = project?.files || [];
 
@@ -78,16 +79,19 @@ export default function WorkbenchScreen({
       return;
     }
 
+    const updatedFiles = files.map((file) =>
+      file.id === activeFile.id
+        ? {
+            ...file,
+            content: text,
+          }
+        : file
+    );
+
     const updatedProject = {
       ...project,
-      files: files.map((file) =>
-        file.id === activeFile.id
-          ? {
-              ...file,
-              content: text,
-            }
-          : file
-      ),
+      files: updatedFiles,
+
       code:
         activeFile.name === 'index.html'
           ? text
@@ -99,7 +103,6 @@ export default function WorkbenchScreen({
 
   function getCursorPosition(text) {
     const value = text || '';
-
     const lines = value.split('\n');
 
     return {
@@ -123,8 +126,7 @@ export default function WorkbenchScreen({
       style={[
         styles.container,
         {
-          backgroundColor:
-            colors.background,
+          backgroundColor: colors.background,
         },
       ]}
     >
@@ -150,7 +152,9 @@ export default function WorkbenchScreen({
           <Text
             style={[
               styles.backIcon,
-              { color: colors.text },
+              {
+                color: colors.text,
+              },
             ]}
           >
             ‹
@@ -162,17 +166,20 @@ export default function WorkbenchScreen({
             numberOfLines={1}
             style={[
               styles.projectName,
-              { color: colors.text },
+              {
+                color: colors.text,
+              },
             ]}
           >
-            {project?.name ||
-              'Projet sans nom'}
+            {project?.name || 'Projet sans nom'}
           </Text>
 
           <Text
             style={[
               styles.projectStatus,
-              { color: colors.muted },
+              {
+                color: colors.muted,
+              },
             ]}
           >
             GCODE Mobile
@@ -184,8 +191,7 @@ export default function WorkbenchScreen({
           style={({ pressed }) => [
             styles.previewButton,
             {
-              backgroundColor:
-                colors.purple,
+              backgroundColor: colors.purple,
               borderRadius: radius.sm,
               opacity: pressed ? 0.7 : 1,
             },
@@ -208,15 +214,13 @@ export default function WorkbenchScreen({
 
         {/* MAIN AREA */}
         <View style={styles.main}>
-          {/* FILE EXPLORER */}
+          {/* EXPLORATEUR */}
           <View
             style={[
               styles.sidebar,
               {
-                backgroundColor:
-                  colors.panel,
-                borderRightColor:
-                  colors.border,
+                backgroundColor: colors.panel,
+                borderRightColor: colors.border,
               },
             ]}
           >
@@ -224,15 +228,16 @@ export default function WorkbenchScreen({
               style={[
                 styles.sidebarHeader,
                 {
-                  borderBottomColor:
-                    colors.border,
+                  borderBottomColor: colors.border,
                 },
               ]}
             >
               <Text
                 style={[
                   styles.sidebarTitle,
-                  { color: colors.text },
+                  {
+                    color: colors.text,
+                  },
                 ]}
               >
                 EXPLORATEUR
@@ -246,13 +251,12 @@ export default function WorkbenchScreen({
             />
           </View>
 
-          {/* EDITOR */}
+          {/* ÉDITEUR */}
           <View
             style={[
               styles.editorArea,
               {
-                backgroundColor:
-                  colors.editor,
+                backgroundColor: colors.editor,
               },
             ]}
           >
@@ -266,10 +270,8 @@ export default function WorkbenchScreen({
               style={[
                 styles.editorHeader,
                 {
-                  backgroundColor:
-                    colors.panel,
-                  borderBottomColor:
-                    colors.border,
+                  backgroundColor: colors.panel,
+                  borderBottomColor: colors.border,
                 },
               ]}
             >
@@ -277,80 +279,41 @@ export default function WorkbenchScreen({
                 numberOfLines={1}
                 style={[
                   styles.fileName,
-                  { color: colors.text },
+                  {
+                    color: colors.text,
+                  },
                 ]}
               >
-                {activeFile?.name ||
-                  'Aucun fichier'}
+                {activeFile?.name || 'Aucun fichier'}
               </Text>
 
               <Text
                 style={[
                   styles.language,
-                  { color: colors.muted },
+                  {
+                    color: colors.muted,
+                  },
                 ]}
               >
                 {language}
               </Text>
             </View>
 
-            <View
-              style={[
-                styles.editor,
-                {
-                  backgroundColor:
-                    colors.editor,
-                },
-              ]}
-            >
+            {/* VRAI ÉDITEUR */}
+            <View style={styles.editor}>
               {activeFile ? (
-                <View style={styles.editorContent}>
-                  <View
-                    style={[
-                      styles.lineNumbers,
-                      {
-                        borderRightColor:
-                          colors.border,
-                      },
-                    ]}
-                  >
-                    {(activeFile.content || '')
-                      .split('\n')
-                      .map((_, index) => (
-                        <Text
-                          key={index}
-                          style={[
-                            styles.lineNumber,
-                            {
-                              color:
-                                colors.muted,
-                            },
-                          ]}
-                        >
-                          {index + 1}
-                        </Text>
-                      ))}
-                  </View>
-
-                  <Text
-                    selectable
-                    style={[
-                      styles.code,
-                      {
-                        color:
-                          colors.editorText,
-                      },
-                    ]}
-                  >
-                    {activeFile.content || ''}
-                  </Text>
-                </View>
+                <CodeEditor
+                  value={activeFile.content || ''}
+                  onChangeText={updateCode}
+                />
               ) : (
                 <View style={styles.noFile}>
                   <Text
                     style={[
                       styles.noFileTitle,
-                      { color: colors.text },
+                      {
+                        color: colors.text,
+                      },
                     ]}
                   >
                     Aucun fichier ouvert
@@ -359,7 +322,9 @@ export default function WorkbenchScreen({
                   <Text
                     style={[
                       styles.noFileText,
-                      { color: colors.muted },
+                      {
+                        color: colors.muted,
+                      },
                     ]}
                   >
                     Sélectionne un fichier dans
@@ -374,10 +339,8 @@ export default function WorkbenchScreen({
               style={[
                 styles.toolbar,
                 {
-                  backgroundColor:
-                    colors.panel,
-                  borderTopColor:
-                    colors.border,
+                  backgroundColor: colors.panel,
+                  borderTopColor: colors.border,
                 },
               ]}
             >
@@ -419,10 +382,8 @@ export default function WorkbenchScreen({
         style={[
           styles.bottom,
           {
-            backgroundColor:
-              colors.panel,
-            borderTopColor:
-              colors.border,
+            backgroundColor: colors.panel,
+            borderTopColor: colors.border,
           },
         ]}
       >
@@ -590,33 +551,6 @@ const styles = StyleSheet.create({
 
   editor: {
     flex: 1,
-  },
-
-  editorContent: {
-    flex: 1,
-    flexDirection: 'row',
-  },
-
-  lineNumbers: {
-    width: 38,
-    borderRightWidth: 1,
-    paddingTop: 10,
-    alignItems: 'flex-end',
-    paddingRight: 7,
-  },
-
-  lineNumber: {
-    fontSize: 11,
-    lineHeight: 19,
-    fontFamily: 'monospace',
-  },
-
-  code: {
-    flex: 1,
-    padding: 10,
-    fontSize: 12,
-    lineHeight: 19,
-    fontFamily: 'monospace',
   },
 
   noFile: {
