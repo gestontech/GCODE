@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 
 import {
   View,
@@ -7,6 +7,8 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 
 import { useTheme } from '../theme/ThemeContext';
@@ -14,17 +16,175 @@ import { useTheme } from '../theme/ThemeContext';
 export default function BottomPanel({
   active = 'terminal',
   onChange,
+  project,
 }) {
-  const { colors } = useTheme();
+  const { colors, radius } = useTheme();
 
   const [command, setCommand] = useState('');
-
   const [history, setHistory] = useState([
     {
       type: 'system',
-      text: 'GCODE Terminal prêt.',
+      text: 'GCODE Terminal — projet local',
+    },
+    {
+      type: 'system',
+      text: 'Tape "help" pour afficher les commandes disponibles.',
     },
   ]);
+
+  const files = useMemo(() => {
+    return Array.isArray(project?.files)
+      ? project.files
+      : [];
+  }, [project]);
+
+  function addHistory(type, text) {
+    setHistory((previous) => [
+      ...previous,
+      {
+        type,
+        text: String(text),
+      },
+    ]);
+  }
+
+  function clearTerminal() {
+    setHistory([]);
+  }
+
+  function findFile(fileName) {
+    const normalized = fileName
+      .trim()
+      .replace(/^["']|["']$/g, '');
+
+    return files.find(
+      (file) =>
+        file?.name === normalized ||
+        file?.path === normalized
+    );
+  }
+
+  function executeCommand(rawCommand) {
+    const value = rawCommand.trim();
+
+    if (!value) {
+      return;
+    }
+
+    addHistory('command', `$ ${value}`);
+
+    const parts = value.split(/\s+/);
+    const commandName = parts[0].toLowerCase();
+    const argument = value
+      .slice(parts[0].length)
+      .trim();
+
+    switch (commandName) {
+      case 'help':
+        addHistory(
+          'output',
+          [
+            'Commandes disponibles :',
+            '',
+            '  help              Afficher cette aide',
+            '  ls                Lister les fichiers',
+            '  pwd               Afficher le projet actuel',
+            '  cat <fichier>     Afficher le contenu',
+            '  echo <texte>      Afficher un texte',
+            '  clear             Nettoyer le terminal',
+          ].join('\n')
+        );
+        break;
+
+      case 'ls': {
+        if (!files.length) {
+          addHistory(
+            'output',
+            'Aucun fichier dans ce projet.'
+          );
+          break;
+        }
+
+        const names = files
+          .map((file) => file?.name)
+          .filter(Boolean);
+
+        addHistory(
+          'output',
+          names.join('\n')
+        );
+
+        break;
+      }
+
+      case 'pwd':
+        addHistory(
+          'output',
+          `/gcode/projects/${project?.name || 'project'}`
+        );
+        break;
+
+      case 'cat': {
+        if (!argument) {
+          addHistory(
+            'error',
+            'Usage : cat <fichier>'
+          );
+          break;
+        }
+
+        const file = findFile(argument);
+
+        if (!file) {
+          addHistory(
+            'error',
+            `Fichier introuvable : ${argument}`
+          );
+          break;
+        }
+
+        addHistory(
+          'output',
+          file.content || ''
+        );
+
+        break;
+      }
+
+      case 'echo':
+        addHistory(
+          'output',
+          argument
+        );
+        break;
+
+      case 'clear':
+        clearTerminal();
+        break;
+
+      default:
+        addHistory(
+          'error',
+          `Commande inconnue : ${commandName}`
+        );
+
+        addHistory(
+          'system',
+          'Tape "help" pour voir les commandes disponibles.'
+        );
+    }
+  }
+
+  function submitCommand() {
+    const value = command;
+
+    if (!value.trim()) {
+      return;
+    }
+
+    setCommand('');
+    executeCommand(value);
+  }
 
   const tabs = [
     {
@@ -37,350 +197,50 @@ export default function BottomPanel({
     },
     {
       id: 'output',
-      label: 'OUTPUT',
+      label: 'SORTIE',
     },
     {
       id: 'debug',
-      label: 'DEBUG CONSOLE',
+      label: 'DEBUG',
     },
   ];
-
-  function runCommand() {
-    const value = command.trim();
-
-    if (!value) {
-      return;
-    }
-
-    const nextHistory = [
-      ...history,
-      {
-        type: 'command',
-        text: `$ ${value}`,
-      },
-    ];
-
-    const lower = value.toLowerCase();
-
-    if (lower === 'clear') {
-      setHistory([]);
-      setCommand('');
-      return;
-    }
-
-    if (lower === 'help') {
-      nextHistory.push({
-        type: 'output',
-        text:
-          'Commandes disponibles :\n' +
-          'help   - afficher cette aide\n' +
-          'clear  - vider le terminal\n' +
-          'pwd    - afficher le dossier courant\n' +
-          'ls     - afficher les fichiers du projet\n' +
-          'echo   - afficher un texte',
-      });
-    } else if (lower === 'pwd') {
-      nextHistory.push({
-        type: 'output',
-        text: '/gcode/project',
-      });
-    } else if (lower === 'ls') {
-      nextHistory.push({
-        type: 'output',
-        text:
-          'index.html\n' +
-          'style.css\n' +
-          'script.js',
-      });
-    } else if (lower.startsWith('echo ')) {
-      nextHistory.push({
-        type: 'output',
-        text: value.slice(5),
-      });
-    } else {
-      nextHistory.push({
-        type: 'error',
-        text:
-          `Commande inconnue : ${value}\n` +
-          `Tape "help" pour voir les commandes disponibles.`,
-      });
-    }
-
-    setHistory(nextHistory);
-    setCommand('');
-  }
-
-  function renderTerminal() {
-    return (
-      <View style={styles.terminalContainer}>
-        <ScrollView
-          style={styles.terminalOutput}
-          contentContainerStyle={
-            styles.terminalContent
-          }
-          keyboardShouldPersistTaps="handled"
-        >
-          {history.map((item, index) => (
-            <Text
-              key={`${item.type}-${index}`}
-              style={[
-                styles.terminalLine,
-                {
-                  color:
-                    item.type === 'command'
-                      ? colors.text
-                      : item.type === 'error'
-                      ? colors.red
-                      : item.type === 'system'
-                      ? colors.blue
-                      : colors.editorText,
-                },
-              ]}
-            >
-              {item.text}
-            </Text>
-          ))}
-        </ScrollView>
-
-        <View
-          style={[
-            styles.commandRow,
-            {
-              borderTopColor:
-                colors.border,
-              backgroundColor:
-                colors.panel,
-            },
-          ]}
-        >
-          <Text
-            style={[
-              styles.prompt,
-              {
-                color: colors.green,
-              },
-            ]}
-          >
-            $
-          </Text>
-
-          <TextInput
-            value={command}
-            onChangeText={setCommand}
-            onSubmitEditing={runCommand}
-            placeholder="Entrer une commande..."
-            placeholderTextColor={
-              colors.muted
-            }
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="send"
-            style={[
-              styles.commandInput,
-              {
-                color: colors.text,
-              },
-            ]}
-          />
-
-          <Pressable
-            onPress={runCommand}
-            style={({ pressed }) => [
-              styles.sendButton,
-              {
-                backgroundColor:
-                  colors.purple,
-                opacity: pressed
-                  ? 0.65
-                  : 1,
-              },
-            ]}
-          >
-            <Text
-              style={styles.sendText}
-            >
-              ▶
-            </Text>
-          </Pressable>
-        </View>
-      </View>
-    );
-  }
-
-  function renderProblems() {
-    return (
-      <View style={styles.emptyContainer}>
-        <Text
-          style={[
-            styles.emptyIcon,
-            {
-              color: colors.green,
-            },
-          ]}
-        >
-          ✓
-        </Text>
-
-        <Text
-          style={[
-            styles.emptyTitle,
-            {
-              color: colors.text,
-            },
-          ]}
-        >
-          Aucun problème
-        </Text>
-
-        <Text
-          style={[
-            styles.emptyText,
-            {
-              color: colors.muted,
-            },
-          ]}
-        >
-          Les erreurs détectées dans ton
-          projet apparaîtront ici.
-        </Text>
-      </View>
-    );
-  }
-
-  function renderOutput() {
-    return (
-      <View style={styles.emptyContainer}>
-        <Text
-          style={[
-            styles.emptyIcon,
-            {
-              color: colors.blue,
-            },
-          ]}
-        >
-          ◉
-        </Text>
-
-        <Text
-          style={[
-            styles.emptyTitle,
-            {
-              color: colors.text,
-            },
-          ]}
-        >
-          Output GCODE
-        </Text>
-
-        <Text
-          style={[
-            styles.emptyText,
-            {
-              color: colors.muted,
-            },
-          ]}
-        >
-          Les sorties de compilation et
-          d'exécution apparaîtront ici.
-        </Text>
-      </View>
-    );
-  }
-
-  function renderDebug() {
-    return (
-      <View style={styles.emptyContainer}>
-        <Text
-          style={[
-            styles.emptyIcon,
-            {
-              color: colors.purple,
-            },
-          ]}
-        >
-          ◇
-        </Text>
-
-        <Text
-          style={[
-            styles.emptyTitle,
-            {
-              color: colors.text,
-            },
-          ]}
-        >
-          Debug Console
-        </Text>
-
-        <Text
-          style={[
-            styles.emptyText,
-            {
-              color: colors.muted,
-            },
-          ]}
-        >
-          Les informations de débogage
-          apparaîtront ici.
-        </Text>
-      </View>
-    );
-  }
-
-  function renderContent() {
-    switch (active) {
-      case 'problems':
-        return renderProblems();
-
-      case 'output':
-        return renderOutput();
-
-      case 'debug':
-        return renderDebug();
-
-      case 'terminal':
-      default:
-        return renderTerminal();
-    }
-  }
 
   return (
     <View
       style={[
         styles.container,
         {
-          backgroundColor:
-            colors.panel,
+          backgroundColor: colors.panel,
+          borderTopColor: colors.border,
         },
       ]}
     >
-      {/* ONGLETS */}
+      {/* TABS */}
       <View
         style={[
           styles.tabs,
           {
-            borderBottomColor:
-              colors.border,
+            borderBottomColor: colors.border,
           },
         ]}
       >
         {tabs.map((tab) => {
-          const selected =
-            active === tab.id;
+          const selected = active === tab.id;
 
           return (
             <Pressable
               key={tab.id}
-              onPress={() =>
-                onChange?.(tab.id)
-              }
-              style={[
+              onPress={() => onChange?.(tab.id)}
+              style={({ pressed }) => [
                 styles.tab,
                 {
-                  borderBottomColor:
-                    selected
-                      ? colors.purple
-                      : 'transparent',
+                  backgroundColor: selected
+                    ? colors.panel2
+                    : 'transparent',
+                  borderBottomColor: selected
+                    ? colors.purple
+                    : 'transparent',
+                  opacity: pressed ? 0.65 : 1,
                 },
               ]}
             >
@@ -401,29 +261,215 @@ export default function BottomPanel({
         })}
       </View>
 
-      {/* CONTENU */}
-      <View style={styles.content}>
-        {renderContent()}
-      </View>
+      {/* CONTENT */}
+      {active === 'terminal' ? (
+        <KeyboardAvoidingView
+          style={styles.content}
+          behavior={
+            Platform.OS === 'ios'
+              ? 'padding'
+              : undefined
+          }
+        >
+          {/* TERMINAL OUTPUT */}
+          <ScrollView
+            style={styles.output}
+            contentContainerStyle={styles.outputContent}
+            keyboardShouldPersistTaps="handled"
+          >
+            {history.map((item, index) => {
+              let textColor = colors.editorText;
+
+              if (item.type === 'command') {
+                textColor = colors.blue;
+              }
+
+              if (item.type === 'error') {
+                textColor = colors.red;
+              }
+
+              if (item.type === 'system') {
+                textColor = colors.muted;
+              }
+
+              if (item.type === 'output') {
+                textColor = colors.editorText;
+              }
+
+              return (
+                <Text
+                  key={`${index}-${item.text}`}
+                  selectable
+                  style={[
+                    styles.historyText,
+                    {
+                      color: textColor,
+                    },
+                  ]}
+                >
+                  {item.text}
+                </Text>
+              );
+            })}
+          </ScrollView>
+
+          {/* COMMAND INPUT */}
+          <View
+            style={[
+              styles.commandBar,
+              {
+                backgroundColor: colors.panel2,
+                borderTopColor: colors.border,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.prompt,
+                {
+                  color: colors.green,
+                },
+              ]}
+            >
+              $
+            </Text>
+
+            <TextInput
+              value={command}
+              onChangeText={setCommand}
+              onSubmitEditing={submitCommand}
+              placeholder="Entrer une commande..."
+              placeholderTextColor={colors.muted}
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="send"
+              style={[
+                styles.input,
+                {
+                  color: colors.text,
+                },
+              ]}
+            />
+
+            <Pressable
+              onPress={submitCommand}
+              style={({ pressed }) => [
+                styles.sendButton,
+                {
+                  backgroundColor: colors.purple,
+                  borderRadius: radius.sm,
+                  opacity: pressed ? 0.65 : 1,
+                },
+              ]}
+            >
+              <Text style={styles.sendText}>
+                ↵
+              </Text>
+            </Pressable>
+          </View>
+        </KeyboardAvoidingView>
+      ) : null}
+
+      {/* PROBLEMS */}
+      {active === 'problems' ? (
+        <View style={styles.placeholder}>
+          <Text
+            style={[
+              styles.placeholderTitle,
+              {
+                color: colors.text,
+              },
+            ]}
+          >
+            Aucun problème détecté
+          </Text>
+
+          <Text
+            style={[
+              styles.placeholderText,
+              {
+                color: colors.muted,
+              },
+            ]}
+          >
+            Les erreurs du projet apparaîtront ici.
+          </Text>
+        </View>
+      ) : null}
+
+      {/* OUTPUT */}
+      {active === 'output' ? (
+        <View style={styles.placeholder}>
+          <Text
+            style={[
+              styles.placeholderTitle,
+              {
+                color: colors.text,
+              },
+            ]}
+          >
+            Sortie GCODE
+          </Text>
+
+          <Text
+            style={[
+              styles.placeholderText,
+              {
+                color: colors.muted,
+              },
+            ]}
+          >
+            Les informations d'exécution apparaîtront ici.
+          </Text>
+        </View>
+      ) : null}
+
+      {/* DEBUG */}
+      {active === 'debug' ? (
+        <View style={styles.placeholder}>
+          <Text
+            style={[
+              styles.placeholderTitle,
+              {
+                color: colors.text,
+              },
+            ]}
+          >
+            Console de débogage
+          </Text>
+
+          <Text
+            style={[
+              styles.placeholderText,
+              {
+                color: colors.muted,
+              },
+            ]}
+          >
+            La console de débogage sera disponible
+            avec le système Debug de GCODE.
+          </Text>
+        </View>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    width: '100%',
     minHeight: 50,
   },
 
   tabs: {
-    height: 36,
-    borderBottomWidth: 1,
+    height: 38,
     flexDirection: 'row',
     alignItems: 'stretch',
+    borderBottomWidth: 1,
   },
 
   tab: {
-    minWidth: 82,
+    minWidth: 78,
     paddingHorizontal: 10,
     alignItems: 'center',
     justifyContent: 'center',
@@ -437,89 +483,77 @@ const styles = StyleSheet.create({
   },
 
   content: {
+    height: 190,
+  },
+
+  output: {
     flex: 1,
   },
 
-  terminalContainer: {
-    flex: 1,
+  outputContent: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
 
-  terminalOutput: {
-    flex: 1,
-  },
-
-  terminalContent: {
-    padding: 10,
-    paddingBottom: 20,
-  },
-
-  terminalLine: {
+  historyText: {
     fontFamily: 'monospace',
     fontSize: 11,
     lineHeight: 18,
     marginBottom: 2,
   },
 
-  commandRow: {
+  commandBar: {
     minHeight: 44,
     borderTopWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
   },
 
   prompt: {
     fontFamily: 'monospace',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '900',
-    marginRight: 7,
+    marginRight: 8,
   },
 
-  commandInput: {
+  input: {
     flex: 1,
     minHeight: 38,
     fontFamily: 'monospace',
-    fontSize: 11,
-    paddingVertical: 6,
+    fontSize: 12,
+    paddingVertical: 4,
   },
 
   sendButton: {
     width: 34,
-    height: 32,
-    borderRadius: 7,
+    height: 34,
     alignItems: 'center',
     justifyContent: 'center',
+    marginLeft: 6,
   },
 
   sendText: {
     color: '#ffffff',
-    fontSize: 11,
+    fontSize: 18,
     fontWeight: '900',
   },
 
-  emptyContainer: {
-    flex: 1,
+  placeholder: {
+    minHeight: 110,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
   },
 
-  emptyIcon: {
-    fontSize: 25,
-    fontWeight: '800',
-    marginBottom: 7,
-  },
-
-  emptyTitle: {
+  placeholderTitle: {
     fontSize: 13,
-    fontWeight: '900',
+    fontWeight: '800',
   },
 
-  emptyText: {
-    maxWidth: 300,
+  placeholderText: {
+    fontSize: 11,
     textAlign: 'center',
-    fontSize: 10,
-    lineHeight: 15,
-    marginTop: 6,
+    marginTop: 5,
   },
 });
