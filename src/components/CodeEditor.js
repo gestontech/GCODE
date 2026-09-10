@@ -24,390 +24,337 @@ export default function CodeEditor({
   value = '',
   language = 'text',
   onChangeText,
+  onSelectionChange,
 }) {
   const { colors } = useTheme();
 
-  const inputRef =
-    useRef(null);
+  const inputRef = useRef(null);
 
-  const [text, setText] =
-    useState(value);
-
-  const [
-    searchVisible,
-    setSearchVisible,
-  ] = useState(false);
-
-  const [
-    replaceVisible,
-    setReplaceVisible,
-  ] = useState(false);
-
-  const [
-    searchText,
-    setSearchText,
-  ] = useState('');
-
-  const [
-    replaceText,
-    setReplaceText,
-  ] = useState('');
-
-  const [
-    currentMatch,
-    setCurrentMatch,
-  ] = useState(0);
-
-  const [
-    selection,
-    setSelection,
-  ] = useState({
+  const [text, setText] = useState(value || '');
+  const [selection, setSelection] = useState({
     start: 0,
     end: 0,
   });
 
-  const undoStack =
-    useRef([]);
+  const [searchVisible, setSearchVisible] = useState(false);
+  const [replaceVisible, setReplaceVisible] = useState(false);
 
-  const redoStack =
-    useRef([]);
+  const [searchText, setSearchText] = useState('');
+  const [replaceText, setReplaceText] = useState('');
 
-  const internalChange =
-    useRef(false);
+  const [undoStack, setUndoStack] = useState([]);
+  const [redoStack, setRedoStack] = useState([]);
 
-  /*
-   * Synchronise avec le projet.
-   */
   useEffect(() => {
-    if (
-      value !== text &&
-      !internalChange.current
-    ) {
-      setText(
-        typeof value === 'string'
-          ? value
-          : ''
-      );
-    }
+    const nextValue = value || '';
 
-    internalChange.current =
-      false;
+    if (nextValue !== text) {
+      setText(nextValue);
+
+      const safePosition = Math.min(
+        selection.start,
+        nextValue.length,
+      );
+
+      setSelection({
+        start: safePosition,
+        end: safePosition,
+      });
+    }
   }, [value]);
 
-  /*
-   * Modification utilisateur.
-   */
-  function handleChange(
-    nextText
-  ) {
-    if (nextText === text) {
-      return;
-    }
+  const lines = useMemo(() => {
+    return (text || '').split('\n');
+  }, [text]);
 
-    undoStack.current.push(
-      text
-    );
+  const lineCount = lines.length;
 
-    if (
-      undoStack.current
-        .length > 100
-    ) {
-      undoStack.current.shift();
-    }
+  const selectedCharacters = Math.abs(
+    selection.end - selection.start,
+  );
 
-    redoStack.current = [];
+  const pushUndo = (previousText) => {
+    setUndoStack((current) => [
+      ...current.slice(-49),
+      previousText,
+    ]);
 
-    setText(nextText);
+    setRedoStack([]);
+  };
 
-    internalChange.current =
-      true;
-
-    onChangeText?.(
-      nextText
-    );
-  }
-
-  /*
-   * Modification interne :
-   * remplacement / undo / redo.
-   */
-  function applyTextChange(
-    nextText
-  ) {
-    if (nextText === text) {
-      return;
-    }
-
-    undoStack.current.push(
-      text
-    );
-
-    if (
-      undoStack.current
-        .length > 100
-    ) {
-      undoStack.current.shift();
-    }
-
-    redoStack.current = [];
+  const updateText = (nextText) => {
+    pushUndo(text);
 
     setText(nextText);
+    onChangeText?.(nextText);
+  };
 
-    internalChange.current =
-      true;
+  const handleSelectionChange = (event) => {
+    const nextSelection = event?.nativeEvent?.selection;
 
-    onChangeText?.(
-      nextText
-    );
-  }
-
-  /*
-   * UNDO
-   */
-  function undo() {
-    if (
-      !undoStack.current
-        .length
-    ) {
+    if (!nextSelection) {
       return;
     }
 
-    const previousText =
-      undoStack.current.pop();
+    setSelection(nextSelection);
 
-    redoStack.current.push(
-      text
-    );
+    onSelectionChange?.(nextSelection);
+  };
+
+  const handleUndo = () => {
+    if (undoStack.length === 0) {
+      return;
+    }
+
+    const previousText = undoStack[undoStack.length - 1];
+
+    setUndoStack((current) => current.slice(0, -1));
+
+    setRedoStack((current) => [
+      ...current,
+      text,
+    ]);
 
     setText(previousText);
+    onChangeText?.(previousText);
 
-    internalChange.current =
-      true;
+    requestAnimationFrame(() => {
+      const position = Math.min(
+        selection.start,
+        previousText.length,
+      );
 
-    onChangeText?.(
-      previousText
-    );
-  }
+      const nextSelection = {
+        start: position,
+        end: position,
+      };
 
-  /*
-   * REDO
-   */
-  function redo() {
-    if (
-      !redoStack.current
-        .length
-    ) {
+      setSelection(nextSelection);
+      onSelectionChange?.(nextSelection);
+    });
+  };
+
+  const handleRedo = () => {
+    if (redoStack.length === 0) {
       return;
     }
 
-    const nextText =
-      redoStack.current.pop();
+    const nextText = redoStack[redoStack.length - 1];
 
-    undoStack.current.push(
-      text
-    );
+    setRedoStack((current) => current.slice(0, -1));
+
+    setUndoStack((current) => [
+      ...current,
+      text,
+    ]);
 
     setText(nextText);
+    onChangeText?.(nextText);
 
-    internalChange.current =
-      true;
-
-    onChangeText?.(
-      nextText
-    );
-  }
-
-  /*
-   * Recherche.
-   */
-  const matches = useMemo(() => {
-    if (!searchText) {
-      return [];
-    }
-
-    const results = [];
-
-    let start = 0;
-
-    while (true) {
-      const index =
-        text.indexOf(
-          searchText,
-          start
-        );
-
-      if (index === -1) {
-        break;
-      }
-
-      results.push(index);
-
-      start =
-        index +
-        Math.max(
-          searchText.length,
-          1
-        );
-    }
-
-    return results;
-  }, [
-    text,
-    searchText,
-  ]);
-
-  function openSearch() {
-    setSearchVisible(true);
-    setReplaceVisible(false);
-  }
-
-  function closeSearch() {
-    setSearchVisible(false);
-    setReplaceVisible(false);
-    setSearchText('');
-    setReplaceText('');
-    setCurrentMatch(0);
-  }
-
-  function nextMatch() {
-    if (!matches.length) {
-      return;
-    }
-
-    setCurrentMatch(
-      (currentMatch + 1) %
-        matches.length
-    );
-  }
-
-  function previousMatch() {
-    if (!matches.length) {
-      return;
-    }
-
-    setCurrentMatch(
-      (currentMatch -
-        1 +
-        matches.length) %
-        matches.length
-    );
-  }
-
-  /*
-   * Remplace le résultat actuel.
-   */
-  function replaceCurrent() {
-    if (
-      !searchText ||
-      !matches.length
-    ) {
-      return;
-    }
-
-    const safeIndex =
-      Math.min(
-        currentMatch,
-        matches.length - 1
+    requestAnimationFrame(() => {
+      const position = Math.min(
+        selection.start,
+        nextText.length,
       );
 
-    const index =
-      matches[safeIndex];
+      const nextSelection = {
+        start: position,
+        end: position,
+      };
 
-    const nextText =
-      text.slice(0, index) +
-      replaceText +
-      text.slice(
-        index +
-          searchText.length
-      );
+      setSelection(nextSelection);
+      onSelectionChange?.(nextSelection);
+    });
+  };
 
-    applyTextChange(
-      nextText
-    );
-
-    setCurrentMatch(0);
-  }
-
-  /*
-   * Remplace tous les résultats.
-   */
-  function replaceAll() {
+  const handleReplace = () => {
     if (!searchText) {
       return;
     }
 
-    const nextText =
-      text
-        .split(searchText)
-        .join(replaceText);
+    const nextText = text.replace(
+      searchText,
+      replaceText,
+    );
 
     if (nextText === text) {
       return;
     }
 
-    applyTextChange(
-      nextText
+    updateText(nextText);
+
+    const position = Math.min(
+      selection.start,
+      nextText.length,
     );
 
-    setCurrentMatch(0);
-  }
+    const nextSelection = {
+      start: position,
+      end: position,
+    };
 
-  const lines =
-    text.split('\n');
+    setSelection(nextSelection);
+    onSelectionChange?.(nextSelection);
+  };
 
-  const canUndo =
-    undoStack.current.length >
-    0;
+  const handleReplaceAll = () => {
+    if (!searchText) {
+      return;
+    }
 
-  const canRedo =
-    redoStack.current.length >
-    0;
+    const nextText = text.split(searchText).join(replaceText);
+
+    if (nextText === text) {
+      return;
+    }
+
+    updateText(nextText);
+
+    const position = Math.min(
+      selection.start,
+      nextText.length,
+    );
+
+    const nextSelection = {
+      start: position,
+      end: position,
+    };
+
+    setSelection(nextSelection);
+    onSelectionChange?.(nextSelection);
+  };
+
+  const findNext = () => {
+    if (!searchText) {
+      return;
+    }
+
+    const startFrom = Math.max(
+      selection.end,
+      0,
+    );
+
+    let index = text.indexOf(
+      searchText,
+      startFrom,
+    );
+
+    if (index === -1) {
+      index = text.indexOf(searchText);
+    }
+
+    if (index === -1) {
+      return;
+    }
+
+    const nextSelection = {
+      start: index,
+      end: index + searchText.length,
+    };
+
+    setSelection(nextSelection);
+    onSelectionChange?.(nextSelection);
+
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
+  };
+
+  const clearSearch = () => {
+    setSearchText('');
+    setReplaceText('');
+  };
 
   return (
     <View
       style={[
         styles.container,
         {
-          backgroundColor:
-            colors.editor,
+          backgroundColor: colors.editor,
         },
       ]}
     >
-      {/* OUTILS */}
+      {/* OUTILS ÉDITEUR */}
       <View
         style={[
           styles.toolbar,
           {
-            backgroundColor:
-              colors.panel,
-            borderBottomColor:
-              colors.border,
+            backgroundColor: colors.panel,
+            borderBottomColor: colors.border,
           },
         ]}
       >
         <Pressable
-          onPress={undo}
-          disabled={!canUndo}
+          onPress={() => {
+            setSearchVisible((current) => !current);
+            setReplaceVisible(false);
+          }}
           style={({ pressed }) => [
             styles.toolButton,
             {
-              backgroundColor:
-                colors.panel2,
-              opacity: !canUndo
-                ? 0.3
-                : pressed
-                ? 0.6
-                : 1,
+              backgroundColor: searchVisible
+                ? colors.panel2
+                : 'transparent',
+              opacity: pressed ? 0.65 : 1,
             },
           ]}
         >
           <Text
             style={[
               styles.toolText,
-              {
-                color:
-                  colors.text,
-              },
+              { color: colors.text },
+            ]}
+          >
+            🔎
+          </Text>
+        </Pressable>
+
+        <Pressable
+          onPress={() => {
+            setReplaceVisible((current) => !current);
+            setSearchVisible(true);
+          }}
+          style={({ pressed }) => [
+            styles.toolButton,
+            {
+              backgroundColor: replaceVisible
+                ? colors.panel2
+                : 'transparent',
+              opacity: pressed ? 0.65 : 1,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.toolText,
+              { color: colors.text },
+            ]}
+          >
+            ⇄
+          </Text>
+        </Pressable>
+
+        <View style={styles.toolbarSpacer} />
+
+        <Pressable
+          onPress={handleUndo}
+          disabled={undoStack.length === 0}
+          style={({ pressed }) => [
+            styles.toolButton,
+            {
+              opacity:
+                undoStack.length === 0
+                  ? 0.3
+                  : pressed
+                    ? 0.65
+                    : 1,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.toolText,
+              { color: colors.text },
             ]}
           >
             ↶
@@ -415,289 +362,134 @@ export default function CodeEditor({
         </Pressable>
 
         <Pressable
-          onPress={redo}
-          disabled={!canRedo}
+          onPress={handleRedo}
+          disabled={redoStack.length === 0}
           style={({ pressed }) => [
             styles.toolButton,
             {
-              backgroundColor:
-                colors.panel2,
-              opacity: !canRedo
-                ? 0.3
-                : pressed
-                ? 0.6
-                : 1,
+              opacity:
+                redoStack.length === 0
+                  ? 0.3
+                  : pressed
+                    ? 0.65
+                    : 1,
             },
           ]}
         >
           <Text
             style={[
               styles.toolText,
-              {
-                color:
-                  colors.text,
-              },
+              { color: colors.text },
             ]}
           >
             ↷
           </Text>
         </Pressable>
-
-        <Pressable
-          onPress={openSearch}
-          style={({ pressed }) => [
-            styles.toolButton,
-            {
-              backgroundColor:
-                colors.panel2,
-              opacity:
-                pressed
-                  ? 0.6
-                  : 1,
-            },
-          ]}
-        >
-          <Text
-            style={[
-              styles.toolText,
-              {
-                color:
-                  colors.text,
-              },
-            ]}
-          >
-            ⌕
-          </Text>
-        </Pressable>
-
-        <View
-          style={
-            styles.toolbarSpacer
-          }
-        />
-
-        <Text
-          style={[
-            styles.languageLabel,
-            {
-              color:
-                colors.muted,
-            },
-          ]}
-        >
-          {String(
-            language
-          ).toUpperCase()}
-        </Text>
       </View>
 
-      {/* RECHERCHE */}
+      {/* RECHERCHE / REMPLACEMENT */}
       {searchVisible && (
         <View
           style={[
             styles.searchPanel,
             {
-              backgroundColor:
-                colors.panel,
-              borderBottomColor:
-                colors.border,
+              backgroundColor: colors.panel,
+              borderBottomColor: colors.border,
             },
           ]}
         >
-          <View
-            style={
-              styles.searchRow
-            }
-          >
+          <View style={styles.searchRow}>
             <TextInput
               value={searchText}
-              onChangeText={(value) => {
-                setSearchText(
-                  value
-                );
-                setCurrentMatch(
-                  0
-                );
-              }}
-              autoFocus
-              autoCorrect={false}
-              autoCapitalize="none"
+              onChangeText={setSearchText}
               placeholder="Rechercher..."
-              placeholderTextColor={
-                colors.muted
-              }
+              placeholderTextColor={colors.muted}
               style={[
                 styles.searchInput,
                 {
-                  color:
-                    colors.text,
-                  backgroundColor:
-                    colors.panel2,
-                  borderColor:
-                    colors.border,
+                  backgroundColor: colors.panel2,
+                  borderColor: colors.border,
+                  color: colors.text,
                 },
               ]}
+              returnKeyType="search"
+              onSubmitEditing={findNext}
             />
 
             <Pressable
-              onPress={
-                previousMatch
-              }
-              style={[
-                styles.smallButton,
+              onPress={findNext}
+              style={({ pressed }) => [
+                styles.searchButton,
                 {
-                  backgroundColor:
-                    colors.panel2,
+                  backgroundColor: colors.purple,
+                  opacity: pressed ? 0.7 : 1,
                 },
               ]}
             >
               <Text
-                style={{
-                  color:
-                    colors.text,
-                }}
-              >
-                ↑
-              </Text>
-            </Pressable>
-
-            <Pressable
-              onPress={
-                nextMatch
-              }
-              style={[
-                styles.smallButton,
-                {
-                  backgroundColor:
-                    colors.panel2,
-                },
-              ]}
-            >
-              <Text
-                style={{
-                  color:
-                    colors.text,
-                }}
+                style={[
+                  styles.searchButtonText,
+                  { color: '#ffffff' },
+                ]}
               >
                 ↓
               </Text>
             </Pressable>
 
             <Pressable
-              onPress={() =>
-                setReplaceVisible(
-                  (value) =>
-                    !value
-                )
-              }
-              style={[
-                styles.smallButton,
+              onPress={clearSearch}
+              style={({ pressed }) => [
+                styles.searchButton,
                 {
-                  backgroundColor:
-                    replaceVisible
-                      ? colors.purple
-                      : colors.panel2,
+                  backgroundColor: colors.panel2,
+                  borderColor: colors.border,
+                  opacity: pressed ? 0.7 : 1,
                 },
               ]}
             >
               <Text
-                style={{
-                  color:
-                    colors.text,
-                }}
-              >
-                ⇄
-              </Text>
-            </Pressable>
-
-            <Pressable
-              onPress={
-                closeSearch
-              }
-              style={[
-                styles.smallButton,
-                {
-                  backgroundColor:
-                    colors.panel2,
-                },
-              ]}
-            >
-              <Text
-                style={{
-                  color:
-                    colors.text,
-                }}
+                style={[
+                  styles.searchButtonText,
+                  { color: colors.text },
+                ]}
               >
                 ×
               </Text>
             </Pressable>
           </View>
 
-          <Text
-            style={[
-              styles.searchInfo,
-              {
-                color:
-                  colors.muted,
-              },
-            ]}
-          >
-            {searchText
-              ? matches.length
-                ? `${currentMatch + 1} / ${matches.length}`
-                : 'Aucun résultat'
-              : 'Rechercher dans le fichier'}
-          </Text>
-
           {replaceVisible && (
-            <View
-              style={
-                styles.replaceRow
-              }
-            >
+            <View style={styles.searchRow}>
               <TextInput
                 value={replaceText}
-                onChangeText={
-                  setReplaceText
-                }
-                autoCorrect={false}
-                autoCapitalize="none"
+                onChangeText={setReplaceText}
                 placeholder="Remplacer par..."
-                placeholderTextColor={
-                  colors.muted
-                }
+                placeholderTextColor={colors.muted}
                 style={[
                   styles.searchInput,
                   {
-                    color:
-                      colors.text,
-                    backgroundColor:
-                      colors.panel2,
-                    borderColor:
-                      colors.border,
+                    backgroundColor: colors.panel2,
+                    borderColor: colors.border,
+                    color: colors.text,
                   },
                 ]}
               />
 
               <Pressable
-                onPress={
-                  replaceCurrent
-                }
-                style={[
+                onPress={handleReplace}
+                style={({ pressed }) => [
                   styles.replaceButton,
                   {
-                    backgroundColor:
-                      colors.panel2,
+                    backgroundColor: colors.panel2,
+                    borderColor: colors.border,
+                    opacity: pressed ? 0.7 : 1,
                   },
                 ]}
               >
                 <Text
                   style={[
                     styles.replaceText,
-                    {
-                      color:
-                        colors.text,
-                    },
+                    { color: colors.text },
                   ]}
                 >
                   Remplacer
@@ -705,24 +497,20 @@ export default function CodeEditor({
               </Pressable>
 
               <Pressable
-                onPress={
-                  replaceAll
-                }
-                style={[
+                onPress={handleReplaceAll}
+                style={({ pressed }) => [
                   styles.replaceButton,
                   {
-                    backgroundColor:
-                      colors.purple,
+                    backgroundColor: colors.purple,
+                    borderColor: colors.purple,
+                    opacity: pressed ? 0.7 : 1,
                   },
                 ]}
               >
                 <Text
                   style={[
                     styles.replaceText,
-                    {
-                      color:
-                        '#ffffff',
-                    },
+                    { color: '#ffffff' },
                   ]}
                 >
                   Tout
@@ -734,168 +522,98 @@ export default function CodeEditor({
       )}
 
       {/* ÉDITEUR */}
-      <ScrollView
-        style={styles.editorScroll}
-        contentContainerStyle={
-          styles.editorContent
-        }
-        horizontal
-        keyboardShouldPersistTaps="handled"
-        showsHorizontalScrollIndicator={
-          true
-        }
-        showsVerticalScrollIndicator={
-          true
-        }
-      >
-        <View
-          style={
-            styles.editorRow
-          }
+      <View style={styles.editorArea}>
+        <ScrollView
+          style={styles.lineNumbersScroll}
+          contentContainerStyle={styles.lineNumbersContent}
+          showsVerticalScrollIndicator={false}
+          scrollEnabled={false}
         >
-          {/* NUMÉROS DE LIGNES */}
-          <View
-            style={[
-              styles.lineNumbers,
-              {
-                backgroundColor:
-                  colors.editor,
-                borderRightColor:
-                  colors.border,
-              },
-            ]}
-          >
-            {lines.map(
-              (_, index) => (
-                <Text
-                  key={index}
-                  style={[
-                    styles.lineNumber,
-                    {
-                      color:
-                        colors.muted,
-                    },
-                  ]}
-                >
-                  {index + 1}
-                </Text>
-              )
-            )}
-          </View>
-
-          {/* CODE */}
-          <View
-            style={[
-              styles.codeArea,
-              {
-                backgroundColor:
-                  colors.editor,
-              },
-            ]}
-          >
-            {/* COLORATION */}
-            <View
-              pointerEvents="none"
-              style={
-                styles.highlightLayer
-              }
-            >
-              <SyntaxHighlight
-                code={text}
-                language={
-                  language
-                }
-                colors={colors}
-              />
-            </View>
-
-            {/* TEXTINPUT */}
-            <TextInput
-              ref={inputRef}
-              value={text}
-              onChangeText={
-                handleChange
-              }
-              onSelectionChange={(
-                event
-              ) => {
-                setSelection(
-                  event
-                    .nativeEvent
-                    .selection
-                );
-              }}
-              multiline
-              textAlignVertical="top"
-              autoCorrect={false}
-              autoCapitalize="none"
-              spellCheck={false}
-              scrollEnabled={false}
-              selectionColor={
-                colors.purple
-              }
-              cursorColor={
-                colors.purple
-              }
-              selection={selection}
+          {lines.map((_, index) => (
+            <Text
+              key={`line-${index}`}
               style={[
-                styles.input,
+                styles.lineNumber,
                 {
-                  color:
-                    'transparent',
-                  backgroundColor:
-                    'transparent',
+                  color: colors.muted,
                 },
               ]}
-              placeholder="Commence à écrire ton code..."
-              placeholderTextColor={
-                colors.muted
-              }
-            />
-          </View>
-        </View>
-      </ScrollView>
+            >
+              {String(index + 1).padStart(3, ' ')}
+            </Text>
+          ))}
+        </ScrollView>
 
-      {/* BARRE INFÉRIEURE */}
+        <View style={styles.codeArea}>
+          <ScrollView
+            style={styles.highlightScroll}
+            contentContainerStyle={styles.highlightContent}
+            showsVerticalScrollIndicator={true}
+            showsHorizontalScrollIndicator={true}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.highlightWrapper}>
+              <SyntaxHighlight
+                code={text}
+                language={language}
+              />
+
+              <TextInput
+                ref={inputRef}
+                value={text}
+                onChangeText={updateText}
+                multiline
+                scrollEnabled={false}
+                autoCorrect={false}
+                autoCapitalize="none"
+                spellCheck={false}
+                textAlignVertical="top"
+                selection={selection}
+                onSelectionChange={handleSelectionChange}
+                style={[
+                  styles.input,
+                  {
+                    color: 'transparent',
+                    backgroundColor: 'transparent',
+                    caretColor: colors.text,
+                  },
+                ]}
+                placeholderTextColor={colors.muted}
+                selectionColor={colors.purple}
+              />
+            </View>
+          </ScrollView>
+        </View>
+      </View>
+
+      {/* FOOTER */}
       <View
         style={[
           styles.footer,
           {
-            backgroundColor:
-              colors.panel,
-            borderTopColor:
-              colors.border,
+            backgroundColor: colors.panel,
+            borderTopColor: colors.border,
           },
         ]}
       >
         <Text
           style={[
             styles.footerText,
-            {
-              color:
-                colors.muted,
-            },
+            { color: colors.muted },
           ]}
         >
-          {lines.length} ligne
-          {lines.length !== 1
-            ? 's'
-            : ''}
+          {lineCount} lignes
         </Text>
 
         <Text
           style={[
             styles.footerText,
-            {
-              color:
-                colors.muted,
-            },
+            { color: colors.muted },
           ]}
         >
-          {selection.start !==
-          selection.end
-            ? `${selection.end - selection.start} caractères sélectionnés`
-            : 'GCODE Editor'}
+          {selectedCharacters > 0
+            ? `${selectedCharacters} caractères sélectionnés`
+            : 'Aucune sélection'}
         </Text>
       </View>
     </View>
@@ -905,165 +623,155 @@ export default function CodeEditor({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    minHeight: 0,
   },
 
   toolbar: {
     height: 42,
-    borderBottomWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    gap: 7,
+    paddingHorizontal: 6,
+    borderBottomWidth: 1,
   },
 
   toolButton: {
-    width: 34,
-    height: 32,
-    borderRadius: 7,
+    width: 38,
+    height: 34,
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: 7,
+    marginHorizontal: 2,
   },
 
   toolText: {
-    fontSize: 19,
-    fontWeight: '800',
+    fontSize: 17,
+    fontWeight: '600',
   },
 
   toolbarSpacer: {
     flex: 1,
   },
 
-  languageLabel: {
-    fontSize: 9,
-    fontWeight: '900',
-    letterSpacing: 0.8,
-  },
-
   searchPanel: {
-    borderBottomWidth: 1,
     paddingHorizontal: 8,
     paddingVertical: 7,
+    borderBottomWidth: 1,
   },
 
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    marginVertical: 3,
   },
 
   searchInput: {
     flex: 1,
-    minHeight: 36,
+    minHeight: 38,
     borderWidth: 1,
-    borderRadius: 7,
+    borderRadius: 8,
     paddingHorizontal: 10,
+    paddingVertical: 7,
     fontSize: 12,
   },
 
-  smallButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 7,
+  searchButton: {
+    minWidth: 38,
+    height: 38,
+    marginLeft: 5,
+    borderRadius: 8,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
-  searchInfo: {
-    fontSize: 9,
-    marginTop: 5,
-  },
-
-  replaceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 6,
+  searchButtonText: {
+    fontSize: 18,
+    fontWeight: '700',
   },
 
   replaceButton: {
-    minHeight: 36,
+    minHeight: 38,
     paddingHorizontal: 10,
-    borderRadius: 7,
+    marginLeft: 5,
+    borderRadius: 8,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   replaceText: {
-    fontSize: 10,
-    fontWeight: '800',
+    fontSize: 11,
+    fontWeight: '600',
   },
 
-  editorScroll: {
+  editorArea: {
     flex: 1,
-  },
-
-  editorContent: {
-    minWidth: '100%',
-    paddingBottom: 20,
-  },
-
-  editorRow: {
+    minHeight: 0,
     flexDirection: 'row',
-    alignItems: 'flex-start',
   },
 
-  lineNumbers: {
-    minWidth: 48,
-    paddingTop: 4,
-    paddingBottom: 4,
-    borderRightWidth: 1,
-    alignItems: 'flex-end',
-    paddingRight: 9,
+  lineNumbersScroll: {
+    width: 43,
+    backgroundColor: 'transparent',
+  },
+
+  lineNumbersContent: {
+    paddingTop: 8,
+    paddingBottom: 20,
   },
 
   lineNumber: {
     height: LINE_HEIGHT,
     lineHeight: LINE_HEIGHT,
-    fontFamily: 'monospace',
     fontSize: FONT_SIZE,
-    includeFontPadding: false,
+    fontFamily: 'monospace',
     textAlign: 'right',
+    paddingRight: 7,
+    includeFontPadding: false,
   },
 
   codeArea: {
-    position: 'relative',
-    minWidth: 700,
-    minHeight: 100,
+    flex: 1,
+    minWidth: 0,
+    minHeight: 0,
   },
 
-  highlightLayer: {
-    position: 'absolute',
-    top: 4,
-    left: 0,
-    right: 0,
-    zIndex: 1,
-    paddingLeft: 8,
-    paddingRight: 20,
+  highlightScroll: {
+    flex: 1,
+  },
+
+  highlightContent: {
+    minWidth: '100%',
+    paddingBottom: 30,
+  },
+
+  highlightWrapper: {
+    position: 'relative',
+    minHeight: 100,
   },
 
   input: {
-    position: 'relative',
-    zIndex: 2,
-    minWidth: 700,
-    minHeight: 100,
-    paddingTop: 4,
-    paddingBottom: 4,
-    paddingLeft: 8,
-    paddingRight: 20,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    minHeight: '100%',
+    padding: 8,
     margin: 0,
-    fontFamily: 'monospace',
     fontSize: FONT_SIZE,
     lineHeight: LINE_HEIGHT,
+    fontFamily: 'monospace',
     includeFontPadding: false,
+    textAlignVertical: 'top',
   },
 
   footer: {
-    height: 30,
-    borderTopWidth: 1,
-    paddingHorizontal: 10,
+    minHeight: 27,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 10,
+    borderTopWidth: 1,
   },
 
   footerText: {
