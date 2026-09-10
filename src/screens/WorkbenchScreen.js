@@ -2,12 +2,10 @@ import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
   Pressable,
-  ScrollView,
+  TextInput,
   StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
+  ScrollView,
 } from 'react-native';
 
 import ActivityBar from '../components/ActivityBar';
@@ -24,205 +22,177 @@ export default function WorkbenchScreen({
 }) {
   const files = project?.files || [];
 
-  const fallbackFile = {
-    id: 'index.html',
-    name: 'index.html',
-    language: 'html',
-    content: project?.code || '',
-  };
+  const [activeFileId, setActiveFileId] = useState(
+    files[0]?.id || null
+  );
 
-  const availableFiles =
-    files.length > 0 ? files : [fallbackFile];
+  const [bottomPanel, setBottomPanel] = useState('terminal');
 
-  const [activeActivity, setActiveActivity] =
-    useState('explorer');
-
-  const [activeFileId, setActiveFileId] =
-    useState(availableFiles[0].id);
-
-  const [bottomPanel, setBottomPanel] =
-    useState('terminal');
-
-  const [cursorPosition, setCursorPosition] =
-    useState({
-      line: 1,
-      column: 1,
-    });
+  const [activity, setActivity] = useState('explorer');
 
   const activeFile = useMemo(() => {
     return (
-      availableFiles.find(
-        (file) => file.id === activeFileId
-      ) || availableFiles[0]
+      files.find((file) => file.id === activeFileId) ||
+      files[0] ||
+      null
     );
-  }, [availableFiles, activeFileId]);
+  }, [files, activeFileId]);
 
-  const code = activeFile?.content || '';
-
-  function selectFile(file) {
+  const selectFile = (file) => {
     if (!file) return;
-
     setActiveFileId(file.id);
-  }
+  };
 
-  function updateCode(value) {
-    const updatedFiles = availableFiles.map(
-      (file) =>
-        file.id === activeFile.id
-          ? {
-              ...file,
-              content: value,
-            }
-          : file
+  const updateCode = (text) => {
+    if (!activeFile) return;
+
+    const updatedFiles = files.map((file) =>
+      file.id === activeFile.id
+        ? {
+            ...file,
+            content: text,
+          }
+        : file
     );
 
-    onChange({
+    onChange?.({
       ...project,
       files: updatedFiles,
       code:
         activeFile.name === 'index.html'
-          ? value
-          : project.code || '',
-      updatedAt: Date.now(),
+          ? text
+          : project?.code,
     });
-  }
+  };
 
-  function handleSelectionChange(event) {
-    const position =
-      event.nativeEvent.selection;
+  const getLanguage = () => {
+    if (!activeFile?.name) return 'TEXT';
 
-    const beforeCursor = code.slice(
-      0,
-      position.start
-    );
+    const name = activeFile.name.toLowerCase();
 
-    const lines =
-      beforeCursor.split('\n');
+    if (name.endsWith('.html')) return 'HTML';
+    if (name.endsWith('.css')) return 'CSS';
+    if (name.endsWith('.js')) return 'JavaScript';
+    if (name.endsWith('.jsx')) return 'React';
+    if (name.endsWith('.json')) return 'JSON';
+    if (name.endsWith('.ts')) return 'TypeScript';
+    if (name.endsWith('.tsx')) return 'React TS';
 
-    setCursorPosition({
-      line: lines.length,
-      column:
-        lines[lines.length - 1].length + 1,
-    });
-  }
+    return 'TEXT';
+  };
 
-  function renderActivityPanel() {
-    if (activeActivity === 'explorer') {
+  const getCursorPosition = () => {
+    const text = activeFile?.content || '';
+
+    const lines = text.split('\n');
+
+    return {
+      line: Math.max(1, lines.length),
+      column: Math.max(
+        1,
+        lines[lines.length - 1]?.length + 1 || 1
+      ),
+    };
+  };
+
+  const cursor = getCursorPosition();
+
+  const renderActivityPanel = () => {
+    if (activity === 'search') {
       return (
-        <FileExplorer
-          project={{
-            ...project,
-            files: availableFiles,
-          }}
-          activeFile={activeFile}
-          onOpenFile={selectFile}
-        />
-      );
-    }
+        <View style={styles.activityPanel}>
+          <Text style={styles.panelTitle}>RECHERCHER</Text>
 
-    if (activeActivity === 'search') {
-      return (
-        <View style={styles.placeholder}>
-          <Text style={styles.placeholderTitle}>
-            Recherche
-          </Text>
+          <TextInput
+            placeholder="Rechercher..."
+            placeholderTextColor="#66708c"
+            style={styles.searchInput}
+          />
 
-          <Text style={styles.placeholderText}>
-            Recherche globale dans les fichiers.
+          <Text style={styles.panelEmpty}>
+            Recherche dans le projet
           </Text>
         </View>
       );
     }
 
-    if (activeActivity === 'git') {
+    if (activity === 'git') {
       return (
-        <View style={styles.placeholder}>
-          <Text style={styles.placeholderTitle}>
-            Contrôle de source
-          </Text>
+        <View style={styles.activityPanel}>
+          <Text style={styles.panelTitle}>CONTRÔLE DE SOURCE</Text>
 
-          <Text style={styles.placeholderText}>
-            Git et GitHub seront connectés ici.
+          <Text style={styles.panelEmpty}>
+            Aucun changement Git détecté
           </Text>
         </View>
       );
     }
 
-    if (activeActivity === 'run') {
+    if (activity === 'run') {
       return (
-        <View style={styles.placeholder}>
-          <Text style={styles.placeholderTitle}>
-            Exécuter
-          </Text>
-
-          <Text style={styles.placeholderText}>
-            Lancez l'aperçu de votre projet.
-          </Text>
+        <View style={styles.activityPanel}>
+          <Text style={styles.panelTitle}>EXÉCUTER</Text>
 
           <Pressable
             style={styles.runButton}
             onPress={onPreview}
           >
             <Text style={styles.runButtonText}>
-              ▶ Lancer l'aperçu
+              ▶ Lancer le projet
             </Text>
           </Pressable>
         </View>
       );
     }
 
-    if (activeActivity === 'extensions') {
+    if (activity === 'extensions') {
       return (
-        <View style={styles.placeholder}>
-          <Text style={styles.placeholderTitle}>
-            Extensions
-          </Text>
+        <View style={styles.activityPanel}>
+          <Text style={styles.panelTitle}>EXTENSIONS</Text>
 
-          <Text style={styles.placeholderText}>
-            Le système d'extensions sera ajouté ici.
+          <Text style={styles.panelEmpty}>
+            Aucune extension installée
           </Text>
         </View>
       );
     }
 
-    return null;
-  }
+    return (
+      <FileExplorer
+        project={project}
+        activeFile={activeFile}
+        onOpenFile={selectFile}
+      />
+    );
+  };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={
-        Platform.OS === 'ios'
-          ? 'padding'
-          : undefined
-      }
-    >
-      <View style={styles.header}>
+    <View style={styles.container}>
+      {/* TOP BAR */}
+      <View style={styles.topBar}>
         <Pressable
-          style={styles.backButton}
           onPress={onBack}
+          style={styles.backButton}
         >
-          <Text style={styles.backText}>
-            ‹
-          </Text>
+          <Text style={styles.backText}>‹</Text>
         </Pressable>
 
-        <View style={styles.headerInfo}>
+        <View style={styles.projectInfo}>
           <Text
             style={styles.projectName}
             numberOfLines={1}
           >
-            {project.name}
+            {project?.name || 'Projet'}
           </Text>
 
-          <Text style={styles.workspaceText}>
-            GCODE Mobile V3
+          <Text style={styles.projectSubtitle}>
+            GCODE Mobile
           </Text>
         </View>
 
         <Pressable
-          style={styles.previewButton}
           onPress={onPreview}
+          style={styles.previewButton}
         >
           <Text style={styles.previewText}>
             ▶
@@ -230,164 +200,194 @@ export default function WorkbenchScreen({
         </Pressable>
       </View>
 
+      {/* MAIN WORKSPACE */}
       <View style={styles.workspace}>
+        {/* ACTIVITY BAR */}
         <ActivityBar
-          active={activeActivity}
-          onChange={setActiveActivity}
+          active={activity}
+          onChange={setActivity}
         />
 
-        <View style={styles.mainArea}>
-          <View style={styles.sidebar}>
-            {renderActivityPanel()}
+        {/* SIDEBAR */}
+        <View style={styles.sidebar}>
+          {renderActivityPanel()}
+        </View>
+
+        {/* EDITOR AREA */}
+        <View style={styles.editorArea}>
+          {/* TABS */}
+          <EditorTabs
+            files={files}
+            activeFile={activeFile}
+            onSelect={selectFile}
+          />
+
+          {/* EDITOR */}
+          <View style={styles.editor}>
+            {activeFile ? (
+              <View style={styles.editorContent}>
+                <ScrollView
+                  style={styles.lineNumbers}
+                  showsVerticalScrollIndicator={false}
+                >
+                  {(activeFile.content || '')
+                    .split('\n')
+                    .map((_, index) => (
+                      <Text
+                        key={index}
+                        style={styles.lineNumber}
+                      >
+                        {index + 1}
+                      </Text>
+                    ))}
+                </ScrollView>
+
+                <TextInput
+                  value={activeFile.content || ''}
+                  onChangeText={updateCode}
+                  multiline
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  spellCheck={false}
+                  textAlignVertical="top"
+                  scrollEnabled
+                  style={styles.codeInput}
+                  placeholder="Commencez à écrire votre code..."
+                  placeholderTextColor="#454d68"
+                />
+              </View>
+            ) : (
+              <View style={styles.emptyEditor}>
+                <Text style={styles.emptyEditorTitle}>
+                  Aucun fichier ouvert
+                </Text>
+
+                <Text style={styles.emptyEditorText}>
+                  Sélectionnez un fichier dans l'explorateur.
+                </Text>
+              </View>
+            )}
           </View>
 
-          <View style={styles.editorArea}>
-            <EditorTabs
-              files={availableFiles}
-              activeFile={activeFile}
-              onSelect={selectFile}
-            />
+          {/* EDITOR TOOLBAR */}
+          <View style={styles.toolbar}>
+            <Pressable
+              style={styles.toolButton}
+              onPress={() => setBottomPanel('terminal')}
+            >
+              <Text style={styles.toolText}>
+                Terminal
+              </Text>
+            </Pressable>
 
-            <View style={styles.editor}>
-              <ScrollView
-                style={styles.lineNumbers}
-                showsVerticalScrollIndicator={false}
-              >
-                {code
-                  .split('\n')
-                  .map((_, index) => (
-                    <Text
-                      key={index}
-                      style={styles.lineNumber}
-                    >
-                      {index + 1}
-                    </Text>
-                  ))}
-              </ScrollView>
+            <Pressable
+              style={styles.toolButton}
+              onPress={() => setBottomPanel('problems')}
+            >
+              <Text style={styles.toolText}>
+                Problèmes
+              </Text>
+            </Pressable>
 
-              <TextInput
-                value={code}
-                onChangeText={updateCode}
-                onSelectionChange={
-                  handleSelectionChange
-                }
-                multiline
-                autoCapitalize="none"
-                autoCorrect={false}
-                spellCheck={false}
-                textAlignVertical="top"
-                style={styles.codeInput}
-                placeholder="Commencez à coder..."
-                placeholderTextColor="#555b75"
-              />
-            </View>
+            <Pressable
+              style={styles.toolButton}
+              onPress={() => setBottomPanel('output')}
+            >
+              <Text style={styles.toolText}>
+                Sortie
+              </Text>
+            </Pressable>
 
-            <View style={styles.editorToolbar}>
-              <Pressable
-                onPress={() =>
-                  setBottomPanel('terminal')
-                }
-              >
-                <Text style={styles.toolbarText}>
-                  Terminal
-                </Text>
-              </Pressable>
+            <View style={styles.toolbarSpacer} />
 
-              <Pressable
-                onPress={() =>
-                  setBottomPanel('problems')
-                }
-              >
-                <Text style={styles.toolbarText}>
-                  Problèmes
-                </Text>
-              </Pressable>
-
-              <Pressable
-                onPress={() =>
-                  setBottomPanel('output')
-                }
-              >
-                <Text style={styles.toolbarText}>
-                  Sortie
-                </Text>
-              </Pressable>
-            </View>
-
-            <BottomPanel />
-
-            <StatusBar
-              language={
-                activeFile.language ||
-                'Plain Text'
-              }
-              line={cursorPosition.line}
-              column={cursorPosition.column}
-            />
+            <Pressable
+              style={styles.previewSmall}
+              onPress={onPreview}
+            >
+              <Text style={styles.previewSmallText}>
+                ▶ Aperçu
+              </Text>
+            </Pressable>
           </View>
+
+          {/* BOTTOM PANEL */}
+          <BottomPanel
+            active={bottomPanel}
+            onChange={setBottomPanel}
+          />
+
+          {/* STATUS BAR */}
+          <StatusBar
+            language={getLanguage()}
+            line={cursor.line}
+            column={cursor.column}
+          />
         </View>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#070914',
+    backgroundColor: '#070a13',
   },
 
-  header: {
-    height: 62,
+  topBar: {
+    height: 58,
     backgroundColor: '#0d1020',
     borderBottomWidth: 1,
-    borderBottomColor: '#242943',
+    borderBottomColor: '#252a40',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 10,
   },
 
   backButton: {
-    width: 42,
-    alignItems: 'center',
+    width: 40,
+    height: 40,
     justifyContent: 'center',
+    alignItems: 'center',
   },
 
   backText: {
     color: '#ffffff',
-    fontSize: 34,
-    lineHeight: 38,
+    fontSize: 32,
+    fontWeight: '300',
   },
 
-  headerInfo: {
+  projectInfo: {
     flex: 1,
-    paddingHorizontal: 5,
+    marginLeft: 4,
   },
 
   projectName: {
     color: '#ffffff',
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: '700',
   },
 
-  workspaceText: {
-    color: '#777f9e',
+  projectSubtitle: {
+    color: '#69728c',
     fontSize: 10,
     marginTop: 2,
   },
 
   previewButton: {
     width: 42,
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: '#151a2d',
-    alignItems: 'center',
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#171b2e',
     justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#303653',
   },
 
   previewText: {
-    color: '#61e6a4',
-    fontSize: 17,
+    color: '#a88bff',
+    fontSize: 15,
   },
 
   workspace: {
@@ -395,106 +395,160 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
 
-  mainArea: {
-    flex: 1,
-    flexDirection: 'row',
-  },
-
   sidebar: {
-    width: 205,
-    backgroundColor: '#0b0e1a',
+    width: 210,
+    backgroundColor: '#0b0e19',
     borderRightWidth: 1,
-    borderRightColor: '#242943',
+    borderRightColor: '#252a40',
   },
 
-  editorArea: {
+  activityPanel: {
     flex: 1,
-    minWidth: 0,
+    padding: 14,
   },
 
-  editor: {
-    flex: 1,
-    flexDirection: 'row',
-    backgroundColor: '#080b17',
-  },
-
-  lineNumbers: {
-    width: 42,
-    paddingTop: 12,
-  },
-
-  lineNumber: {
-    color: '#4e556f',
-    fontFamily:
-      Platform.OS === 'ios'
-        ? 'Menlo'
-        : 'monospace',
-    fontSize: 12,
-    lineHeight: 21,
-    textAlign: 'right',
-    paddingRight: 8,
-  },
-
-  codeInput: {
-    flex: 1,
-    color: '#e8eaff',
-    fontSize: 13,
-    lineHeight: 21,
-    paddingTop: 12,
-    paddingRight: 12,
-    paddingBottom: 30,
-    fontFamily:
-      Platform.OS === 'ios'
-        ? 'Menlo'
-        : 'monospace',
-  },
-
-  editorToolbar: {
-    height: 42,
-    backgroundColor: '#11152a',
-    borderTopWidth: 1,
-    borderTopColor: '#242943',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 20,
-    paddingHorizontal: 12,
-  },
-
-  toolbarText: {
-    color: '#aeb4cd',
-    fontSize: 11,
-  },
-
-  placeholder: {
-    padding: 16,
-  },
-
-  placeholderTitle: {
+  panelTitle: {
     color: '#ffffff',
-    fontSize: 15,
+    fontSize: 11,
     fontWeight: '800',
-    marginBottom: 8,
+    marginBottom: 15,
   },
 
-  placeholderText: {
-    color: '#777f9e',
+  searchInput: {
+    height: 38,
+    borderWidth: 1,
+    borderColor: '#303650',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    color: '#ffffff',
+    backgroundColor: '#101426',
     fontSize: 12,
-    lineHeight: 18,
+  },
+
+  panelEmpty: {
+    color: '#69728c',
+    fontSize: 11,
+    marginTop: 18,
+    lineHeight: 17,
   },
 
   runButton: {
-    marginTop: 18,
-    backgroundColor: '#171d35',
+    backgroundColor: '#171b2e',
     borderWidth: 1,
-    borderColor: '#343b60',
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    borderColor: '#383e5c',
+    borderRadius: 7,
+    paddingVertical: 11,
+    paddingHorizontal: 10,
   },
 
   runButtonText: {
     color: '#ffffff',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
+  },
+
+  editorArea: {
+    flex: 1,
+    backgroundColor: '#080b16',
+  },
+
+  editor: {
+    flex: 1,
+    backgroundColor: '#080b16',
+  },
+
+  editorContent: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+
+  lineNumbers: {
+    width: 45,
+    backgroundColor: '#080b16',
+    paddingTop: 12,
+  },
+
+  lineNumber: {
+    color: '#414a66',
+    fontFamily: 'monospace',
+    fontSize: 12,
+    lineHeight: 20,
+    textAlign: 'right',
+    paddingRight: 10,
+  },
+
+  codeInput: {
+    flex: 1,
+    color: '#d9deee',
+    backgroundColor: '#080b16',
+    fontFamily: 'monospace',
+    fontSize: 13,
+    lineHeight: 20,
+    paddingTop: 12,
+    paddingHorizontal: 8,
+    paddingBottom: 30,
+  },
+
+  emptyEditor: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 30,
+  },
+
+  emptyEditorTitle: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+
+  emptyEditorText: {
+    color: '#68718a',
+    fontSize: 12,
+    textAlign: 'center',
+  },
+
+  toolbar: {
+    height: 44,
+    backgroundColor: '#0d1020',
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#252a40',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 7,
+  },
+
+  toolButton: {
+    paddingHorizontal: 9,
+    height: 34,
+    justifyContent: 'center',
+  },
+
+  toolText: {
+    color: '#858da5',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+
+  toolbarSpacer: {
+    flex: 1,
+  },
+
+  previewSmall: {
+    backgroundColor: '#171b2e',
+    borderWidth: 1,
+    borderColor: '#343a57',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    height: 32,
+    justifyContent: 'center',
+  },
+
+  previewSmallText: {
+    color: '#a88bff',
+    fontSize: 10,
+    fontWeight: '800',
   },
 });
