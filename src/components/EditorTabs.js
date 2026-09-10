@@ -7,24 +7,34 @@ import {
   StyleSheet,
 } from 'react-native';
 
-function getIcon(name) {
-  if (name.endsWith('.html')) {
+import { useTheme } from '../theme/ThemeContext';
+
+function getIcon(name = '') {
+  const lower = name.toLowerCase();
+
+  if (lower.endsWith('.html') || lower.endsWith('.htm')) {
     return '◇';
   }
 
-  if (name.endsWith('.css')) {
+  if (lower.endsWith('.css')) {
     return '#';
   }
 
   if (
-    name.endsWith('.js') ||
-    name.endsWith('.jsx')
+    lower.endsWith('.js') ||
+    lower.endsWith('.jsx') ||
+    lower.endsWith('.ts') ||
+    lower.endsWith('.tsx')
   ) {
     return 'JS';
   }
 
-  if (name.endsWith('.json')) {
+  if (lower.endsWith('.json')) {
     return '{}';
+  }
+
+  if (lower.endsWith('.md')) {
+    return 'M';
   }
 
   return '•';
@@ -35,44 +45,89 @@ export default function EditorTabs({
   activeFile,
   onSelect,
 }) {
+  const { colors } = useTheme();
+
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: colors.panel,
+          borderBottomColor: colors.border,
+        },
+      ]}
+    >
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
-        {files.map((file) => (
-          <Pressable
-            key={file.id}
-            onPress={() => onSelect?.(file)}
-            style={[
-              styles.tab,
-              activeFile?.id === file.id &&
-                styles.activeTab,
-            ]}
-          >
-            <Text style={styles.icon}>
-              {getIcon(file.name)}
-            </Text>
+        {files.map((file) => {
+          const active =
+            activeFile?.id === file.id;
 
-            <Text
-              numberOfLines={1}
-              style={[
-                styles.name,
-                activeFile?.id === file.id &&
-                  styles.activeName,
+          return (
+            <Pressable
+              key={file.id}
+              onPress={() => onSelect?.(file)}
+              style={({ pressed }) => [
+                styles.tab,
+                {
+                  backgroundColor: active
+                    ? colors.panel2
+                    : colors.panel,
+                  borderRightColor:
+                    colors.border,
+                  borderTopColor:
+                    active
+                      ? colors.purple
+                      : 'transparent',
+                  opacity: pressed ? 0.7 : 1,
+                },
               ]}
             >
-              {file.name}
-            </Text>
-
-            {activeFile?.id === file.id && (
-              <Text style={styles.close}>
-                ×
+              <Text
+                style={[
+                  styles.icon,
+                  {
+                    color: active
+                      ? colors.purple
+                      : colors.muted,
+                  },
+                ]}
+              >
+                {getIcon(file.name)}
               </Text>
-            )}
-          </Pressable>
-        ))}
+
+              <Text
+                numberOfLines={1}
+                style={[
+                  styles.name,
+                  {
+                    color: active
+                      ? colors.text
+                      : colors.muted,
+                  },
+                ]}
+              >
+                {file.name}
+              </Text>
+
+              {active && (
+                <Text
+                  style={[
+                    styles.close,
+                    {
+                      color: colors.muted,
+                    },
+                  ]}
+                >
+                  ×
+                </Text>
+              )}
+            </Pressable>
+          );
+        })}
       </ScrollView>
     </View>
   );
@@ -81,30 +136,21 @@ export default function EditorTabs({
 const styles = StyleSheet.create({
   container: {
     height: 46,
-    backgroundColor: '#0b0e1a',
     borderBottomWidth: 1,
-    borderBottomColor: '#242943',
   },
 
   tab: {
     minWidth: 125,
-    maxWidth: 180,
+    maxWidth: 190,
     height: 46,
     paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
     borderRightWidth: 1,
-    borderRightColor: '#242943',
-  },
-
-  activeTab: {
-    backgroundColor: '#11152a',
     borderTopWidth: 2,
-    borderTopColor: '#8d70ff',
   },
 
   icon: {
-    color: '#8d70ff',
     fontSize: 12,
     fontWeight: '800',
     marginRight: 8,
@@ -112,17 +158,13 @@ const styles = StyleSheet.create({
 
   name: {
     flex: 1,
-    color: '#777f9b',
     fontSize: 12,
-  },
-
-  activeName: {
-    color: '#ffffff',
+    fontWeight: '500',
   },
 
   close: {
-    color: '#8b92aa',
     fontSize: 18,
     marginLeft: 8,
+    lineHeight: 20,
   },
 });
