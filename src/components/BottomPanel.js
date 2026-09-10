@@ -1,168 +1,525 @@
-import React from 'react';
+import React, { useState } from 'react';
+
 import {
   View,
   Text,
+  TextInput,
   Pressable,
   ScrollView,
   StyleSheet,
 } from 'react-native';
 
-const tabs = [
-  ['terminal', 'TERMINAL'],
-  ['problems', 'PROBLÈMES'],
-  ['output', 'SORTIE'],
-];
+import { useTheme } from '../theme/ThemeContext';
 
 export default function BottomPanel({
   active = 'terminal',
   onChange,
 }) {
-  const selectTab = (id) => {
-    onChange?.(id);
-  };
+  const { colors } = useTheme();
+
+  const [command, setCommand] = useState('');
+
+  const [history, setHistory] = useState([
+    {
+      type: 'system',
+      text: 'GCODE Terminal prêt.',
+    },
+  ]);
+
+  const tabs = [
+    {
+      id: 'terminal',
+      label: 'TERMINAL',
+    },
+    {
+      id: 'problems',
+      label: 'PROBLÈMES',
+    },
+    {
+      id: 'output',
+      label: 'OUTPUT',
+    },
+    {
+      id: 'debug',
+      label: 'DEBUG CONSOLE',
+    },
+  ];
+
+  function runCommand() {
+    const value = command.trim();
+
+    if (!value) {
+      return;
+    }
+
+    const nextHistory = [
+      ...history,
+      {
+        type: 'command',
+        text: `$ ${value}`,
+      },
+    ];
+
+    const lower = value.toLowerCase();
+
+    if (lower === 'clear') {
+      setHistory([]);
+      setCommand('');
+      return;
+    }
+
+    if (lower === 'help') {
+      nextHistory.push({
+        type: 'output',
+        text:
+          'Commandes disponibles :\n' +
+          'help   - afficher cette aide\n' +
+          'clear  - vider le terminal\n' +
+          'pwd    - afficher le dossier courant\n' +
+          'ls     - afficher les fichiers du projet\n' +
+          'echo   - afficher un texte',
+      });
+    } else if (lower === 'pwd') {
+      nextHistory.push({
+        type: 'output',
+        text: '/gcode/project',
+      });
+    } else if (lower === 'ls') {
+      nextHistory.push({
+        type: 'output',
+        text:
+          'index.html\n' +
+          'style.css\n' +
+          'script.js',
+      });
+    } else if (lower.startsWith('echo ')) {
+      nextHistory.push({
+        type: 'output',
+        text: value.slice(5),
+      });
+    } else {
+      nextHistory.push({
+        type: 'error',
+        text:
+          `Commande inconnue : ${value}\n` +
+          `Tape "help" pour voir les commandes disponibles.`,
+      });
+    }
+
+    setHistory(nextHistory);
+    setCommand('');
+  }
+
+  function renderTerminal() {
+    return (
+      <View style={styles.terminalContainer}>
+        <ScrollView
+          style={styles.terminalOutput}
+          contentContainerStyle={
+            styles.terminalContent
+          }
+          keyboardShouldPersistTaps="handled"
+        >
+          {history.map((item, index) => (
+            <Text
+              key={`${item.type}-${index}`}
+              style={[
+                styles.terminalLine,
+                {
+                  color:
+                    item.type === 'command'
+                      ? colors.text
+                      : item.type === 'error'
+                      ? colors.red
+                      : item.type === 'system'
+                      ? colors.blue
+                      : colors.editorText,
+                },
+              ]}
+            >
+              {item.text}
+            </Text>
+          ))}
+        </ScrollView>
+
+        <View
+          style={[
+            styles.commandRow,
+            {
+              borderTopColor:
+                colors.border,
+              backgroundColor:
+                colors.panel,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.prompt,
+              {
+                color: colors.green,
+              },
+            ]}
+          >
+            $
+          </Text>
+
+          <TextInput
+            value={command}
+            onChangeText={setCommand}
+            onSubmitEditing={runCommand}
+            placeholder="Entrer une commande..."
+            placeholderTextColor={
+              colors.muted
+            }
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="send"
+            style={[
+              styles.commandInput,
+              {
+                color: colors.text,
+              },
+            ]}
+          />
+
+          <Pressable
+            onPress={runCommand}
+            style={({ pressed }) => [
+              styles.sendButton,
+              {
+                backgroundColor:
+                  colors.purple,
+                opacity: pressed
+                  ? 0.65
+                  : 1,
+              },
+            ]}
+          >
+            <Text
+              style={styles.sendText}
+            >
+              ▶
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  function renderProblems() {
+    return (
+      <View style={styles.emptyContainer}>
+        <Text
+          style={[
+            styles.emptyIcon,
+            {
+              color: colors.green,
+            },
+          ]}
+        >
+          ✓
+        </Text>
+
+        <Text
+          style={[
+            styles.emptyTitle,
+            {
+              color: colors.text,
+            },
+          ]}
+        >
+          Aucun problème
+        </Text>
+
+        <Text
+          style={[
+            styles.emptyText,
+            {
+              color: colors.muted,
+            },
+          ]}
+        >
+          Les erreurs détectées dans ton
+          projet apparaîtront ici.
+        </Text>
+      </View>
+    );
+  }
+
+  function renderOutput() {
+    return (
+      <View style={styles.emptyContainer}>
+        <Text
+          style={[
+            styles.emptyIcon,
+            {
+              color: colors.blue,
+            },
+          ]}
+        >
+          ◉
+        </Text>
+
+        <Text
+          style={[
+            styles.emptyTitle,
+            {
+              color: colors.text,
+            },
+          ]}
+        >
+          Output GCODE
+        </Text>
+
+        <Text
+          style={[
+            styles.emptyText,
+            {
+              color: colors.muted,
+            },
+          ]}
+        >
+          Les sorties de compilation et
+          d'exécution apparaîtront ici.
+        </Text>
+      </View>
+    );
+  }
+
+  function renderDebug() {
+    return (
+      <View style={styles.emptyContainer}>
+        <Text
+          style={[
+            styles.emptyIcon,
+            {
+              color: colors.purple,
+            },
+          ]}
+        >
+          ◇
+        </Text>
+
+        <Text
+          style={[
+            styles.emptyTitle,
+            {
+              color: colors.text,
+            },
+          ]}
+        >
+          Debug Console
+        </Text>
+
+        <Text
+          style={[
+            styles.emptyText,
+            {
+              color: colors.muted,
+            },
+          ]}
+        >
+          Les informations de débogage
+          apparaîtront ici.
+        </Text>
+      </View>
+    );
+  }
+
+  function renderContent() {
+    switch (active) {
+      case 'problems':
+        return renderProblems();
+
+      case 'output':
+        return renderOutput();
+
+      case 'debug':
+        return renderDebug();
+
+      case 'terminal':
+      default:
+        return renderTerminal();
+    }
+  }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-        >
-          {tabs.map(([id, label]) => (
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor:
+            colors.panel,
+        },
+      ]}
+    >
+      {/* ONGLETS */}
+      <View
+        style={[
+          styles.tabs,
+          {
+            borderBottomColor:
+              colors.border,
+          },
+        ]}
+      >
+        {tabs.map((tab) => {
+          const selected =
+            active === tab.id;
+
+          return (
             <Pressable
-              key={id}
-              onPress={() => selectTab(id)}
+              key={tab.id}
+              onPress={() =>
+                onChange?.(tab.id)
+              }
               style={[
                 styles.tab,
-                active === id && styles.activeTab,
+                {
+                  borderBottomColor:
+                    selected
+                      ? colors.purple
+                      : 'transparent',
+                },
               ]}
             >
               <Text
                 style={[
-                  styles.label,
-                  active === id && styles.activeLabel,
+                  styles.tabText,
+                  {
+                    color: selected
+                      ? colors.text
+                      : colors.muted,
+                  },
                 ]}
               >
-                {label}
+                {tab.label}
               </Text>
             </Pressable>
-          ))}
-        </ScrollView>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Fermer le panneau inférieur"
-          onPress={() => selectTab(null)}
-        >
-          <Text style={styles.close}>×</Text>
-        </Pressable>
+          );
+        })}
       </View>
 
-      {active && (
-        <View style={styles.body}>
-          {active === 'terminal' && (
-            <>
-              <Text style={styles.prompt}>
-                GCODE Mobile Terminal
-              </Text>
-
-              <Text style={styles.line}>
-                $ ready
-              </Text>
-
-              <Text style={styles.cursor}>
-                $
-              </Text>
-            </>
-          )}
-
-          {active === 'problems' && (
-            <Text style={styles.empty}>
-              ✓ Aucun problème détecté
-            </Text>
-          )}
-
-          {active === 'output' && (
-            <Text style={styles.empty}>
-              GCODE Output — prêt
-            </Text>
-          )}
-        </View>
-      )}
+      {/* CONTENU */}
+      <View style={styles.content}>
+        {renderContent()}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    height: 190,
-    backgroundColor: '#080b16',
-    borderTopWidth: 1,
-    borderTopColor: '#2a2f45',
+    flex: 1,
+    minHeight: 50,
   },
 
-  header: {
-    height: 42,
-    backgroundColor: '#0d1020',
+  tabs: {
+    height: 36,
     borderBottomWidth: 1,
-    borderBottomColor: '#242943',
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'stretch',
   },
 
   tab: {
-    height: 42,
-    paddingHorizontal: 14,
+    minWidth: 82,
+    paddingHorizontal: 10,
+    alignItems: 'center',
     justifyContent: 'center',
-  },
-
-  activeTab: {
     borderBottomWidth: 2,
-    borderBottomColor: '#a88bff',
   },
 
-  label: {
-    color: '#737b96',
-    fontSize: 10,
-    fontWeight: '800',
+  tabText: {
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
 
-  activeLabel: {
-    color: '#ffffff',
-  },
-
-  close: {
-    color: '#777f9b',
-    fontSize: 21,
-    paddingHorizontal: 13,
-  },
-
-  body: {
+  content: {
     flex: 1,
-    padding: 13,
+  },
+
+  terminalContainer: {
+    flex: 1,
+  },
+
+  terminalOutput: {
+    flex: 1,
+  },
+
+  terminalContent: {
+    padding: 10,
+    paddingBottom: 20,
+  },
+
+  terminalLine: {
+    fontFamily: 'monospace',
+    fontSize: 11,
+    lineHeight: 18,
+    marginBottom: 2,
+  },
+
+  commandRow: {
+    minHeight: 44,
+    borderTopWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
   },
 
   prompt: {
-    color: '#9e86ff',
     fontFamily: 'monospace',
-    fontSize: 12,
+    fontSize: 13,
+    fontWeight: '900',
+    marginRight: 7,
+  },
+
+  commandInput: {
+    flex: 1,
+    minHeight: 38,
+    fontFamily: 'monospace',
+    fontSize: 11,
+    paddingVertical: 6,
+  },
+
+  sendButton: {
+    width: 34,
+    height: 32,
+    borderRadius: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  sendText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '900',
+  },
+
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+
+  emptyIcon: {
+    fontSize: 25,
+    fontWeight: '800',
     marginBottom: 7,
   },
 
-  line: {
-    color: '#9da5bd',
-    fontFamily: 'monospace',
-    fontSize: 12,
+  emptyTitle: {
+    fontSize: 13,
+    fontWeight: '900',
   },
 
-  cursor: {
-    color: '#ffffff',
-    fontFamily: 'monospace',
-    marginTop: 8,
-  },
-
-  empty: {
-    color: '#8d96ae',
-    fontSize: 12,
+  emptyText: {
+    maxWidth: 300,
+    textAlign: 'center',
+    fontSize: 10,
+    lineHeight: 15,
+    marginTop: 6,
   },
 });
