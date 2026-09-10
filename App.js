@@ -1,9 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { SafeAreaView, StatusBar, StyleSheet } from 'react-native';
+import {
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
+} from 'react-native';
 
 import HomeScreen from './src/screens/HomeScreen';
 import ProjectsScreen from './src/screens/ProjectsScreen';
-import EditorScreen from './src/screens/EditorScreen';
+import WorkbenchScreen from './src/screens/WorkbenchScreen';
 import PreviewScreen from './src/screens/PreviewScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 
@@ -23,43 +27,84 @@ export default function App() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    loadProjects().then((items) => {
-      setProjects(items);
-      setLoaded(true);
-    });
+    let mounted = true;
+
+    async function initialize() {
+      try {
+        const items = await loadProjects();
+
+        if (mounted) {
+          setProjects(items);
+        }
+      } catch (error) {
+        console.error(
+          'Erreur lors du chargement des projets:',
+          error
+        );
+
+        if (mounted) {
+          setProjects([]);
+        }
+      } finally {
+        if (mounted) {
+          setLoaded(true);
+        }
+      }
+    }
+
+    initialize();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   useEffect(() => {
-    if (loaded) {
-      saveProjects(projects);
+    if (!loaded) {
+      return;
     }
+
+    saveProjects(projects).catch((error) => {
+      console.error(
+        'Erreur lors de la sauvegarde:',
+        error
+      );
+    });
   }, [projects, loaded]);
 
   function openProject(project) {
     setActiveProject(project);
-    setScreen('editor');
+    setScreen('workbench');
   }
 
   function newProject() {
     const project = createProject('Nouveau projet');
 
-    setProjects((current) => [project, ...current]);
+    setProjects((current) => [
+      project,
+      ...current,
+    ]);
+
     setActiveProject(project);
-    setScreen('editor');
+    setScreen('workbench');
   }
 
-  function updateProject(updated) {
+  function updateProject(updatedProject) {
     setProjects((current) =>
       current.map((project) =>
-        project.id === updated.id ? updated : project
+        project.id === updatedProject.id
+          ? updatedProject
+          : project
       )
     );
 
-    setActiveProject(updated);
+    setActiveProject(updatedProject);
   }
 
   function removeProject(id) {
-    setProjects((current) => deleteProject(current, id));
+    setProjects((current) =>
+      deleteProject(current, id)
+    );
 
     if (activeProject?.id === id) {
       setActiveProject(null);
@@ -70,6 +115,11 @@ export default function App() {
   function goHome() {
     setActiveProject(null);
     setScreen('home');
+  }
+
+  function openProjects() {
+    setActiveProject(null);
+    setScreen('projects');
   }
 
   let content = null;
@@ -95,9 +145,12 @@ export default function App() {
     );
   }
 
-  if (screen === 'editor' && activeProject) {
+  if (
+    screen === 'workbench' &&
+    activeProject
+  ) {
     content = (
-      <EditorScreen
+      <WorkbenchScreen
         project={activeProject}
         onChange={updateProject}
         onBack={goHome}
@@ -106,11 +159,14 @@ export default function App() {
     );
   }
 
-  if (screen === 'preview' && activeProject) {
+  if (
+    screen === 'preview' &&
+    activeProject
+  ) {
     content = (
       <PreviewScreen
         project={activeProject}
-        onBack={() => setScreen('editor')}
+        onBack={() => setScreen('workbench')}
       />
     );
   }
@@ -121,15 +177,30 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor="#070914"
+      />
 
       {content}
 
-      {screen !== 'editor' &&
+      {screen !== 'workbench' &&
         screen !== 'preview' && (
           <BottomNav
             active={screen}
-            onChange={setScreen}
+            onChange={(nextScreen) => {
+              if (nextScreen === 'projects') {
+                openProjects();
+                return;
+              }
+
+              if (nextScreen === 'home') {
+                goHome();
+                return;
+              }
+
+              setScreen(nextScreen);
+            }}
           />
         )}
     </SafeAreaView>
