@@ -391,6 +391,7 @@ export default function WorkbenchScreen({
         <BottomPanel
           active={bottomPanel}
           onChange={setBottomPanel}
+          project={project}
         />
       </View>
 
