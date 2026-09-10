@@ -1,14 +1,21 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+} from 'react-native';
 
 const items = [
   ['home', '⌂', 'Accueil'],
   ['projects', '▣', 'Projets'],
-  ['ai', '✦', 'IA'],
   ['settings', '⚙', 'Réglages'],
 ];
 
-export default function BottomNav({ active, onChange }) {
+export default function BottomNav({
+  active,
+  onChange,
+}) {
   return (
     <View style={styles.container}>
       {items.map(([id, icon, label]) => (
