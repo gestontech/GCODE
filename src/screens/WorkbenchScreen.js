@@ -91,7 +91,6 @@ export default function WorkbenchScreen({
     const updatedProject = {
       ...project,
       files: updatedFiles,
-
       code:
         activeFile.name === 'index.html'
           ? text
@@ -108,7 +107,8 @@ export default function WorkbenchScreen({
     return {
       line: lines.length,
       column:
-        (lines[lines.length - 1]?.length || 0) + 1,
+        (lines[lines.length - 1]?.length || 0) +
+        1,
     };
   }
 
@@ -251,7 +251,7 @@ export default function WorkbenchScreen({
             />
           </View>
 
-          {/* ÉDITEUR */}
+          {/* EDITOR */}
           <View
             style={[
               styles.editorArea,
@@ -304,6 +304,7 @@ export default function WorkbenchScreen({
               {activeFile ? (
                 <CodeEditor
                   value={activeFile.content || ''}
+                  language={language}
                   onChangeText={updateCode}
                 />
               ) : (
