@@ -2,16 +2,22 @@
   "expo": {
     "name": "GCODE",
     "slug": "gcode",
-    "version": "1.0.0",
+    "version": "3.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "scheme": "gcode",
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.gcode.mobile"
     },
     "android": {
-      "package": "com.gcode.mobile"
+      "package": "com.gcode.mobile",
+      "versionCode": 3
     },
     "web": {
       "bundler": "metro"
