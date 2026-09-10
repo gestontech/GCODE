@@ -5,7 +5,6 @@ import HomeScreen from './src/screens/HomeScreen';
 import ProjectsScreen from './src/screens/ProjectsScreen';
 import EditorScreen from './src/screens/EditorScreen';
 import PreviewScreen from './src/screens/PreviewScreen';
-import AIScreen from './src/screens/AIScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 
 import BottomNav from './src/components/BottomNav';
@@ -81,7 +80,6 @@ export default function App() {
         projects={projects}
         onNewProject={newProject}
         onOpenProject={openProject}
-        onOpenAI={() => setScreen('ai')}
       />
     );
   }
@@ -104,7 +102,6 @@ export default function App() {
         onChange={updateProject}
         onBack={goHome}
         onPreview={() => setScreen('preview')}
-        onAI={() => setScreen('ai')}
       />
     );
   }
@@ -114,17 +111,6 @@ export default function App() {
       <PreviewScreen
         project={activeProject}
         onBack={() => setScreen('editor')}
-      />
-    );
-  }
-
-  if (screen === 'ai') {
-    content = (
-      <AIScreen
-        project={activeProject}
-        onBack={() =>
-          setScreen(activeProject ? 'editor' : 'home')
-        }
       />
     );
   }
@@ -140,8 +126,7 @@ export default function App() {
       {content}
 
       {screen !== 'editor' &&
-        screen !== 'preview' &&
-        screen !== 'ai' && (
+        screen !== 'preview' && (
           <BottomNav
             active={screen}
             onChange={setScreen}
