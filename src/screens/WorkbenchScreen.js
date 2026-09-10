@@ -5,10 +5,14 @@ import React, {
 } from 'react';
 
 import {
-  View,
-  Text,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
 
 import ActivityBar from '../components/ActivityBar';
@@ -20,15 +24,34 @@ import CodeEditor from '../components/CodeEditor';
 
 import { useTheme } from '../theme/ThemeContext';
 
+import {
+  createFile,
+  createFolder,
+  renameFile,
+  deleteFile,
+  renameFolder,
+  deleteFolder,
+  updateProjectFile,
+} from '../storage/projectStorage';
+
 export default function WorkbenchScreen({
   project,
   onChange,
   onBack,
   onPreview,
 }) {
-  const { colors, radius } = useTheme();
+  const {
+    colors,
+    radius,
+  } = useTheme();
 
-  const files = project?.files || [];
+  const files = Array.isArray(project?.files)
+    ? project.files
+    : [];
+
+  const folders = Array.isArray(project?.folders)
+    ? project.folders
+    : [];
 
   const [activeFileId, setActiveFileId] =
     useState(null);
@@ -36,6 +59,17 @@ export default function WorkbenchScreen({
   const [bottomPanel, setBottomPanel] =
     useState('terminal');
 
+  const [dialog, setDialog] = useState(null);
+
+  const [dialogValue, setDialogValue] =
+    useState('');
+
+  const [dialogTarget, setDialogTarget] =
+    useState(null);
+
+  /*
+   * Fichier actuellement ouvert
+   */
   const activeFile = useMemo(() => {
     if (!files.length) {
       return null;
@@ -43,29 +77,35 @@ export default function WorkbenchScreen({
 
     return (
       files.find(
-        (file) => file.id === activeFileId
+        (file) =>
+          file.id === activeFileId
       ) || files[0]
     );
   }, [files, activeFileId]);
 
+  /*
+   * Garantit qu'un fichier valide
+   * reste toujours sélectionné.
+   */
   useEffect(() => {
-    if (!activeFileId && files.length) {
-      setActiveFileId(files[0].id);
+    if (!files.length) {
+      setActiveFileId(null);
       return;
     }
 
-    if (
-      activeFileId &&
-      !files.some(
-        (file) => file.id === activeFileId
-      )
-    ) {
-      setActiveFileId(
-        files[0]?.id || null
-      );
+    const stillExists = files.some(
+      (file) =>
+        file.id === activeFileId
+    );
+
+    if (!activeFileId || !stillExists) {
+      setActiveFileId(files[0].id);
     }
   }, [files, activeFileId]);
 
+  /*
+   * Ouvrir un fichier
+   */
   function selectFile(file) {
     if (!file) {
       return;
@@ -74,69 +114,362 @@ export default function WorkbenchScreen({
     setActiveFileId(file.id);
   }
 
+  /*
+   * Modifier le code
+   */
   function updateCode(text) {
-    if (!activeFile) {
+    if (!activeFile || !project) {
       return;
     }
 
-    const updatedFiles = files.map((file) =>
-      file.id === activeFile.id
-        ? {
-            ...file,
-            content: text,
-          }
-        : file
-    );
-
-    const updatedProject = {
-      ...project,
-      files: updatedFiles,
-      code:
-        activeFile.name === 'index.html'
-          ? text
-          : project.code,
-    };
+    const updatedProject =
+      updateProjectFile(
+        project,
+        activeFile.id,
+        text
+      );
 
     onChange?.(updatedProject);
   }
 
+  /*
+   * Créer un fichier
+   */
+  function handleCreateFile() {
+    setDialog({
+      type: 'create-file',
+      title: 'Nouveau fichier',
+      placeholder: 'exemple.js',
+    });
+
+    setDialogValue('');
+    setDialogTarget(null);
+  }
+
+  /*
+   * Créer un dossier
+   */
+  function handleCreateFolder() {
+    setDialog({
+      type: 'create-folder',
+      title: 'Nouveau dossier',
+      placeholder: 'components',
+    });
+
+    setDialogValue('');
+    setDialogTarget(null);
+  }
+
+  /*
+   * Renommer un fichier
+   */
+  function handleRenameFile(file) {
+    if (!file) {
+      return;
+    }
+
+    setDialog({
+      type: 'rename-file',
+      title: 'Renommer le fichier',
+      placeholder: 'Nouveau nom',
+    });
+
+    setDialogValue(file.name);
+    setDialogTarget(file);
+  }
+
+  /*
+   * Supprimer un fichier
+   */
+  function handleDeleteFile(file) {
+    if (!file) {
+      return;
+    }
+
+    if (file.name === 'index.html') {
+      Alert.alert(
+        'Fichier protégé',
+        'index.html est nécessaire au Preview de GCODE et ne peut pas être supprimé.'
+      );
+
+      return;
+    }
+
+    Alert.alert(
+      'Supprimer le fichier',
+      `Voulez-vous vraiment supprimer « ${file.name} » ?`,
+      [
+        {
+          text: 'Annuler',
+          style: 'cancel',
+        },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: () => {
+            const updatedProject =
+              deleteFile(
+                project,
+                file.id
+              );
+
+            onChange?.(
+              updatedProject
+            );
+
+            if (
+              activeFileId ===
+              file.id
+            ) {
+              const nextFile =
+                updatedProject.files?.[0];
+
+              setActiveFileId(
+                nextFile?.id || null
+              );
+            }
+          },
+        },
+      ]
+    );
+  }
+
+  /*
+   * Renommer un dossier
+   */
+  function handleRenameFolder(folder) {
+    if (!folder) {
+      return;
+    }
+
+    setDialog({
+      type: 'rename-folder',
+      title: 'Renommer le dossier',
+      placeholder: 'Nouveau nom',
+    });
+
+    setDialogValue(folder.name);
+    setDialogTarget(folder);
+  }
+
+  /*
+   * Supprimer un dossier
+   */
+  function handleDeleteFolder(folder) {
+    if (!folder) {
+      return;
+    }
+
+    Alert.alert(
+      'Supprimer le dossier',
+      `Voulez-vous supprimer « ${folder.name} » et tout son contenu ?`,
+      [
+        {
+          text: 'Annuler',
+          style: 'cancel',
+        },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: () => {
+            const removedFileIds =
+              new Set(
+                project.files
+                  ?.filter(
+                    (file) =>
+                      file.folderId ===
+                      folder.id
+                  )
+                  .map(
+                    (file) =>
+                      file.id
+                  ) || []
+              );
+
+            const updatedProject =
+              deleteFolder(
+                project,
+                folder.id
+              );
+
+            onChange?.(
+              updatedProject
+            );
+
+            if (
+              activeFileId &&
+              removedFileIds.has(
+                activeFileId
+              )
+            ) {
+              setActiveFileId(
+                updatedProject
+                  .files?.[0]
+                  ?.id || null
+              );
+            }
+          },
+        },
+      ]
+    );
+  }
+
+  /*
+   * Valider une boîte de dialogue
+   */
+  function submitDialog() {
+    const value =
+      dialogValue.trim();
+
+    if (!value) {
+      return;
+    }
+
+    let updatedProject =
+      project;
+
+    if (
+      dialog?.type ===
+      'create-file'
+    ) {
+      updatedProject =
+        createFile(
+          project,
+          value,
+          '',
+          null
+        );
+
+      const createdFile =
+        updatedProject.files?.[
+          updatedProject.files.length - 1
+        ];
+
+      if (
+        createdFile &&
+        createdFile.name === value
+      ) {
+        setActiveFileId(
+          createdFile.id
+        );
+      }
+    }
+
+    if (
+      dialog?.type ===
+      'create-folder'
+    ) {
+      updatedProject =
+        createFolder(
+          project,
+          value,
+          null
+        );
+    }
+
+    if (
+      dialog?.type ===
+      'rename-file'
+    ) {
+      updatedProject =
+        renameFile(
+          project,
+          dialogTarget?.id,
+          value
+        );
+    }
+
+    if (
+      dialog?.type ===
+      'rename-folder'
+    ) {
+      updatedProject =
+        renameFolder(
+          project,
+          dialogTarget?.id,
+          value
+        );
+    }
+
+    if (
+      updatedProject !==
+      project
+    ) {
+      onChange?.(
+        updatedProject
+      );
+    }
+
+    closeDialog();
+  }
+
+  /*
+   * Fermer le dialogue
+   */
+  function closeDialog() {
+    setDialog(null);
+    setDialogValue('');
+    setDialogTarget(null);
+  }
+
+  /*
+   * Position affichée dans la barre d'état.
+   *
+   * Pour l'instant elle représente la
+   * dernière ligne du fichier.
+   */
   function getCursorPosition(text) {
     const value = text || '';
-    const lines = value.split('\n');
+
+    const lines =
+      value.split('\n');
 
     return {
       line: lines.length,
+
       column:
-        (lines[lines.length - 1]?.length || 0) +
-        1,
+        (lines[
+          lines.length - 1
+        ]?.length || 0) + 1,
     };
   }
 
-  const cursor = getCursorPosition(
-    activeFile?.content || ''
-  );
+  const cursor =
+    getCursorPosition(
+      activeFile?.content || ''
+    );
 
   const language =
     activeFile?.language ||
-    activeFile?.name?.split('.').pop() ||
+    activeFile?.name
+      ?.split('.')
+      .pop() ||
     'text';
 
   return (
-    <View
+    <KeyboardAvoidingView
       style={[
         styles.container,
         {
-          backgroundColor: colors.background,
+          backgroundColor:
+            colors.background,
         },
       ]}
+      behavior={
+        Platform.OS === 'ios'
+          ? 'padding'
+          : undefined
+      }
     >
       {/* HEADER */}
       <View
         style={[
           styles.header,
           {
-            backgroundColor: colors.panel,
-            borderBottomColor: colors.border,
+            backgroundColor:
+              colors.panel,
+            borderBottomColor:
+              colors.border,
           },
         ]}
       >
@@ -145,7 +478,8 @@ export default function WorkbenchScreen({
           style={({ pressed }) => [
             styles.backButton,
             {
-              opacity: pressed ? 0.6 : 1,
+              opacity:
+                pressed ? 0.6 : 1,
             },
           ]}
         >
@@ -153,7 +487,8 @@ export default function WorkbenchScreen({
             style={[
               styles.backIcon,
               {
-                color: colors.text,
+                color:
+                  colors.text,
               },
             ]}
           >
@@ -161,28 +496,35 @@ export default function WorkbenchScreen({
           </Text>
         </Pressable>
 
-        <View style={styles.projectInfo}>
+        <View
+          style={
+            styles.projectInfo
+          }
+        >
           <Text
             numberOfLines={1}
             style={[
               styles.projectName,
               {
-                color: colors.text,
+                color:
+                  colors.text,
               },
             ]}
           >
-            {project?.name || 'Projet sans nom'}
+            {project?.name ||
+              'Projet sans nom'}
           </Text>
 
           <Text
             style={[
               styles.projectStatus,
               {
-                color: colors.muted,
+                color:
+                  colors.muted,
               },
             ]}
           >
-            GCODE Mobile
+            GCODE Mobile V3
           </Text>
         </View>
 
@@ -191,17 +533,28 @@ export default function WorkbenchScreen({
           style={({ pressed }) => [
             styles.previewButton,
             {
-              backgroundColor: colors.purple,
-              borderRadius: radius.sm,
-              opacity: pressed ? 0.7 : 1,
+              backgroundColor:
+                colors.purple,
+              borderRadius:
+                radius.sm,
+              opacity:
+                pressed ? 0.7 : 1,
             },
           ]}
         >
-          <Text style={styles.previewText}>
+          <Text
+            style={
+              styles.previewText
+            }
+          >
             ▶
           </Text>
 
-          <Text style={styles.previewLabel}>
+          <Text
+            style={
+              styles.previewLabel
+            }
+          >
             Preview
           </Text>
         </Pressable>
@@ -212,66 +565,77 @@ export default function WorkbenchScreen({
         {/* ACTIVITY BAR */}
         <ActivityBar />
 
-        {/* MAIN AREA */}
+        {/* ZONE PRINCIPALE */}
         <View style={styles.main}>
           {/* EXPLORATEUR */}
           <View
             style={[
               styles.sidebar,
               {
-                backgroundColor: colors.panel,
-                borderRightColor: colors.border,
+                backgroundColor:
+                  colors.panel,
+                borderRightColor:
+                  colors.border,
               },
             ]}
           >
-            <View
-              style={[
-                styles.sidebarHeader,
-                {
-                  borderBottomColor: colors.border,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.sidebarTitle,
-                  {
-                    color: colors.text,
-                  },
-                ]}
-              >
-                EXPLORATEUR
-              </Text>
-            </View>
-
             <FileExplorer
               project={project}
-              activeFile={activeFile}
-              onOpenFile={selectFile}
+              activeFile={
+                activeFile
+              }
+              onOpenFile={
+                selectFile
+              }
+              onCreateFile={
+                handleCreateFile
+              }
+              onCreateFolder={
+                handleCreateFolder
+              }
+              onRenameFile={
+                handleRenameFile
+              }
+              onDeleteFile={
+                handleDeleteFile
+              }
+              onRenameFolder={
+                handleRenameFolder
+              }
+              onDeleteFolder={
+                handleDeleteFolder
+              }
             />
           </View>
 
-          {/* EDITOR */}
+          {/* ÉDITEUR */}
           <View
             style={[
               styles.editorArea,
               {
-                backgroundColor: colors.editor,
+                backgroundColor:
+                  colors.editor,
               },
             ]}
           >
             <EditorTabs
               files={files}
-              activeFile={activeFile}
-              onSelect={selectFile}
+              activeFile={
+                activeFile
+              }
+              onSelect={
+                selectFile
+              }
             />
 
             <View
               style={[
                 styles.editorHeader,
                 {
-                  backgroundColor: colors.panel,
-                  borderBottomColor: colors.border,
+                  backgroundColor:
+                    colors.panel,
+                  borderBottomColor:
+                    colors.border,
                 },
               ]}
             >
@@ -280,18 +644,21 @@ export default function WorkbenchScreen({
                 style={[
                   styles.fileName,
                   {
-                    color: colors.text,
+                    color:
+                      colors.text,
                   },
                 ]}
               >
-                {activeFile?.name || 'Aucun fichier'}
+                {activeFile?.name ||
+                  'Aucun fichier'}
               </Text>
 
               <Text
                 style={[
                   styles.language,
                   {
-                    color: colors.muted,
+                    color:
+                      colors.muted,
                   },
                 ]}
               >
@@ -299,78 +666,107 @@ export default function WorkbenchScreen({
               </Text>
             </View>
 
-            {/* VRAI ÉDITEUR */}
-            <View style={styles.editor}>
+            <View
+              style={styles.editor}
+            >
               {activeFile ? (
                 <CodeEditor
-                  value={activeFile.content || ''}
-                  language={language}
-                  onChangeText={updateCode}
+                  value={
+                    activeFile.content ||
+                    ''
+                  }
+                  language={
+                    language
+                  }
+                  onChangeText={
+                    updateCode
+                  }
                 />
               ) : (
-                <View style={styles.noFile}>
+                <View
+                  style={
+                    styles.noFile
+                  }
+                >
                   <Text
                     style={[
                       styles.noFileTitle,
                       {
-                        color: colors.text,
+                        color:
+                          colors.text,
                       },
                     ]}
                   >
-                    Aucun fichier ouvert
+                    Aucun fichier
                   </Text>
 
                   <Text
                     style={[
                       styles.noFileText,
                       {
-                        color: colors.muted,
+                        color:
+                          colors.muted,
                       },
                     ]}
                   >
-                    Sélectionne un fichier dans
+                    Crée un fichier
+                    depuis
                     l'explorateur.
                   </Text>
                 </View>
               )}
             </View>
 
-            {/* TOOLBAR */}
+            {/* BARRE OUTILS */}
             <View
               style={[
                 styles.toolbar,
                 {
-                  backgroundColor: colors.panel,
-                  borderTopColor: colors.border,
+                  backgroundColor:
+                    colors.panel,
+                  borderTopColor:
+                    colors.border,
                 },
               ]}
             >
               <Tool
-                label="↶"
-                colors={colors}
-                onPress={() => {}}
-              />
-
-              <Tool
-                label="↷"
-                colors={colors}
-                onPress={() => {}}
-              />
-
-              <Tool
                 label="⌕"
                 colors={colors}
                 onPress={() =>
-                  setBottomPanel('problems')
+                  setBottomPanel(
+                    'problems'
+                  )
                 }
               />
 
-              <View style={styles.toolbarSpacer} />
+              <Tool
+                label="＋"
+                colors={colors}
+                onPress={
+                  handleCreateFile
+                }
+              />
+
+              <Tool
+                label="□"
+                colors={colors}
+                onPress={
+                  handleCreateFolder
+                }
+              />
+
+              <View
+                style={
+                  styles.toolbarSpacer
+                }
+              />
 
               <Tool
                 label="▶"
                 colors={colors}
-                onPress={onPreview}
+                onPress={
+                  onPreview
+                }
                 active
               />
             </View>
@@ -378,19 +774,25 @@ export default function WorkbenchScreen({
         </View>
       </View>
 
-      {/* BOTTOM PANEL */}
+      {/* TERMINAL / PROBLÈMES */}
       <View
         style={[
           styles.bottom,
           {
-            backgroundColor: colors.panel,
-            borderTopColor: colors.border,
+            backgroundColor:
+              colors.panel,
+            borderTopColor:
+              colors.border,
           },
         ]}
       >
         <BottomPanel
-          active={bottomPanel}
-          onChange={setBottomPanel}
+          active={
+            bottomPanel
+          }
+          onChange={
+            setBottomPanel
+          }
           project={project}
         />
       </View>
@@ -401,7 +803,135 @@ export default function WorkbenchScreen({
         line={cursor.line}
         column={cursor.column}
       />
-    </View>
+
+      {/* DIALOGUE MOBILE */}
+      {dialog && (
+        <View
+          style={[
+            styles.modalOverlay,
+            {
+              backgroundColor:
+                'rgba(0,0,0,0.65)',
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.modal,
+              {
+                backgroundColor:
+                  colors.panel,
+                borderColor:
+                  colors.border,
+                borderRadius:
+                  radius.lg,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.modalTitle,
+                {
+                  color:
+                    colors.text,
+                },
+              ]}
+            >
+              {dialog.title}
+            </Text>
+
+            <TextInput
+              value={
+                dialogValue
+              }
+              onChangeText={
+                setDialogValue
+              }
+              placeholder={
+                dialog.placeholder
+              }
+              placeholderTextColor={
+                colors.muted
+              }
+              autoFocus
+              selectTextOnFocus
+              onSubmitEditing={
+                submitDialog
+              }
+              style={[
+                styles.modalInput,
+                {
+                  color:
+                    colors.text,
+                  backgroundColor:
+                    colors.panel2,
+                  borderColor:
+                    colors.border,
+                },
+              ]}
+            />
+
+            <View
+              style={
+                styles.modalActions
+              }
+            >
+              <Pressable
+                onPress={
+                  closeDialog
+                }
+                style={[
+                  styles.modalButton,
+                  {
+                    borderColor:
+                      colors.border,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.modalButtonText,
+                    {
+                      color:
+                        colors.text,
+                    },
+                  ]}
+                >
+                  Annuler
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={
+                  submitDialog
+                }
+                style={[
+                  styles.modalButton,
+                  {
+                    backgroundColor:
+                      colors.purple,
+                    borderColor:
+                      colors.purple,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.modalButtonText,
+                    {
+                      color:
+                        '#ffffff',
+                    },
+                  ]}
+                >
+                  Valider
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      )}
+    </KeyboardAvoidingView>
   );
 }
 
@@ -417,10 +947,12 @@ function Tool({
       style={({ pressed }) => [
         styles.tool,
         {
-          backgroundColor: active
-            ? colors.purple
-            : colors.panel2,
-          opacity: pressed ? 0.6 : 1,
+          backgroundColor:
+            active
+              ? colors.purple
+              : colors.panel2,
+          opacity:
+            pressed ? 0.6 : 1,
         },
       ]}
     >
@@ -514,19 +1046,6 @@ const styles = StyleSheet.create({
     borderRightWidth: 1,
   },
 
-  sidebarHeader: {
-    height: 38,
-    borderBottomWidth: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-  },
-
-  sidebarTitle: {
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 0.8,
-  },
-
   editorArea: {
     flex: 1,
   },
@@ -602,5 +1121,59 @@ const styles = StyleSheet.create({
   bottom: {
     borderTopWidth: 1,
     minHeight: 50,
+  },
+
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+
+  modal: {
+    width: '100%',
+    maxWidth: 420,
+    padding: 20,
+    borderWidth: 1,
+    elevation: 12,
+  },
+
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    marginBottom: 16,
+  },
+
+  modalInput: {
+    minHeight: 48,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    fontSize: 15,
+  },
+
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginTop: 18,
+  },
+
+  modalButton: {
+    minHeight: 44,
+    paddingHorizontal: 18,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  modalButtonText: {
+    fontSize: 13,
+    fontWeight: '800',
   },
 });
