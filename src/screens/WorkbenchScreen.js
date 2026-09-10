@@ -34,27 +34,74 @@ import {
   updateProjectFile,
 } from '../storage/projectStorage';
 
+function getCursorPosition(text, offset = 0) {
+  const value = text || '';
+
+  const safeOffset = Math.max(
+    0,
+    Math.min(offset ?? 0, value.length),
+  );
+
+  const beforeCursor = value.slice(
+    0,
+    safeOffset,
+  );
+
+  const lines = beforeCursor.split('\n');
+
+  return {
+    line: lines.length,
+    column:
+      (lines[lines.length - 1] || '').length + 1,
+  };
+}
+
+function getLanguage(file) {
+  if (!file) {
+    return 'text';
+  }
+
+  if (file.language) {
+    return file.language;
+  }
+
+  const name = file.name || '';
+  const extension =
+    name.split('.').pop()?.toLowerCase() || '';
+
+  const languages = {
+    html: 'html',
+    htm: 'html',
+    css: 'css',
+    js: 'javascript',
+    jsx: 'javascript',
+    ts: 'typescript',
+    tsx: 'typescript',
+    json: 'json',
+    md: 'markdown',
+    txt: 'text',
+  };
+
+  return languages[extension] || extension || 'text';
+}
+
 export default function WorkbenchScreen({
   project,
   onChange,
   onBack,
   onPreview,
 }) {
-  const {
-    colors,
-    radius,
-  } = useTheme();
+  const { colors } = useTheme();
 
-  const files = Array.isArray(project?.files)
-    ? project.files
-    : [];
+  const files = project?.files || [];
+  const folders = project?.folders || [];
 
-  const folders = Array.isArray(project?.folders)
-    ? project.folders
-    : [];
+  const [activeFileId, setActiveFileId] = useState(
+    files[0]?.id || null,
+  );
 
-  const [activeFileId, setActiveFileId] =
-    useState(null);
+  const [activeActivity, setActiveActivity] =
+    useState('explorer');
 
   const [bottomPanel, setBottomPanel] =
     useState('terminal');
@@ -64,124 +111,258 @@ export default function WorkbenchScreen({
   const [dialogValue, setDialogValue] =
     useState('');
 
-  const [dialogTarget, setDialogTarget] =
-    useState(null);
+  const [cursorSelection, setCursorSelection] =
+    useState({
+      start: 0,
+      end: 0,
+    });
 
-  /*
-   * Fichier actuellement ouvert
-   */
   const activeFile = useMemo(() => {
-    if (!files.length) {
-      return null;
-    }
-
     return (
       files.find(
-        (file) =>
-          file.id === activeFileId
-      ) || files[0]
+        (file) => file.id === activeFileId,
+      ) || files[0] || null
     );
   }, [files, activeFileId]);
 
-  /*
-   * Garantit qu'un fichier valide
-   * reste toujours sélectionné.
-   */
   useEffect(() => {
-    if (!files.length) {
-      setActiveFileId(null);
+    if (!activeFileId && files[0]) {
+      setActiveFileId(files[0].id);
       return;
     }
 
-    const stillExists = files.some(
-      (file) =>
-        file.id === activeFileId
+    const exists = files.some(
+      (file) => file.id === activeFileId,
     );
 
-    if (!activeFileId || !stillExists) {
+    if (!exists && files[0]) {
       setActiveFileId(files[0].id);
     }
   }, [files, activeFileId]);
 
-  /*
-   * Ouvrir un fichier
-   */
-  function selectFile(file) {
+  useEffect(() => {
+    setCursorSelection({
+      start: 0,
+      end: 0,
+    });
+  }, [activeFileId]);
+
+  useEffect(() => {
+    const content = activeFile?.content || '';
+
+    const maxPosition = content.length;
+
+    if (
+      cursorSelection.start > maxPosition ||
+      cursorSelection.end > maxPosition
+    ) {
+      const position = Math.min(
+        cursorSelection.start,
+        maxPosition,
+      );
+
+      setCursorSelection({
+        start: position,
+        end: position,
+      });
+    }
+  }, [
+    activeFile?.id,
+    activeFile?.content,
+    cursorSelection.start,
+    cursorSelection.end,
+  ]);
+
+  const updateProject = (updatedProject) => {
+    if (!updatedProject) {
+      return;
+    }
+
+    onChange?.(updatedProject);
+  };
+
+  const updateCode = (text) => {
+    if (!project || !activeFile) {
+      return;
+    }
+
+    const updatedProject = updateProjectFile(
+      project,
+      activeFile.id,
+      text,
+    );
+
+    updateProject(updatedProject);
+  };
+
+  const handleSelectionChange = (
+    nextSelection,
+  ) => {
+    if (!nextSelection) {
+      return;
+    }
+
+    setCursorSelection({
+      start: nextSelection.start ?? 0,
+      end: nextSelection.end ?? nextSelection.start ?? 0,
+    });
+  };
+
+  const openFile = (file) => {
     if (!file) {
       return;
     }
 
     setActiveFileId(file.id);
-  }
 
-  /*
-   * Modifier le code
-   */
-  function updateCode(text) {
-    if (!activeFile || !project) {
-      return;
-    }
+    setCursorSelection({
+      start: 0,
+      end: 0,
+    });
+  };
 
-    const updatedProject =
-      updateProjectFile(
-        project,
-        activeFile.id,
-        text
-      );
-
-    onChange?.(updatedProject);
-  }
-
-  /*
-   * Créer un fichier
-   */
-  function handleCreateFile() {
+  const openCreateDialog = (type) => {
     setDialog({
-      type: 'create-file',
-      title: 'Nouveau fichier',
-      placeholder: 'exemple.js',
+      type,
+      mode: 'create',
+      target: null,
     });
 
     setDialogValue('');
-    setDialogTarget(null);
-  }
+  };
 
-  /*
-   * Créer un dossier
-   */
-  function handleCreateFolder() {
-    setDialog({
-      type: 'create-folder',
-      title: 'Nouveau dossier',
-      placeholder: 'components',
-    });
-
-    setDialogValue('');
-    setDialogTarget(null);
-  }
-
-  /*
-   * Renommer un fichier
-   */
-  function handleRenameFile(file) {
+  const openRenameFileDialog = (file) => {
     if (!file) {
       return;
     }
 
     setDialog({
-      type: 'rename-file',
-      title: 'Renommer le fichier',
-      placeholder: 'Nouveau nom',
+      type: 'file',
+      mode: 'rename',
+      target: file,
     });
 
-    setDialogValue(file.name);
-    setDialogTarget(file);
-  }
+    setDialogValue(file.name || '');
+  };
 
-  /*
-   * Supprimer un fichier
-   */
-  function handleDeleteFile(file) {
+  const openRenameFolderDialog = (folder) => {
+    if (!folder) {
+      return;
+    }
+
+    setDialog({
+      type: 'folder',
+      mode: 'rename',
+      target: folder,
+    });
+
+    setDialogValue(folder.name || '');
+  };
+
+  const closeDialog = () => {
+    setDialog(null);
+    setDialogValue('');
+  };
+
+  const submitDialog = () => {
+    const value = dialogValue.trim();
+
+    if (!value) {
+      return;
+    }
+
+    if (!dialog) {
+      return;
+    }
+
+    try {
+      let updatedProject = project;
+
+      if (
+        dialog.mode === 'create' &&
+        dialog.type === 'file'
+      ) {
+        const exists = files.some(
+          (file) =>
+            file.name.toLowerCase() ===
+            value.toLowerCase(),
+        );
+
+        if (exists) {
+          Alert.alert(
+            'Fichier existant',
+            `Le fichier "${value}" existe déjà.`,
+          );
+          return;
+        }
+
+        updatedProject = createFile(
+          project,
+          value,
+          '',
+          null,
+        );
+      }
+
+      if (
+        dialog.mode === 'create' &&
+        dialog.type === 'folder'
+      ) {
+        const exists = folders.some(
+          (folder) =>
+            folder.name.toLowerCase() ===
+            value.toLowerCase(),
+        );
+
+        if (exists) {
+          Alert.alert(
+            'Dossier existant',
+            `Le dossier "${value}" existe déjà.`,
+          );
+          return;
+        }
+
+        updatedProject = createFolder(
+          project,
+          value,
+          null,
+        );
+      }
+
+      if (
+        dialog.mode === 'rename' &&
+        dialog.type === 'file'
+      ) {
+        updatedProject = renameFile(
+          project,
+          dialog.target.id,
+          value,
+        );
+      }
+
+      if (
+        dialog.mode === 'rename' &&
+        dialog.type === 'folder'
+      ) {
+        updatedProject = renameFolder(
+          project,
+          dialog.target.id,
+          value,
+        );
+      }
+
+      updateProject(updatedProject);
+      closeDialog();
+    } catch (error) {
+      Alert.alert(
+        'Erreur',
+        error?.message ||
+          'Impossible de modifier le projet.',
+      );
+    }
+  };
+
+  const handleDeleteFile = (file) => {
     if (!file) {
       return;
     }
@@ -189,15 +370,14 @@ export default function WorkbenchScreen({
     if (file.name === 'index.html') {
       Alert.alert(
         'Fichier protégé',
-        'index.html est nécessaire au Preview de GCODE et ne peut pas être supprimé.'
+        'index.html est nécessaire au fonctionnement du projet et ne peut pas être supprimé.',
       );
-
       return;
     }
 
     Alert.alert(
       'Supprimer le fichier',
-      `Voulez-vous vraiment supprimer « ${file.name} » ?`,
+      `Voulez-vous supprimer "${file.name}" ?`,
       [
         {
           text: 'Annuler',
@@ -207,62 +387,43 @@ export default function WorkbenchScreen({
           text: 'Supprimer',
           style: 'destructive',
           onPress: () => {
-            const updatedProject =
-              deleteFile(
+            try {
+              const updatedProject = deleteFile(
                 project,
-                file.id
+                file.id,
               );
 
-            onChange?.(
-              updatedProject
-            );
+              updateProject(updatedProject);
 
-            if (
-              activeFileId ===
-              file.id
-            ) {
-              const nextFile =
-                updatedProject.files?.[0];
+              if (file.id === activeFileId) {
+                const remainingFiles =
+                  updatedProject?.files || [];
 
-              setActiveFileId(
-                nextFile?.id || null
+                setActiveFileId(
+                  remainingFiles[0]?.id || null,
+                );
+              }
+            } catch (error) {
+              Alert.alert(
+                'Erreur',
+                error?.message ||
+                  'Impossible de supprimer le fichier.',
               );
             }
           },
         },
-      ]
+      ],
     );
-  }
+  };
 
-  /*
-   * Renommer un dossier
-   */
-  function handleRenameFolder(folder) {
-    if (!folder) {
-      return;
-    }
-
-    setDialog({
-      type: 'rename-folder',
-      title: 'Renommer le dossier',
-      placeholder: 'Nouveau nom',
-    });
-
-    setDialogValue(folder.name);
-    setDialogTarget(folder);
-  }
-
-  /*
-   * Supprimer un dossier
-   */
-  function handleDeleteFolder(folder) {
+  const handleDeleteFolder = (folder) => {
     if (!folder) {
       return;
     }
 
     Alert.alert(
       'Supprimer le dossier',
-      `Voulez-vous supprimer « ${folder.name} » et tout son contenu ?`,
+      `Voulez-vous supprimer "${folder.name}" et son contenu ?`,
       [
         {
           text: 'Annuler',
@@ -272,187 +433,58 @@ export default function WorkbenchScreen({
           text: 'Supprimer',
           style: 'destructive',
           onPress: () => {
-            const removedFileIds =
-              new Set(
-                project.files
-                  ?.filter(
-                    (file) =>
-                      file.folderId ===
-                      folder.id
-                  )
-                  .map(
-                    (file) =>
-                      file.id
-                  ) || []
-              );
+            try {
+              const updatedProject =
+                deleteFolder(
+                  project,
+                  folder.id,
+                );
 
-            const updatedProject =
-              deleteFolder(
-                project,
-                folder.id
-              );
+              updateProject(updatedProject);
 
-            onChange?.(
-              updatedProject
-            );
+              const remainingFiles =
+                updatedProject?.files || [];
 
-            if (
-              activeFileId &&
-              removedFileIds.has(
-                activeFileId
-              )
-            ) {
-              setActiveFileId(
-                updatedProject
-                  .files?.[0]
-                  ?.id || null
+              const activeStillExists =
+                remainingFiles.some(
+                  (file) =>
+                    file.id === activeFileId,
+                );
+
+              if (!activeStillExists) {
+                setActiveFileId(
+                  remainingFiles[0]?.id || null,
+                );
+              }
+            } catch (error) {
+              Alert.alert(
+                'Erreur',
+                error?.message ||
+                  'Impossible de supprimer le dossier.',
               );
             }
           },
         },
-      ]
+      ],
     );
-  }
+  };
 
-  /*
-   * Valider une boîte de dialogue
-   */
-  function submitDialog() {
-    const value =
-      dialogValue.trim();
+  const cursor = getCursorPosition(
+    activeFile?.content || '',
+    cursorSelection.start,
+  );
 
-    if (!value) {
-      return;
-    }
+  const language = getLanguage(activeFile);
 
-    let updatedProject =
-      project;
-
-    if (
-      dialog?.type ===
-      'create-file'
-    ) {
-      updatedProject =
-        createFile(
-          project,
-          value,
-          '',
-          null
-        );
-
-      const createdFile =
-        updatedProject.files?.[
-          updatedProject.files.length - 1
-        ];
-
-      if (
-        createdFile &&
-        createdFile.name === value
-      ) {
-        setActiveFileId(
-          createdFile.id
-        );
-      }
-    }
-
-    if (
-      dialog?.type ===
-      'create-folder'
-    ) {
-      updatedProject =
-        createFolder(
-          project,
-          value,
-          null
-        );
-    }
-
-    if (
-      dialog?.type ===
-      'rename-file'
-    ) {
-      updatedProject =
-        renameFile(
-          project,
-          dialogTarget?.id,
-          value
-        );
-    }
-
-    if (
-      dialog?.type ===
-      'rename-folder'
-    ) {
-      updatedProject =
-        renameFolder(
-          project,
-          dialogTarget?.id,
-          value
-        );
-    }
-
-    if (
-      updatedProject !==
-      project
-    ) {
-      onChange?.(
-        updatedProject
-      );
-    }
-
-    closeDialog();
-  }
-
-  /*
-   * Fermer le dialogue
-   */
-  function closeDialog() {
-    setDialog(null);
-    setDialogValue('');
-    setDialogTarget(null);
-  }
-
-  /*
-   * Position affichée dans la barre d'état.
-   *
-   * Pour l'instant elle représente la
-   * dernière ligne du fichier.
-   */
-  function getCursorPosition(text) {
-    const value = text || '';
-
-    const lines =
-      value.split('\n');
-
-    return {
-      line: lines.length,
-
-      column:
-        (lines[
-          lines.length - 1
-        ]?.length || 0) + 1,
-    };
-  }
-
-  const cursor =
-    getCursorPosition(
-      activeFile?.content || ''
-    );
-
-  const language =
-    activeFile?.language ||
-    activeFile?.name
-      ?.split('.')
-      .pop() ||
-    'text';
+  const projectName =
+    project?.name || 'Projet sans nom';
 
   return (
     <KeyboardAvoidingView
       style={[
         styles.container,
         {
-          backgroundColor:
-            colors.background,
+          backgroundColor: colors.background,
         },
       ]}
       behavior={
@@ -466,345 +498,326 @@ export default function WorkbenchScreen({
         style={[
           styles.header,
           {
-            backgroundColor:
-              colors.panel,
-            borderBottomColor:
-              colors.border,
+            backgroundColor: colors.panel,
+            borderBottomColor: colors.border,
           },
         ]}
       >
         <Pressable
           onPress={onBack}
           style={({ pressed }) => [
-            styles.backButton,
+            styles.headerButton,
             {
-              opacity:
-                pressed ? 0.6 : 1,
+              opacity: pressed ? 0.6 : 1,
             },
           ]}
         >
           <Text
             style={[
-              styles.backIcon,
-              {
-                color:
-                  colors.text,
-              },
+              styles.headerButtonText,
+              { color: colors.text },
             ]}
           >
             ‹
           </Text>
         </Pressable>
 
-        <View
-          style={
-            styles.projectInfo
-          }
-        >
+        <View style={styles.headerTitleArea}>
           <Text
             numberOfLines={1}
             style={[
               styles.projectName,
-              {
-                color:
-                  colors.text,
-              },
+              { color: colors.text },
             ]}
           >
-            {project?.name ||
-              'Projet sans nom'}
+            {projectName}
           </Text>
 
           <Text
+            numberOfLines={1}
             style={[
-              styles.projectStatus,
-              {
-                color:
-                  colors.muted,
-              },
+              styles.fileName,
+              { color: colors.muted },
             ]}
           >
-            GCODE Mobile V3
+            {activeFile?.name || 'Aucun fichier'}
           </Text>
         </View>
+
+        <Pressable
+          onPress={() => openCreateDialog('file')}
+          style={({ pressed }) => [
+            styles.headerAction,
+            {
+              opacity: pressed ? 0.6 : 1,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.actionText,
+              { color: colors.text },
+            ]}
+          >
+            +
+          </Text>
+        </Pressable>
+
+        <Pressable
+          onPress={() => openCreateDialog('folder')}
+          style={({ pressed }) => [
+            styles.headerAction,
+            {
+              opacity: pressed ? 0.6 : 1,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.actionText,
+              { color: colors.text },
+            ]}
+          >
+            ▱
+          </Text>
+        </Pressable>
 
         <Pressable
           onPress={onPreview}
           style={({ pressed }) => [
             styles.previewButton,
             {
-              backgroundColor:
-                colors.purple,
-              borderRadius:
-                radius.sm,
-              opacity:
-                pressed ? 0.7 : 1,
+              backgroundColor: colors.purple,
+              opacity: pressed ? 0.7 : 1,
             },
           ]}
         >
           <Text
-            style={
-              styles.previewText
-            }
+            style={[
+              styles.previewText,
+              { color: '#ffffff' },
+            ]}
           >
             ▶
-          </Text>
-
-          <Text
-            style={
-              styles.previewLabel
-            }
-          >
-            Preview
           </Text>
         </Pressable>
       </View>
 
-      {/* IDE */}
-      <View style={styles.ide}>
+      {/* CORPS */}
+      <View style={styles.body}>
         {/* ACTIVITY BAR */}
-        <ActivityBar />
+        <ActivityBar
+          active={activeActivity}
+          onChange={setActiveActivity}
+        />
 
-        {/* ZONE PRINCIPALE */}
-        <View style={styles.main}>
-          {/* EXPLORATEUR */}
+        {/* SIDEBAR */}
+        {activeActivity === 'explorer' && (
           <View
             style={[
               styles.sidebar,
               {
-                backgroundColor:
-                  colors.panel,
-                borderRightColor:
-                  colors.border,
+                backgroundColor: colors.panel,
+                borderRightColor: colors.border,
               },
             ]}
           >
-            <FileExplorer
-              project={project}
-              activeFile={
-                activeFile
-              }
-              onOpenFile={
-                selectFile
-              }
-              onCreateFile={
-                handleCreateFile
-              }
-              onCreateFolder={
-                handleCreateFolder
-              }
-              onRenameFile={
-                handleRenameFile
-              }
-              onDeleteFile={
-                handleDeleteFile
-              }
-              onRenameFolder={
-                handleRenameFolder
-              }
-              onDeleteFolder={
-                handleDeleteFolder
-              }
-            />
-          </View>
-
-          {/* ÉDITEUR */}
-          <View
-            style={[
-              styles.editorArea,
-              {
-                backgroundColor:
-                  colors.editor,
-              },
-            ]}
-          >
-            <EditorTabs
-              files={files}
-              activeFile={
-                activeFile
-              }
-              onSelect={
-                selectFile
-              }
-            />
-
             <View
               style={[
-                styles.editorHeader,
+                styles.sidebarHeader,
                 {
-                  backgroundColor:
-                    colors.panel,
                   borderBottomColor:
                     colors.border,
                 },
               ]}
             >
               <Text
-                numberOfLines={1}
                 style={[
-                  styles.fileName,
-                  {
-                    color:
-                      colors.text,
-                  },
+                  styles.sidebarTitle,
+                  { color: colors.text },
                 ]}
               >
-                {activeFile?.name ||
-                  'Aucun fichier'}
+                EXPLORATEUR
+              </Text>
+
+              <View style={styles.sidebarActions}>
+                <Pressable
+                  onPress={() =>
+                    openCreateDialog('file')
+                  }
+                  style={styles.smallButton}
+                >
+                  <Text
+                    style={[
+                      styles.smallButtonText,
+                      { color: colors.text },
+                    ]}
+                  >
+                    +
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={() =>
+                    openCreateDialog('folder')
+                  }
+                  style={styles.smallButton}
+                >
+                  <Text
+                    style={[
+                      styles.smallButtonText,
+                      { color: colors.text },
+                    ]}
+                  >
+                    ▱
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+
+            <FileExplorer
+              project={project}
+              activeFile={activeFile}
+              onOpenFile={openFile}
+              onCreateFile={() =>
+                openCreateDialog('file')
+              }
+              onCreateFolder={() =>
+                openCreateDialog('folder')
+              }
+              onRenameFile={
+                openRenameFileDialog
+              }
+              onDeleteFile={
+                handleDeleteFile
+              }
+              onRenameFolder={
+                openRenameFolderDialog
+              }
+              onDeleteFolder={
+                handleDeleteFolder
+              }
+            />
+          </View>
+        )}
+
+        {/* AUTRES OUTILS */}
+        {activeActivity !== 'explorer' && (
+          <View
+            style={[
+              styles.toolSidebar,
+              {
+                backgroundColor: colors.panel,
+                borderRightColor: colors.border,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.toolSidebarTitle,
+                { color: colors.text },
+              ]}
+            >
+              {activeActivity === 'search'
+                ? 'RECHERCHE'
+                : activeActivity === 'git'
+                  ? 'GIT'
+                  : activeActivity === 'run'
+                    ? 'EXÉCUTER'
+                    : activeActivity ===
+                        'extensions'
+                      ? 'EXTENSIONS'
+                      : 'PARAMÈTRES'}
+            </Text>
+
+            <Text
+              style={[
+                styles.toolSidebarText,
+                { color: colors.muted },
+              ]}
+            >
+              Cette section est prête pour les fonctions
+              correspondantes de GCODE Mobile.
+            </Text>
+          </View>
+        )}
+
+        {/* ÉDITEUR */}
+        <View style={styles.editorColumn}>
+          <EditorTabs
+            files={files}
+            activeFile={activeFile}
+            onSelect={openFile}
+          />
+
+          {activeFile ? (
+            <CodeEditor
+              value={activeFile.content || ''}
+              language={language}
+              onChangeText={updateCode}
+              onSelectionChange={
+                handleSelectionChange
+              }
+            />
+          ) : (
+            <View
+              style={[
+                styles.emptyEditor,
+                {
+                  backgroundColor:
+                    colors.editor,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.emptyTitle,
+                  { color: colors.text },
+                ]}
+              >
+                Aucun fichier ouvert
               </Text>
 
               <Text
                 style={[
-                  styles.language,
-                  {
-                    color:
-                      colors.muted,
-                  },
+                  styles.emptyText,
+                  { color: colors.muted },
                 ]}
               >
-                {language}
+                Crée un fichier pour commencer.
               </Text>
             </View>
+          )}
 
-            <View
-              style={styles.editor}
-            >
-              {activeFile ? (
-                <CodeEditor
-                  value={
-                    activeFile.content ||
-                    ''
-                  }
-                  language={
-                    language
-                  }
-                  onChangeText={
-                    updateCode
-                  }
-                />
-              ) : (
-                <View
-                  style={
-                    styles.noFile
-                  }
-                >
-                  <Text
-                    style={[
-                      styles.noFileTitle,
-                      {
-                        color:
-                          colors.text,
-                      },
-                    ]}
-                  >
-                    Aucun fichier
-                  </Text>
-
-                  <Text
-                    style={[
-                      styles.noFileText,
-                      {
-                        color:
-                          colors.muted,
-                      },
-                    ]}
-                  >
-                    Crée un fichier
-                    depuis
-                    l'explorateur.
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            {/* BARRE OUTILS */}
-            <View
-              style={[
-                styles.toolbar,
-                {
-                  backgroundColor:
-                    colors.panel,
-                  borderTopColor:
-                    colors.border,
-                },
-              ]}
-            >
-              <Tool
-                label="⌕"
-                colors={colors}
-                onPress={() =>
-                  setBottomPanel(
-                    'problems'
-                  )
-                }
-              />
-
-              <Tool
-                label="＋"
-                colors={colors}
-                onPress={
-                  handleCreateFile
-                }
-              />
-
-              <Tool
-                label="□"
-                colors={colors}
-                onPress={
-                  handleCreateFolder
-                }
-              />
-
-              <View
-                style={
-                  styles.toolbarSpacer
-                }
-              />
-
-              <Tool
-                label="▶"
-                colors={colors}
-                onPress={
-                  onPreview
-                }
-                active
-              />
-            </View>
+          {/* BOTTOM PANEL */}
+          <View
+            style={[
+              styles.bottomPanel,
+              {
+                borderTopColor: colors.border,
+              },
+            ]}
+          >
+            <BottomPanel
+              active={bottomPanel}
+              onChange={setBottomPanel}
+              project={project}
+            />
           </View>
+
+          {/* STATUS BAR */}
+          <StatusBar
+            language={language}
+            line={cursor.line}
+            column={cursor.column}
+            branch="main"
+            encoding="UTF-8"
+            spaces={2}
+          />
         </View>
       </View>
 
-      {/* TERMINAL / PROBLÈMES */}
-      <View
-        style={[
-          styles.bottom,
-          {
-            backgroundColor:
-              colors.panel,
-            borderTopColor:
-              colors.border,
-          },
-        ]}
-      >
-        <BottomPanel
-          active={
-            bottomPanel
-          }
-          onChange={
-            setBottomPanel
-          }
-          project={project}
-        />
-      </View>
-
-      {/* STATUS BAR */}
-      <StatusBar
-        language={language}
-        line={cursor.line}
-        column={cursor.column}
-      />
-
-      {/* DIALOGUE MOBILE */}
+      {/* DIALOGUE */}
       {dialog && (
         <View
           style={[
@@ -819,82 +832,72 @@ export default function WorkbenchScreen({
             style={[
               styles.modal,
               {
-                backgroundColor:
-                  colors.panel,
-                borderColor:
-                  colors.border,
-                borderRadius:
-                  radius.lg,
+                backgroundColor: colors.panel,
+                borderColor: colors.border,
               },
             ]}
           >
             <Text
               style={[
                 styles.modalTitle,
-                {
-                  color:
-                    colors.text,
-                },
+                { color: colors.text },
               ]}
             >
-              {dialog.title}
+              {dialog.mode === 'create'
+                ? dialog.type === 'file'
+                  ? 'Nouveau fichier'
+                  : 'Nouveau dossier'
+                : dialog.type === 'file'
+                  ? 'Renommer le fichier'
+                  : 'Renommer le dossier'}
             </Text>
 
             <TextInput
-              value={
-                dialogValue
-              }
-              onChangeText={
-                setDialogValue
-              }
+              value={dialogValue}
+              onChangeText={setDialogValue}
+              autoFocus
               placeholder={
-                dialog.placeholder
+                dialog.type === 'file'
+                  ? 'nom-du-fichier'
+                  : 'nom-du-dossier'
               }
               placeholderTextColor={
                 colors.muted
               }
-              autoFocus
-              selectTextOnFocus
-              onSubmitEditing={
-                submitDialog
-              }
               style={[
                 styles.modalInput,
                 {
-                  color:
-                    colors.text,
                   backgroundColor:
                     colors.panel2,
                   borderColor:
                     colors.border,
+                  color: colors.text,
                 },
               ]}
+              onSubmitEditing={
+                submitDialog
+              }
+              returnKeyType="done"
             />
 
-            <View
-              style={
-                styles.modalActions
-              }
-            >
+            <View style={styles.modalActions}>
               <Pressable
-                onPress={
-                  closeDialog
-                }
-                style={[
+                onPress={closeDialog}
+                style={({ pressed }) => [
                   styles.modalButton,
                   {
+                    backgroundColor:
+                      colors.panel2,
                     borderColor:
                       colors.border,
+                    opacity: pressed ? 0.7 : 1,
                   },
                 ]}
               >
                 <Text
                   style={[
                     styles.modalButtonText,
-                    {
-                      color:
-                        colors.text,
-                    },
+                    { color: colors.text },
                   ]}
                 >
                   Annuler
@@ -902,26 +905,22 @@ export default function WorkbenchScreen({
               </Pressable>
 
               <Pressable
-                onPress={
-                  submitDialog
-                }
-                style={[
+                onPress={submitDialog}
+                style={({ pressed }) => [
                   styles.modalButton,
                   {
                     backgroundColor:
                       colors.purple,
                     borderColor:
                       colors.purple,
+                    opacity: pressed ? 0.7 : 1,
                   },
                 ]}
               >
                 <Text
                   style={[
                     styles.modalButtonText,
-                    {
-                      color:
-                        '#ffffff',
-                    },
+                    { color: '#ffffff' },
                   ]}
                 >
                   Valider
@@ -935,245 +934,212 @@ export default function WorkbenchScreen({
   );
 }
 
-function Tool({
-  label,
-  colors,
-  onPress,
-  active = false,
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.tool,
-        {
-          backgroundColor:
-            active
-              ? colors.purple
-              : colors.panel2,
-          opacity:
-            pressed ? 0.6 : 1,
-        },
-      ]}
-    >
-      <Text
-        style={[
-          styles.toolText,
-          {
-            color: active
-              ? '#ffffff'
-              : colors.text,
-          },
-        ]}
-      >
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
 
   header: {
-    height: 58,
-    borderBottomWidth: 1,
+    height: 56,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    paddingHorizontal: 6,
   },
 
-  backButton: {
+  headerButton: {
     width: 42,
-    height: 42,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
-  backIcon: {
+  headerButtonText: {
     fontSize: 34,
     fontWeight: '300',
+    lineHeight: 38,
   },
 
-  projectInfo: {
+  headerTitleArea: {
     flex: 1,
-    marginLeft: 4,
+    minWidth: 0,
+    paddingHorizontal: 5,
   },
 
   projectName: {
-    fontSize: 14,
-    fontWeight: '900',
+    fontSize: 13,
+    fontWeight: '700',
   },
 
-  projectStatus: {
+  fileName: {
     fontSize: 10,
     marginTop: 2,
   },
 
-  previewButton: {
-    minHeight: 38,
-    paddingHorizontal: 12,
-    flexDirection: 'row',
+  headerAction: {
+    width: 38,
+    height: 40,
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'center',
+  },
+
+  actionText: {
+    fontSize: 22,
+    fontWeight: '600',
+  },
+
+  previewButton: {
+    width: 42,
+    height: 36,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 3,
   },
 
   previewText: {
-    color: '#ffffff',
-    fontSize: 12,
+    fontSize: 14,
+    fontWeight: '800',
   },
 
-  previewLabel: {
-    color: '#ffffff',
-    fontSize: 11,
-    fontWeight: '900',
-  },
-
-  ide: {
+  body: {
     flex: 1,
-    flexDirection: 'row',
-  },
-
-  main: {
-    flex: 1,
+    minHeight: 0,
     flexDirection: 'row',
   },
 
   sidebar: {
-    width: 170,
+    width: 220,
+    minWidth: 180,
+    maxWidth: 260,
     borderRightWidth: 1,
   },
 
-  editorArea: {
-    flex: 1,
-  },
-
-  editorHeader: {
-    height: 35,
-    borderBottomWidth: 1,
-    paddingHorizontal: 12,
+  sidebarHeader: {
+    height: 42,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 9,
+    borderBottomWidth: 1,
   },
 
-  fileName: {
-    fontSize: 11,
-    fontWeight: '700',
-    flex: 1,
-  },
-
-  language: {
+  sidebarTitle: {
     fontSize: 10,
-    marginLeft: 8,
-  },
-
-  editor: {
-    flex: 1,
-  },
-
-  noFile: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-  },
-
-  noFileTitle: {
-    fontSize: 15,
     fontWeight: '800',
   },
 
-  noFileText: {
-    fontSize: 12,
-    marginTop: 6,
-    textAlign: 'center',
-  },
-
-  toolbar: {
-    height: 46,
-    borderTopWidth: 1,
+  sidebarActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    gap: 7,
   },
 
-  tool: {
-    width: 36,
-    height: 34,
-    borderRadius: 7,
+  smallButton: {
+    width: 30,
+    height: 30,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
-  toolText: {
-    fontSize: 15,
+  smallButtonText: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+
+  toolSidebar: {
+    width: 220,
+    padding: 16,
+    borderRightWidth: 1,
+  },
+
+  toolSidebarTitle: {
+    fontSize: 10,
     fontWeight: '800',
+    marginBottom: 16,
   },
 
-  toolbarSpacer: {
+  toolSidebarText: {
+    fontSize: 11,
+    lineHeight: 18,
+  },
+
+  editorColumn: {
     flex: 1,
+    minWidth: 0,
+    minHeight: 0,
   },
 
-  bottom: {
+  bottomPanel: {
+    minHeight: 115,
+    maxHeight: 190,
     borderTopWidth: 1,
-    minHeight: 50,
+  },
+
+  emptyEditor: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 30,
+  },
+
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+
+  emptyText: {
+    fontSize: 12,
   },
 
   modalOverlay: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
+    zIndex: 100,
   },
 
   modal: {
     width: '100%',
     maxWidth: 420,
-    padding: 20,
     borderWidth: 1,
-    elevation: 12,
+    borderRadius: 16,
+    padding: 18,
   },
 
   modalTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-    marginBottom: 16,
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 14,
   },
 
   modalInput: {
-    minHeight: 48,
+    minHeight: 44,
     borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    fontSize: 15,
+    borderRadius: 9,
+    paddingHorizontal: 12,
+    fontSize: 13,
   },
 
   modalActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: 10,
-    marginTop: 18,
+    marginTop: 14,
   },
 
   modalButton: {
-    minHeight: 44,
-    paddingHorizontal: 18,
-    borderRadius: 10,
+    minHeight: 40,
+    paddingHorizontal: 16,
+    borderRadius: 9,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    marginLeft: 8,
   },
 
   modalButtonText: {
-    fontSize: 13,
-    fontWeight: '800',
+    fontSize: 12,
+    fontWeight: '700',
   },
 });
