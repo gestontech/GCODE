@@ -24,38 +24,56 @@ export default function WorkbenchScreen({
 }) {
   const files = project?.files || [];
 
-  const firstFile = files[0] || {
+  const fallbackFile = {
     id: 'index.html',
     name: 'index.html',
     language: 'html',
     content: project?.code || '',
   };
 
-  const [activeActivity, setActiveActivity] = useState('explorer');
-  const [activeFileId, setActiveFileId] = useState(firstFile.id);
-  const [bottomPanel, setBottomPanel] = useState('terminal');
-  const [cursorPosition, setCursorPosition] = useState({
-    line: 1,
-    column: 1,
-  });
+  const availableFiles =
+    files.length > 0 ? files : [fallbackFile];
+
+  const [activeActivity, setActiveActivity] =
+    useState('explorer');
+
+  const [activeFileId, setActiveFileId] =
+    useState(availableFiles[0].id);
+
+  const [bottomPanel, setBottomPanel] =
+    useState('terminal');
+
+  const [cursorPosition, setCursorPosition] =
+    useState({
+      line: 1,
+      column: 1,
+    });
 
   const activeFile = useMemo(() => {
     return (
-      files.find((file) => file.id === activeFileId) ||
-      firstFile
+      availableFiles.find(
+        (file) => file.id === activeFileId
+      ) || availableFiles[0]
     );
-  }, [files, activeFileId, firstFile]);
+  }, [availableFiles, activeFileId]);
 
-  const code = activeFile.content || '';
+  const code = activeFile?.content || '';
+
+  function selectFile(file) {
+    if (!file) return;
+
+    setActiveFileId(file.id);
+  }
 
   function updateCode(value) {
-    const updatedFiles = files.map((file) =>
-      file.id === activeFile.id
-        ? {
-            ...file,
-            content: value,
-          }
-        : file
+    const updatedFiles = availableFiles.map(
+      (file) =>
+        file.id === activeFile.id
+          ? {
+              ...file,
+              content: value,
+            }
+          : file
     );
 
     onChange({
@@ -64,34 +82,40 @@ export default function WorkbenchScreen({
       code:
         activeFile.name === 'index.html'
           ? value
-          : project.code,
+          : project.code || '',
       updatedAt: Date.now(),
     });
   }
 
   function handleSelectionChange(event) {
-    const position = event.nativeEvent.selection;
-    const beforeCursor = code.slice(0, position.start);
+    const position =
+      event.nativeEvent.selection;
 
-    const lines = beforeCursor.split('\n');
+    const beforeCursor = code.slice(
+      0,
+      position.start
+    );
+
+    const lines =
+      beforeCursor.split('\n');
 
     setCursorPosition({
       line: lines.length,
-      column: lines[lines.length - 1].length + 1,
+      column:
+        lines[lines.length - 1].length + 1,
     });
-  }
-
-  function selectFile(file) {
-    setActiveFileId(file.id);
   }
 
   function renderActivityPanel() {
     if (activeActivity === 'explorer') {
       return (
         <FileExplorer
-          project={project}
-          activeFile={activeFileId}
-          onSelectFile={selectFile}
+          project={{
+            ...project,
+            files: availableFiles,
+          }}
+          activeFile={activeFile}
+          onOpenFile={selectFile}
         />
       );
     }
@@ -102,8 +126,9 @@ export default function WorkbenchScreen({
           <Text style={styles.placeholderTitle}>
             Recherche
           </Text>
+
           <Text style={styles.placeholderText}>
-            La recherche globale sera disponible ici.
+            Recherche globale dans les fichiers.
           </Text>
         </View>
       );
@@ -113,10 +138,11 @@ export default function WorkbenchScreen({
       return (
         <View style={styles.placeholder}>
           <Text style={styles.placeholderTitle}>
-            Contrôle de version
+            Contrôle de source
           </Text>
+
           <Text style={styles.placeholderText}>
-            Git et GitHub seront intégrés dans cette section.
+            Git et GitHub seront connectés ici.
           </Text>
         </View>
       );
@@ -126,10 +152,11 @@ export default function WorkbenchScreen({
       return (
         <View style={styles.placeholder}>
           <Text style={styles.placeholderTitle}>
-            Exécution
+            Exécuter
           </Text>
+
           <Text style={styles.placeholderText}>
-            Utilisez le bouton ▶ pour ouvrir l'aperçu.
+            Lancez l'aperçu de votre projet.
           </Text>
 
           <Pressable
@@ -150,6 +177,7 @@ export default function WorkbenchScreen({
           <Text style={styles.placeholderTitle}>
             Extensions
           </Text>
+
           <Text style={styles.placeholderText}>
             Le système d'extensions sera ajouté ici.
           </Text>
@@ -157,16 +185,7 @@ export default function WorkbenchScreen({
       );
     }
 
-    return (
-      <View style={styles.placeholder}>
-        <Text style={styles.placeholderTitle}>
-          GCODE
-        </Text>
-        <Text style={styles.placeholderText}>
-          Outil de développement mobile.
-        </Text>
-      </View>
-    );
+    return null;
   }
 
   return (
@@ -183,7 +202,9 @@ export default function WorkbenchScreen({
           style={styles.backButton}
           onPress={onBack}
         >
-          <Text style={styles.backText}>‹</Text>
+          <Text style={styles.backText}>
+            ‹
+          </Text>
         </Pressable>
 
         <View style={styles.headerInfo}>
@@ -203,7 +224,9 @@ export default function WorkbenchScreen({
           style={styles.previewButton}
           onPress={onPreview}
         >
-          <Text style={styles.previewText}>▶</Text>
+          <Text style={styles.previewText}>
+            ▶
+          </Text>
         </Pressable>
       </View>
 
@@ -214,17 +237,15 @@ export default function WorkbenchScreen({
         />
 
         <View style={styles.mainArea}>
-          {activeActivity !== 'none' && (
-            <View style={styles.sidebar}>
-              {renderActivityPanel()}
-            </View>
-          )}
+          <View style={styles.sidebar}>
+            {renderActivityPanel()}
+          </View>
 
           <View style={styles.editorArea}>
             <EditorTabs
-              files={files}
-              activeFile={activeFileId}
-              onSelectFile={selectFile}
+              files={availableFiles}
+              activeFile={activeFile}
+              onSelect={selectFile}
             />
 
             <View style={styles.editor}>
@@ -232,20 +253,24 @@ export default function WorkbenchScreen({
                 style={styles.lineNumbers}
                 showsVerticalScrollIndicator={false}
               >
-                {code.split('\n').map((_, index) => (
-                  <Text
-                    key={index}
-                    style={styles.lineNumber}
-                  >
-                    {index + 1}
-                  </Text>
-                ))}
+                {code
+                  .split('\n')
+                  .map((_, index) => (
+                    <Text
+                      key={index}
+                      style={styles.lineNumber}
+                    >
+                      {index + 1}
+                    </Text>
+                  ))}
               </ScrollView>
 
               <TextInput
                 value={code}
                 onChangeText={updateCode}
-                onSelectionChange={handleSelectionChange}
+                onSelectionChange={
+                  handleSelectionChange
+                }
                 multiline
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -259,7 +284,9 @@ export default function WorkbenchScreen({
 
             <View style={styles.editorToolbar}>
               <Pressable
-                onPress={() => setBottomPanel('terminal')}
+                onPress={() =>
+                  setBottomPanel('terminal')
+                }
               >
                 <Text style={styles.toolbarText}>
                   Terminal
@@ -267,7 +294,9 @@ export default function WorkbenchScreen({
               </Pressable>
 
               <Pressable
-                onPress={() => setBottomPanel('problems')}
+                onPress={() =>
+                  setBottomPanel('problems')
+                }
               >
                 <Text style={styles.toolbarText}>
                   Problèmes
@@ -275,7 +304,9 @@ export default function WorkbenchScreen({
               </Pressable>
 
               <Pressable
-                onPress={() => setBottomPanel('output')}
+                onPress={() =>
+                  setBottomPanel('output')
+                }
               >
                 <Text style={styles.toolbarText}>
                   Sortie
@@ -283,14 +314,13 @@ export default function WorkbenchScreen({
               </Pressable>
             </View>
 
-            <BottomPanel
-              active={bottomPanel}
-              onChange={setBottomPanel}
-            />
+            <BottomPanel />
 
             <StatusBar
-              branch="main"
-              language={activeFile.language || 'Plain Text'}
+              language={
+                activeFile.language ||
+                'Plain Text'
+              }
               line={cursorPosition.line}
               column={cursorPosition.column}
             />
