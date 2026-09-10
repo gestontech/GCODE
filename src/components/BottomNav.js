@@ -1,4 +1,5 @@
 import React from 'react';
+
 import {
   View,
   Text,
@@ -6,76 +7,130 @@ import {
   StyleSheet,
 } from 'react-native';
 
+import { useTheme } from '../theme/ThemeContext';
+
 const items = [
-  ['home', '⌂', 'Accueil'],
-  ['projects', '▣', 'Projets'],
-  ['settings', '⚙', 'Réglages'],
+  {
+    id: 'home',
+    label: 'Accueil',
+    icon: '⌂',
+  },
+  {
+    id: 'projects',
+    label: 'Projets',
+    icon: '▣',
+  },
+  {
+    id: 'settings',
+    label: 'Réglages',
+    icon: '⚙',
+  },
 ];
 
 export default function BottomNav({
-  active,
+  active = 'home',
   onChange,
 }) {
-  return (
-    <View style={styles.container}>
-      {items.map(([id, icon, label]) => (
-        <Pressable
-          key={id}
-          style={styles.item}
-          onPress={() => onChange(id)}
-        >
-          <Text
-            style={[
-              styles.icon,
-              active === id && styles.active,
-            ]}
-          >
-            {icon}
-          </Text>
+  const { colors } = useTheme();
 
-          <Text
-            style={[
-              styles.label,
-              active === id && styles.active,
+  return (
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: colors.panel,
+          borderTopColor: colors.border,
+        },
+      ]}
+    >
+      {items.map((item) => {
+        const selected = active === item.id;
+
+        return (
+          <Pressable
+            key={item.id}
+            onPress={() => onChange?.(item.id)}
+            style={({ pressed }) => [
+              styles.item,
+              {
+                opacity: pressed ? 0.65 : 1,
+              },
             ]}
           >
-            {label}
-          </Text>
-        </Pressable>
-      ))}
+            <View
+              style={[
+                styles.iconContainer,
+                selected && {
+                  backgroundColor:
+                    colors.panel2,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.icon,
+                  {
+                    color: selected
+                      ? colors.purple
+                      : colors.muted,
+                  },
+                ]}
+              >
+                {item.icon}
+              </Text>
+            </View>
+
+            <Text
+              style={[
+                styles.label,
+                {
+                  color: selected
+                    ? colors.text
+                    : colors.muted,
+                },
+              ]}
+            >
+              {item.label}
+            </Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    height: 72,
-    backgroundColor: '#0d1020',
+    minHeight: 67,
     borderTopWidth: 1,
-    borderTopColor: '#242943',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
+    paddingHorizontal: 8,
+    paddingBottom: 5,
   },
 
   item: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 70,
+  },
+
+  iconContainer: {
+    minWidth: 42,
+    minHeight: 30,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   icon: {
-    color: '#8189a6',
-    fontSize: 21,
-    marginBottom: 4,
+    fontSize: 20,
   },
 
   label: {
-    color: '#8189a6',
-    fontSize: 11,
-  },
-
-  active: {
-    color: '#a88bff',
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: 2,
   },
 });
