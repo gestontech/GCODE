@@ -14,7 +14,6 @@ export default function HomeScreen({
   projects,
   onNewProject,
   onOpenProject,
-  onOpenAI,
 }) {
   return (
     <View style={styles.container}>
@@ -35,40 +34,22 @@ export default function HomeScreen({
         </Text>
 
         <Pressable
-          style={styles.aiBox}
-          onPress={onOpenAI}
+          style={styles.newProject}
+          onPress={onNewProject}
         >
-          <Text style={styles.aiIcon}>✦</Text>
+          <Text style={styles.newProjectIcon}>＋</Text>
 
-          <View style={styles.aiInfo}>
-            <Text style={styles.aiTitle}>
-              Décrivez votre idée
+          <View style={styles.newProjectInfo}>
+            <Text style={styles.newProjectTitle}>
+              Nouveau projet
             </Text>
 
-            <Text style={styles.aiSubtitle}>
-              Créez un projet avec GCODE AI
+            <Text style={styles.newProjectSubtitle}>
+              Commencez à développer votre projet
             </Text>
           </View>
 
           <Text style={styles.arrow}>›</Text>
-        </Pressable>
-
-        <Pressable
-          style={styles.primary}
-          onPress={onOpenAI}
-        >
-          <Text style={styles.primaryText}>
-            ✨ Créer avec l'IA
-          </Text>
-        </Pressable>
-
-        <Pressable
-          style={styles.secondary}
-          onPress={onNewProject}
-        >
-          <Text style={styles.secondaryText}>
-            ＋ Nouveau projet
-          </Text>
         </Pressable>
 
         <Text style={styles.sectionTitle}>
@@ -126,7 +107,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
 
-  aiBox: {
+  newProject: {
     backgroundColor: '#11152a',
     borderWidth: 1,
     borderColor: '#30285b',
@@ -136,23 +117,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  aiIcon: {
+  newProjectIcon: {
     color: '#a88bff',
-    fontSize: 28,
+    fontSize: 30,
     marginRight: 14,
   },
 
-  aiInfo: {
+  newProjectInfo: {
     flex: 1,
   },
 
-  aiTitle: {
+  newProjectTitle: {
     color: '#fff',
     fontSize: 15,
     fontWeight: '800',
   },
 
-  aiSubtitle: {
+  newProjectSubtitle: {
     color: '#8189a6',
     fontSize: 12,
     marginTop: 5,
@@ -161,34 +142,6 @@ const styles = StyleSheet.create({
   arrow: {
     color: '#8189a6',
     fontSize: 25,
-  },
-
-  primary: {
-    backgroundColor: '#713cff',
-    padding: 16,
-    borderRadius: 14,
-    alignItems: 'center',
-    marginTop: 12,
-  },
-
-  primaryText: {
-    color: '#fff',
-    fontWeight: '800',
-  },
-
-  secondary: {
-    backgroundColor: '#0d1020',
-    borderWidth: 1,
-    borderColor: '#242943',
-    padding: 15,
-    borderRadius: 14,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-
-  secondaryText: {
-    color: '#fff',
-    fontWeight: '700',
   },
 
   sectionTitle: {
