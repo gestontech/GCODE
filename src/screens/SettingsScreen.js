@@ -1,22 +1,57 @@
 import React, { useState } from 'react';
+
 import {
   View,
   Text,
   ScrollView,
   Switch,
+  Pressable,
   StyleSheet,
 } from 'react-native';
 
+import { useTheme } from '../theme/ThemeContext';
+
 export default function SettingsScreen() {
-  const [autoSave, setAutoSave] = useState(true);
-  const [lineNumbers, setLineNumbers] = useState(true);
+  const {
+    mode,
+    colors,
+    changeTheme,
+  } = useTheme();
+
+  const [autoSave, setAutoSave] =
+    useState(true);
+
+  const [lineNumbers, setLineNumbers] =
+    useState(true);
 
   return (
-    <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>Paramètres</Text>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor:
+            colors.background,
+        },
+      ]}
+    >
+      <ScrollView
+        contentContainerStyle={styles.content}
+      >
+        <Text
+          style={[
+            styles.title,
+            { color: colors.text },
+          ]}
+        >
+          Paramètres
+        </Text>
 
-        <Text style={styles.section}>
+        <Text
+          style={[
+            styles.section,
+            { color: colors.purple },
+          ]}
+        >
           ÉDITEUR
         </Text>
 
@@ -24,30 +59,149 @@ export default function SettingsScreen() {
           title="Auto-save"
           value={autoSave}
           onChange={setAutoSave}
+          colors={colors}
         />
 
         <Setting
           title="Numéros de lignes"
           value={lineNumbers}
           onChange={setLineNumbers}
+          colors={colors}
         />
 
-        <Text style={styles.section}>
+        <Text
+          style={[
+            styles.section,
+            { color: colors.purple },
+          ]}
+        >
           APPARENCE
         </Text>
 
-        <Row title="Thème" value="Sombre" />
-        <Row title="Police" value="Monospace" />
-        <Row title="Taille du texte" value="14" />
+        <View
+          style={[
+            styles.themeBox,
+            {
+              backgroundColor:
+                colors.panel,
+              borderColor:
+                colors.border,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.themeTitle,
+              { color: colors.text },
+            ]}
+          >
+            Thème
+          </Text>
 
-        <Text style={styles.section}>
+          <View style={styles.themeButtons}>
+            <Pressable
+              style={[
+                styles.themeButton,
+                {
+                  backgroundColor:
+                    mode === 'dark'
+                      ? colors.purple
+                      : colors.panel2,
+                  borderColor:
+                    colors.border,
+                },
+              ]}
+              onPress={() =>
+                changeTheme('dark')
+              }
+            >
+              <Text
+                style={[
+                  styles.themeButtonText,
+                  {
+                    color:
+                      mode === 'dark'
+                        ? '#ffffff'
+                        : colors.text,
+                  },
+                ]}
+              >
+                🌙 Sombre
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={[
+                styles.themeButton,
+                {
+                  backgroundColor:
+                    mode === 'light'
+                      ? colors.purple
+                      : colors.panel2,
+                  borderColor:
+                    colors.border,
+                },
+              ]}
+              onPress={() =>
+                changeTheme('light')
+              }
+            >
+              <Text
+                style={[
+                  styles.themeButtonText,
+                  {
+                    color:
+                      mode === 'light'
+                        ? '#ffffff'
+                        : colors.text,
+                  },
+                ]}
+              >
+                ☀️ Soleil
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+
+        <Row
+          title="Police"
+          value="Monospace"
+          colors={colors}
+        />
+
+        <Row
+          title="Taille du texte"
+          value="14"
+          colors={colors}
+        />
+
+        <Text
+          style={[
+            styles.section,
+            { color: colors.purple },
+          ]}
+        >
           IA
         </Text>
 
-        <Row title="Modèle IA" value="Non connecté" />
-        <Row title="API" value="À configurer" />
+        <Row
+          title="Modèle IA"
+          value="Non connecté"
+          colors={colors}
+        />
 
-        <Text style={styles.version}>
+        <Row
+          title="API"
+          value="À configurer"
+          colors={colors}
+        />
+
+        <Text
+          style={[
+            styles.version,
+            { color: colors.muted },
+          ]}
+        >
           GCODE Mobile V3.0.0
         </Text>
       </ScrollView>
@@ -55,24 +209,79 @@ export default function SettingsScreen() {
   );
 }
 
-function Setting({ title, value, onChange }) {
+function Setting({
+  title,
+  value,
+  onChange,
+  colors,
+}) {
   return (
-    <View style={styles.row}>
-      <Text style={styles.rowTitle}>{title}</Text>
+    <View
+      style={[
+        styles.row,
+        {
+          backgroundColor:
+            colors.panel,
+          borderBottomColor:
+            colors.border,
+        },
+      ]}
+    >
+      <Text
+        style={[
+          styles.rowTitle,
+          { color: colors.text },
+        ]}
+      >
+        {title}
+      </Text>
 
       <Switch
         value={value}
         onValueChange={onChange}
+        trackColor={{
+          false: colors.border,
+          true: colors.purple,
+        }}
       />
     </View>
   );
 }
 
-function Row({ title, value }) {
+function Row({
+  title,
+  value,
+  colors,
+}) {
   return (
-    <View style={styles.row}>
-      <Text style={styles.rowTitle}>{title}</Text>
-      <Text style={styles.value}>{value}</Text>
+    <View
+      style={[
+        styles.row,
+        {
+          backgroundColor:
+            colors.panel,
+          borderBottomColor:
+            colors.border,
+        },
+      ]}
+    >
+      <Text
+        style={[
+          styles.rowTitle,
+          { color: colors.text },
+        ]}
+      >
+        {title}
+      </Text>
+
+      <Text
+        style={[
+          styles.value,
+          { color: colors.muted },
+        ]}
+      >
+        {value}
+      </Text>
     </View>
   );
 }
@@ -80,7 +289,6 @@ function Row({ title, value }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#070914',
   },
 
   content: {
@@ -89,14 +297,12 @@ const styles = StyleSheet.create({
   },
 
   title: {
-    color: '#fff',
     fontSize: 30,
     fontWeight: '900',
     marginBottom: 25,
   },
 
   section: {
-    color: '#8d70ff',
     fontSize: 11,
     fontWeight: '900',
     letterSpacing: 1,
@@ -106,9 +312,7 @@ const styles = StyleSheet.create({
 
   row: {
     minHeight: 58,
-    backgroundColor: '#0d1020',
     borderBottomWidth: 1,
-    borderBottomColor: '#242943',
     paddingHorizontal: 15,
     flexDirection: 'row',
     alignItems: 'center',
@@ -116,17 +320,47 @@ const styles = StyleSheet.create({
   },
 
   rowTitle: {
-    color: '#fff',
     fontSize: 14,
   },
 
   value: {
-    color: '#8189a6',
     fontSize: 13,
   },
 
+  themeBox: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
+  },
+
+  themeTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+
+  themeButtons: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+
+  themeButton: {
+    flex: 1,
+    minHeight: 44,
+    borderWidth: 1,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+
+  themeButtonText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+
   version: {
-    color: '#626a86',
     textAlign: 'center',
     marginTop: 35,
   },
