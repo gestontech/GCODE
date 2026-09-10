@@ -14,7 +14,6 @@ export default function EditorScreen({
   onChange,
   onBack,
   onPreview,
-  onAI,
 }) {
   const [code, setCode] = useState(project.code || '');
 
@@ -69,17 +68,10 @@ export default function EditorScreen({
       </View>
 
       <View style={styles.toolbar}>
-        <Text style={styles.tool}>{} </Text>
+        <Text style={styles.tool}> </Text>
         <Text style={styles.tool}>Tab</Text>
         <Text style={styles.tool}>←</Text>
         <Text style={styles.tool}>→</Text>
-
-        <Pressable
-          style={styles.ai}
-          onPress={onAI}
-        >
-          <Text style={styles.aiText}>✦ AI</Text>
-        </Pressable>
       </View>
     </KeyboardAvoidingView>
   );
@@ -139,9 +131,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 21,
     padding: 16,
-    fontFamily: Platform.OS === 'ios'
-      ? 'Menlo'
-      : 'monospace',
+    fontFamily:
+      Platform.OS === 'ios'
+        ? 'Menlo'
+        : 'monospace',
   },
 
   toolbar: {
@@ -158,18 +151,5 @@ const styles = StyleSheet.create({
   tool: {
     color: '#c5c9dc',
     fontSize: 14,
-  },
-
-  ai: {
-    marginLeft: 'auto',
-    backgroundColor: '#713cff',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-  },
-
-  aiText: {
-    color: '#fff',
-    fontWeight: '800',
   },
 });
