@@ -1,5 +1,6 @@
 import React, {
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -16,6 +17,9 @@ import {
 import { useTheme } from '../theme/ThemeContext';
 import SyntaxHighlight from './SyntaxHighlight';
 
+const FONT_SIZE = 12;
+const LINE_HEIGHT = 20;
+
 export default function CodeEditor({
   value = '',
   language = 'text',
@@ -23,49 +27,91 @@ export default function CodeEditor({
 }) {
   const { colors } = useTheme();
 
-  const inputRef = useRef(null);
+  const inputRef =
+    useRef(null);
 
-  const [text, setText] = useState(value);
+  const [text, setText] =
+    useState(value);
 
-  const [searchVisible, setSearchVisible] =
-    useState(false);
+  const [
+    searchVisible,
+    setSearchVisible,
+  ] = useState(false);
 
-  const [replaceVisible, setReplaceVisible] =
-    useState(false);
+  const [
+    replaceVisible,
+    setReplaceVisible,
+  ] = useState(false);
 
-  const [searchText, setSearchText] =
-    useState('');
+  const [
+    searchText,
+    setSearchText,
+  ] = useState('');
 
-  const [replaceText, setReplaceText] =
-    useState('');
+  const [
+    replaceText,
+    setReplaceText,
+  ] = useState('');
 
-  const [currentMatch, setCurrentMatch] =
-    useState(0);
+  const [
+    currentMatch,
+    setCurrentMatch,
+  ] = useState(0);
 
-  const undoStack = useRef([]);
-  const redoStack = useRef([]);
+  const [
+    selection,
+    setSelection,
+  ] = useState({
+    start: 0,
+    end: 0,
+  });
 
-  const internalChange = useRef(false);
+  const undoStack =
+    useRef([]);
 
+  const redoStack =
+    useRef([]);
+
+  const internalChange =
+    useRef(false);
+
+  /*
+   * Synchronise avec le projet.
+   */
   useEffect(() => {
     if (
       value !== text &&
       !internalChange.current
     ) {
-      setText(value);
+      setText(
+        typeof value === 'string'
+          ? value
+          : ''
+      );
     }
 
-    internalChange.current = false;
+    internalChange.current =
+      false;
   }, [value]);
 
-  function handleChange(nextText) {
+  /*
+   * Modification utilisateur.
+   */
+  function handleChange(
+    nextText
+  ) {
     if (nextText === text) {
       return;
     }
 
-    undoStack.current.push(text);
+    undoStack.current.push(
+      text
+    );
 
-    if (undoStack.current.length > 100) {
+    if (
+      undoStack.current
+        .length > 100
+    ) {
       undoStack.current.shift();
     }
 
@@ -73,19 +119,33 @@ export default function CodeEditor({
 
     setText(nextText);
 
-    internalChange.current = true;
+    internalChange.current =
+      true;
 
-    onChangeText?.(nextText);
+    onChangeText?.(
+      nextText
+    );
   }
 
-  function applyTextChange(nextText) {
+  /*
+   * Modification interne :
+   * remplacement / undo / redo.
+   */
+  function applyTextChange(
+    nextText
+  ) {
     if (nextText === text) {
       return;
     }
 
-    undoStack.current.push(text);
+    undoStack.current.push(
+      text
+    );
 
-    if (undoStack.current.length > 100) {
+    if (
+      undoStack.current
+        .length > 100
+    ) {
       undoStack.current.shift();
     }
 
@@ -93,58 +153,88 @@ export default function CodeEditor({
 
     setText(nextText);
 
-    internalChange.current = true;
+    internalChange.current =
+      true;
 
-    onChangeText?.(nextText);
+    onChangeText?.(
+      nextText
+    );
   }
 
+  /*
+   * UNDO
+   */
   function undo() {
-    if (!undoStack.current.length) {
+    if (
+      !undoStack.current
+        .length
+    ) {
       return;
     }
 
     const previousText =
       undoStack.current.pop();
 
-    redoStack.current.push(text);
+    redoStack.current.push(
+      text
+    );
 
     setText(previousText);
 
-    internalChange.current = true;
+    internalChange.current =
+      true;
 
-    onChangeText?.(previousText);
+    onChangeText?.(
+      previousText
+    );
   }
 
+  /*
+   * REDO
+   */
   function redo() {
-    if (!redoStack.current.length) {
+    if (
+      !redoStack.current
+        .length
+    ) {
       return;
     }
 
     const nextText =
       redoStack.current.pop();
 
-    undoStack.current.push(text);
+    undoStack.current.push(
+      text
+    );
 
     setText(nextText);
 
-    internalChange.current = true;
+    internalChange.current =
+      true;
 
-    onChangeText?.(nextText);
+    onChangeText?.(
+      nextText
+    );
   }
 
-  function getMatches() {
+  /*
+   * Recherche.
+   */
+  const matches = useMemo(() => {
     if (!searchText) {
       return [];
     }
 
     const results = [];
+
     let start = 0;
 
     while (true) {
-      const index = text.indexOf(
-        searchText,
-        start
-      );
+      const index =
+        text.indexOf(
+          searchText,
+          start
+        );
 
       if (index === -1) {
         break;
@@ -154,21 +244,21 @@ export default function CodeEditor({
 
       start =
         index +
-        Math.max(searchText.length, 1);
+        Math.max(
+          searchText.length,
+          1
+        );
     }
 
     return results;
-  }
-
-  const matches = getMatches();
+  }, [
+    text,
+    searchText,
+  ]);
 
   function openSearch() {
     setSearchVisible(true);
     setReplaceVisible(false);
-
-    setTimeout(() => {
-      inputRef.current?.blur();
-    }, 50);
   }
 
   function closeSearch() {
@@ -196,12 +286,16 @@ export default function CodeEditor({
     }
 
     setCurrentMatch(
-      (currentMatch - 1 +
+      (currentMatch -
+        1 +
         matches.length) %
         matches.length
     );
   }
 
+  /*
+   * Remplace le résultat actuel.
+   */
   function replaceCurrent() {
     if (
       !searchText ||
@@ -210,49 +304,64 @@ export default function CodeEditor({
       return;
     }
 
-    const safeIndex = Math.min(
-      currentMatch,
-      matches.length - 1
-    );
+    const safeIndex =
+      Math.min(
+        currentMatch,
+        matches.length - 1
+      );
 
-    const index = matches[safeIndex];
+    const index =
+      matches[safeIndex];
 
     const nextText =
       text.slice(0, index) +
       replaceText +
       text.slice(
-        index + searchText.length
+        index +
+          searchText.length
       );
 
-    applyTextChange(nextText);
+    applyTextChange(
+      nextText
+    );
 
     setCurrentMatch(0);
   }
 
+  /*
+   * Remplace tous les résultats.
+   */
   function replaceAll() {
     if (!searchText) {
       return;
     }
 
-    const nextText = text
-      .split(searchText)
-      .join(replaceText);
+    const nextText =
+      text
+        .split(searchText)
+        .join(replaceText);
 
     if (nextText === text) {
       return;
     }
 
-    applyTextChange(nextText);
+    applyTextChange(
+      nextText
+    );
+
     setCurrentMatch(0);
   }
 
+  const lines =
+    text.split('\n');
+
   const canUndo =
-    undoStack.current.length > 0;
+    undoStack.current.length >
+    0;
 
   const canRedo =
-    redoStack.current.length > 0;
-
-  const lines = text.split('\n');
+    redoStack.current.length >
+    0;
 
   return (
     <View
@@ -264,7 +373,7 @@ export default function CodeEditor({
         },
       ]}
     >
-      {/* BARRE D'OUTILS */}
+      {/* OUTILS */}
       <View
         style={[
           styles.toolbar,
@@ -285,9 +394,9 @@ export default function CodeEditor({
               backgroundColor:
                 colors.panel2,
               opacity: !canUndo
-                ? 0.35
+                ? 0.3
                 : pressed
-                ? 0.55
+                ? 0.6
                 : 1,
             },
           ]}
@@ -296,7 +405,8 @@ export default function CodeEditor({
             style={[
               styles.toolText,
               {
-                color: colors.text,
+                color:
+                  colors.text,
               },
             ]}
           >
@@ -313,9 +423,9 @@ export default function CodeEditor({
               backgroundColor:
                 colors.panel2,
               opacity: !canRedo
-                ? 0.35
+                ? 0.3
                 : pressed
-                ? 0.55
+                ? 0.6
                 : 1,
             },
           ]}
@@ -324,7 +434,8 @@ export default function CodeEditor({
             style={[
               styles.toolText,
               {
-                color: colors.text,
+                color:
+                  colors.text,
               },
             ]}
           >
@@ -339,9 +450,10 @@ export default function CodeEditor({
             {
               backgroundColor:
                 colors.panel2,
-              opacity: pressed
-                ? 0.55
-                : 1,
+              opacity:
+                pressed
+                  ? 0.6
+                  : 1,
             },
           ]}
         >
@@ -349,7 +461,8 @@ export default function CodeEditor({
             style={[
               styles.toolText,
               {
-                color: colors.text,
+                color:
+                  colors.text,
               },
             ]}
           >
@@ -358,18 +471,23 @@ export default function CodeEditor({
         </Pressable>
 
         <View
-          style={styles.toolbarSpacer}
+          style={
+            styles.toolbarSpacer
+          }
         />
 
         <Text
           style={[
-            styles.editorLabel,
+            styles.languageLabel,
             {
-              color: colors.muted,
+              color:
+                colors.muted,
             },
           ]}
         >
-          {String(language).toUpperCase()}
+          {String(
+            language
+          ).toUpperCase()}
         </Text>
       </View>
 
@@ -387,13 +505,19 @@ export default function CodeEditor({
           ]}
         >
           <View
-            style={styles.searchRow}
+            style={
+              styles.searchRow
+            }
           >
             <TextInput
               value={searchText}
-              onChangeText={(nextValue) => {
-                setSearchText(nextValue);
-                setCurrentMatch(0);
+              onChangeText={(value) => {
+                setSearchText(
+                  value
+                );
+                setCurrentMatch(
+                  0
+                );
               }}
               autoFocus
               autoCorrect={false}
@@ -405,7 +529,8 @@ export default function CodeEditor({
               style={[
                 styles.searchInput,
                 {
-                  color: colors.text,
+                  color:
+                    colors.text,
                   backgroundColor:
                     colors.panel2,
                   borderColor:
@@ -415,7 +540,9 @@ export default function CodeEditor({
             />
 
             <Pressable
-              onPress={previousMatch}
+              onPress={
+                previousMatch
+              }
               style={[
                 styles.smallButton,
                 {
@@ -426,7 +553,8 @@ export default function CodeEditor({
             >
               <Text
                 style={{
-                  color: colors.text,
+                  color:
+                    colors.text,
                 }}
               >
                 ↑
@@ -434,7 +562,9 @@ export default function CodeEditor({
             </Pressable>
 
             <Pressable
-              onPress={nextMatch}
+              onPress={
+                nextMatch
+              }
               style={[
                 styles.smallButton,
                 {
@@ -445,7 +575,8 @@ export default function CodeEditor({
             >
               <Text
                 style={{
-                  color: colors.text,
+                  color:
+                    colors.text,
                 }}
               >
                 ↓
@@ -455,7 +586,8 @@ export default function CodeEditor({
             <Pressable
               onPress={() =>
                 setReplaceVisible(
-                  !replaceVisible
+                  (value) =>
+                    !value
                 )
               }
               style={[
@@ -470,7 +602,8 @@ export default function CodeEditor({
             >
               <Text
                 style={{
-                  color: colors.text,
+                  color:
+                    colors.text,
                 }}
               >
                 ⇄
@@ -478,7 +611,9 @@ export default function CodeEditor({
             </Pressable>
 
             <Pressable
-              onPress={closeSearch}
+              onPress={
+                closeSearch
+              }
               style={[
                 styles.smallButton,
                 {
@@ -489,7 +624,8 @@ export default function CodeEditor({
             >
               <Text
                 style={{
-                  color: colors.text,
+                  color:
+                    colors.text,
                 }}
               >
                 ×
@@ -497,32 +633,33 @@ export default function CodeEditor({
             </Pressable>
           </View>
 
-          <View
-            style={styles.searchInfoRow}
+          <Text
+            style={[
+              styles.searchInfo,
+              {
+                color:
+                  colors.muted,
+              },
+            ]}
           >
-            <Text
-              style={[
-                styles.searchInfo,
-                {
-                  color: colors.muted,
-                },
-              ]}
-            >
-              {searchText
-                ? matches.length
-                  ? `${currentMatch + 1} / ${matches.length}`
-                  : 'Aucun résultat'
-                : 'Rechercher dans le fichier'}
-            </Text>
-          </View>
+            {searchText
+              ? matches.length
+                ? `${currentMatch + 1} / ${matches.length}`
+                : 'Aucun résultat'
+              : 'Rechercher dans le fichier'}
+          </Text>
 
           {replaceVisible && (
             <View
-              style={styles.replaceRow}
+              style={
+                styles.replaceRow
+              }
             >
               <TextInput
                 value={replaceText}
-                onChangeText={setReplaceText}
+                onChangeText={
+                  setReplaceText
+                }
                 autoCorrect={false}
                 autoCapitalize="none"
                 placeholder="Remplacer par..."
@@ -532,7 +669,8 @@ export default function CodeEditor({
                 style={[
                   styles.searchInput,
                   {
-                    color: colors.text,
+                    color:
+                      colors.text,
                     backgroundColor:
                       colors.panel2,
                     borderColor:
@@ -542,7 +680,9 @@ export default function CodeEditor({
               />
 
               <Pressable
-                onPress={replaceCurrent}
+                onPress={
+                  replaceCurrent
+                }
                 style={[
                   styles.replaceButton,
                   {
@@ -552,18 +692,22 @@ export default function CodeEditor({
                 ]}
               >
                 <Text
-                  style={{
-                    color: colors.text,
-                    fontSize: 10,
-                    fontWeight: '800',
-                  }}
+                  style={[
+                    styles.replaceText,
+                    {
+                      color:
+                        colors.text,
+                    },
+                  ]}
                 >
                   Remplacer
                 </Text>
               </Pressable>
 
               <Pressable
-                onPress={replaceAll}
+                onPress={
+                  replaceAll
+                }
                 style={[
                   styles.replaceButton,
                   {
@@ -573,11 +717,13 @@ export default function CodeEditor({
                 ]}
               >
                 <Text
-                  style={{
-                    color: '#ffffff',
-                    fontSize: 10,
-                    fontWeight: '800',
-                  }}
+                  style={[
+                    styles.replaceText,
+                    {
+                      color:
+                        '#ffffff',
+                    },
+                  ]}
                 >
                   Tout
                 </Text>
@@ -587,19 +733,27 @@ export default function CodeEditor({
         </View>
       )}
 
-      {/* ZONE DE CODE */}
+      {/* ÉDITEUR */}
       <ScrollView
-        style={styles.scroll}
+        style={styles.editorScroll}
         contentContainerStyle={
-          styles.content
+          styles.editorContent
         }
         horizontal
         keyboardShouldPersistTaps="handled"
+        showsHorizontalScrollIndicator={
+          true
+        }
+        showsVerticalScrollIndicator={
+          true
+        }
       >
         <View
-          style={styles.editorRow}
+          style={
+            styles.editorRow
+          }
         >
-          {/* NUMÉROS */}
+          {/* NUMÉROS DE LIGNES */}
           <View
             style={[
               styles.lineNumbers,
@@ -611,23 +765,25 @@ export default function CodeEditor({
               },
             ]}
           >
-            {lines.map((_, index) => (
-              <Text
-                key={index}
-                style={[
-                  styles.lineNumber,
-                  {
-                    color:
-                      colors.muted,
-                  },
-                ]}
-              >
-                {index + 1}
-              </Text>
-            ))}
+            {lines.map(
+              (_, index) => (
+                <Text
+                  key={index}
+                  style={[
+                    styles.lineNumber,
+                    {
+                      color:
+                        colors.muted,
+                    },
+                  ]}
+                >
+                  {index + 1}
+                </Text>
+              )
+            )}
           </View>
 
-          {/* ÉDITEUR */}
+          {/* CODE */}
           <View
             style={[
               styles.codeArea,
@@ -640,20 +796,35 @@ export default function CodeEditor({
             {/* COLORATION */}
             <View
               pointerEvents="none"
-              style={styles.highlightLayer}
+              style={
+                styles.highlightLayer
+              }
             >
               <SyntaxHighlight
                 code={text}
-                language={language}
+                language={
+                  language
+                }
                 colors={colors}
               />
             </View>
 
-            {/* SAISIE */}
+            {/* TEXTINPUT */}
             <TextInput
               ref={inputRef}
               value={text}
-              onChangeText={handleChange}
+              onChangeText={
+                handleChange
+              }
+              onSelectionChange={(
+                event
+              ) => {
+                setSelection(
+                  event
+                    .nativeEvent
+                    .selection
+                );
+              }}
               multiline
               textAlignVertical="top"
               autoCorrect={false}
@@ -663,14 +834,17 @@ export default function CodeEditor({
               selectionColor={
                 colors.purple
               }
+              cursorColor={
+                colors.purple
+              }
+              selection={selection}
               style={[
                 styles.input,
                 {
-                  color: 'transparent',
+                  color:
+                    'transparent',
                   backgroundColor:
                     'transparent',
-                  caretColor:
-                    colors.text,
                 },
               ]}
               placeholder="Commence à écrire ton code..."
@@ -682,7 +856,7 @@ export default function CodeEditor({
         </View>
       </ScrollView>
 
-      {/* FOOTER */}
+      {/* BARRE INFÉRIEURE */}
       <View
         style={[
           styles.footer,
@@ -698,12 +872,13 @@ export default function CodeEditor({
           style={[
             styles.footerText,
             {
-              color: colors.muted,
+              color:
+                colors.muted,
             },
           ]}
         >
           {lines.length} ligne
-          {lines.length > 1
+          {lines.length !== 1
             ? 's'
             : ''}
         </Text>
@@ -712,16 +887,14 @@ export default function CodeEditor({
           style={[
             styles.footerText,
             {
-              color: colors.muted,
+              color:
+                colors.muted,
             },
           ]}
         >
-          {searchText
-            ? `${matches.length} résultat${
-                matches.length > 1
-                  ? 's'
-                  : ''
-              }`
+          {selection.start !==
+          selection.end
+            ? `${selection.end - selection.start} caractères sélectionnés`
             : 'GCODE Editor'}
         </Text>
       </View>
@@ -760,7 +933,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  editorLabel: {
+  languageLabel: {
     fontSize: 9,
     fontWeight: '900',
     letterSpacing: 0.8,
@@ -795,92 +968,97 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  searchInfoRow: {
-    paddingHorizontal: 3,
-    paddingTop: 5,
-  },
-
   searchInfo: {
     fontSize: 9,
+    marginTop: 5,
   },
 
   replaceRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: 7,
+    marginTop: 6,
   },
 
   replaceButton: {
-    height: 36,
+    minHeight: 36,
     paddingHorizontal: 10,
     borderRadius: 7,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
-  scroll: {
+  replaceText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+
+  editorScroll: {
     flex: 1,
   },
 
-  content: {
-    flexGrow: 1,
+  editorContent: {
+    minWidth: '100%',
+    paddingBottom: 20,
   },
 
   editorRow: {
     flexDirection: 'row',
-    alignItems: 'stretch',
-    minHeight: '100%',
+    alignItems: 'flex-start',
   },
 
   lineNumbers: {
-    width: 42,
-    paddingTop: 10,
-    paddingRight: 8,
-    alignItems: 'flex-end',
+    minWidth: 48,
+    paddingTop: 4,
+    paddingBottom: 4,
     borderRightWidth: 1,
+    alignItems: 'flex-end',
+    paddingRight: 9,
   },
 
   lineNumber: {
-    fontSize: 12,
-    lineHeight: 20,
+    height: LINE_HEIGHT,
+    lineHeight: LINE_HEIGHT,
     fontFamily: 'monospace',
+    fontSize: FONT_SIZE,
+    includeFontPadding: false,
+    textAlign: 'right',
   },
 
   codeArea: {
     position: 'relative',
-    minWidth: 500,
-    minHeight: '100%',
-    flex: 1,
+    minWidth: 700,
+    minHeight: 100,
   },
 
   highlightLayer: {
     position: 'absolute',
-    top: 0,
+    top: 4,
     left: 0,
     right: 0,
-    paddingTop: 10,
-    paddingBottom: 30,
-    paddingLeft: 10,
+    zIndex: 1,
+    paddingLeft: 8,
     paddingRight: 20,
-    zIndex: 0,
   },
 
   input: {
-    minWidth: 500,
-    minHeight: '100%',
-    paddingTop: 10,
-    paddingBottom: 30,
-    paddingLeft: 10,
+    position: 'relative',
+    zIndex: 2,
+    minWidth: 700,
+    minHeight: 100,
+    paddingTop: 4,
+    paddingBottom: 4,
+    paddingLeft: 8,
     paddingRight: 20,
-    fontSize: 12,
-    lineHeight: 20,
+    margin: 0,
     fontFamily: 'monospace',
-    zIndex: 1,
+    fontSize: FONT_SIZE,
+    lineHeight: LINE_HEIGHT,
+    includeFontPadding: false,
   },
 
   footer: {
-    height: 28,
+    height: 30,
     borderTopWidth: 1,
     paddingHorizontal: 10,
     flexDirection: 'row',
@@ -890,6 +1068,5 @@ const styles = StyleSheet.create({
 
   footerText: {
     fontSize: 9,
-    fontWeight: '700',
   },
 });
