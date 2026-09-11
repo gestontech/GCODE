@@ -1,15 +1,13 @@
-import React, {
-  useEffect,
-  useState,
-} from 'react';
-
+import React, { useEffect, useState } from 'react';
 import {
-  SafeAreaView,
-  StatusBar,
-  StyleSheet,
   ActivityIndicator,
+  SafeAreaView,
+  StyleSheet,
   View,
 } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+
+import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 
 import HomeScreen from './src/screens/HomeScreen';
 import ProjectsScreen from './src/screens/ProjectsScreen';
@@ -20,30 +18,14 @@ import SettingsScreen from './src/screens/SettingsScreen';
 import BottomNav from './src/components/BottomNav';
 
 import {
-  loadProjects,
-  saveProjects,
   createProject,
   deleteProject,
+  loadProjects,
+  saveProjects,
 } from './src/storage/projectStorage';
 
-import {
-  ThemeProvider,
-  useTheme,
-} from './src/theme/ThemeContext';
-
-export default function App() {
-  return (
-    <ThemeProvider>
-      <GCodeApp />
-    </ThemeProvider>
-  );
-}
-
-function GCodeApp() {
-  const {
-    colors,
-    loaded: themeLoaded,
-  } = useTheme();
+function GcodeApp() {
+  const { colors } = useTheme();
 
   const [projects, setProjects] = useState([]);
   const [screen, setScreen] = useState('home');
@@ -54,26 +36,14 @@ function GCodeApp() {
     let mounted = true;
 
     async function initialize() {
-      try {
-        const items = await loadProjects();
+      const storedProjects = await loadProjects();
 
-        if (mounted) {
-          setProjects(items);
-        }
-      } catch (error) {
-        console.error(
-          'Erreur lors du chargement des projets:',
-          error
-        );
-
-        if (mounted) {
-          setProjects([]);
-        }
-      } finally {
-        if (mounted) {
-          setLoaded(true);
-        }
+      if (!mounted) {
+        return;
       }
+
+      setProjects(storedProjects);
+      setLoaded(true);
     }
 
     initialize();
@@ -83,146 +53,167 @@ function GCodeApp() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!loaded) {
+  const handleCreateProject = async (
+    projectName = 'Nouveau projet'
+  ) => {
+    const newProject = await createProject(
+      projectName
+    );
+
+    if (!newProject) {
+      return null;
+    }
+
+    setProjects((currentProjects) => [
+      newProject,
+      ...currentProjects,
+    ]);
+
+    setActiveProject(newProject);
+    setScreen('workbench');
+
+    return newProject;
+  };
+
+  const handleOpenProject = (project) => {
+    if (!project) {
       return;
     }
 
-    saveProjects(projects).catch((error) => {
-      console.error(
-        'Erreur lors de la sauvegarde:',
-        error
-      );
-    });
-  }, [projects, loaded]);
-
-  function openProject(project) {
     setActiveProject(project);
     setScreen('workbench');
-  }
+  };
 
-  function newProject() {
-    const project = createProject(
-      'Nouveau projet'
-    );
-
-    setProjects((current) => [
-      project,
-      ...current,
-    ]);
-
-    setActiveProject(project);
-    setScreen('workbench');
-  }
-
-  function updateProject(updatedProject) {
-    setProjects((current) =>
-      current.map((project) =>
-        project.id === updatedProject.id
-          ? updatedProject
-          : project
-      )
-    );
+  const handleProjectUpdated = (
+    updatedProject
+  ) => {
+    if (!updatedProject) {
+      return;
+    }
 
     setActiveProject(updatedProject);
-  }
 
-  function removeProject(id) {
-    setProjects((current) =>
-      deleteProject(current, id)
+    setProjects((currentProjects) =>
+      currentProjects.map((item) =>
+        item.id === updatedProject.id
+          ? updatedProject
+          : item
+      )
     );
+  };
 
-    if (activeProject?.id === id) {
+  const handleDeleteProject = async (
+    projectId
+  ) => {
+    const updatedProjects =
+      await deleteProject(projectId);
+
+    setProjects(updatedProjects);
+
+    if (
+      activeProject &&
+      activeProject.id === projectId
+    ) {
       setActiveProject(null);
       setScreen('projects');
     }
-  }
+  };
 
-  function goHome() {
-    setActiveProject(null);
+  const handleBackToHome = () => {
     setScreen('home');
-  }
+  };
 
-  function openProjects() {
-    setActiveProject(null);
+  const handleBackToProjects = () => {
     setScreen('projects');
-  }
+  };
 
-  if (!themeLoaded || !loaded) {
+  const handleOpenPreview = () => {
+    if (!activeProject) {
+      return;
+    }
+
+    setScreen('preview');
+  };
+
+  const handleBackFromPreview = () => {
+    if (activeProject) {
+      setScreen('workbench');
+    } else {
+      setScreen('home');
+    }
+  };
+
+  const handleChangeScreen = (nextScreen) => {
+    if (
+      nextScreen === 'home' ||
+      nextScreen === 'projects' ||
+      nextScreen === 'settings'
+    ) {
+      setScreen(nextScreen);
+    }
+  };
+
+  const refreshProjects = async () => {
+    const latestProjects =
+      await loadProjects();
+
+    setProjects(latestProjects);
+
+    if (activeProject) {
+      const latestActiveProject =
+        latestProjects.find(
+          (item) =>
+            item.id === activeProject.id
+        );
+
+      if (latestActiveProject) {
+        setActiveProject(
+          latestActiveProject
+        );
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (
+      screen === 'home' ||
+      screen === 'projects'
+    ) {
+      refreshProjects();
+    }
+  }, [screen]);
+
+  if (!loaded) {
     return (
-      <View
+      <SafeAreaView
         style={[
-          styles.loading,
+          styles.loadingContainer,
           {
             backgroundColor:
               colors.background,
           },
         ]}
       >
+        <StatusBar
+          style={
+            colors.background === '#070914'
+              ? 'light'
+              : 'dark'
+          }
+        />
+
         <ActivityIndicator
           size="large"
           color={colors.purple}
         />
-      </View>
+      </SafeAreaView>
     );
   }
 
-  let content = null;
-
-  if (screen === 'home') {
-    content = (
-      <HomeScreen
-        projects={projects}
-        onNewProject={newProject}
-        onOpenProject={openProject}
-      />
-    );
-  }
-
-  if (screen === 'projects') {
-    content = (
-      <ProjectsScreen
-        projects={projects}
-        onNewProject={newProject}
-        onOpenProject={openProject}
-        onDeleteProject={removeProject}
-      />
-    );
-  }
-
-  if (
-    screen === 'workbench' &&
-    activeProject
-  ) {
-    content = (
-      <WorkbenchScreen
-        project={activeProject}
-        onChange={updateProject}
-        onBack={goHome}
-        onPreview={() =>
-          setScreen('preview')
-        }
-      />
-    );
-  }
-
-  if (
-    screen === 'preview' &&
-    activeProject
-  ) {
-    content = (
-      <PreviewScreen
-        project={activeProject}
-        onBack={() =>
-          setScreen('workbench')
-        }
-      />
-    );
-  }
-
-  if (screen === 'settings') {
-    content = <SettingsScreen />;
-  }
+  const showBottomNav =
+    screen === 'home' ||
+    screen === 'projects' ||
+    screen === 'settings';
 
   return (
     <SafeAreaView
@@ -235,42 +226,92 @@ function GCodeApp() {
       ]}
     >
       <StatusBar
-        barStyle={
+        style={
           colors.background === '#070914'
-            ? 'light-content'
-            : 'dark-content'
-        }
-        backgroundColor={
-          colors.background
+            ? 'light'
+            : 'dark'
         }
       />
 
-      {content}
-
-      {screen !== 'workbench' &&
-        screen !== 'preview' && (
-          <BottomNav
-            active={screen}
-            onChange={(nextScreen) => {
-              if (
-                nextScreen === 'projects'
-              ) {
-                openProjects();
-                return;
-              }
-
-              if (
-                nextScreen === 'home'
-              ) {
-                goHome();
-                return;
-              }
-
-              setScreen(nextScreen);
-            }}
+      <View style={styles.content}>
+        {screen === 'home' && (
+          <HomeScreen
+            projects={projects}
+            onCreateProject={
+              handleCreateProject
+            }
+            onOpenProject={
+              handleOpenProject
+            }
+            onNavigate={
+              handleChangeScreen
+            }
           />
         )}
+
+        {screen === 'projects' && (
+          <ProjectsScreen
+            projects={projects}
+            onCreateProject={
+              handleCreateProject
+            }
+            onOpenProject={
+              handleOpenProject
+            }
+            onDeleteProject={
+              handleDeleteProject
+            }
+          />
+        )}
+
+        {screen === 'workbench' &&
+          activeProject && (
+            <WorkbenchScreen
+              project={activeProject}
+              onBack={
+                handleBackToProjects
+              }
+              onPreview={
+                handleOpenPreview
+              }
+              onProjectUpdated={
+                handleProjectUpdated
+              }
+            />
+          )}
+
+        {screen === 'preview' &&
+          activeProject && (
+            <PreviewScreen
+              project={activeProject}
+              onBack={
+                handleBackFromPreview
+              }
+            />
+          )}
+
+        {screen === 'settings' && (
+          <SettingsScreen />
+        )}
+      </View>
+
+      {showBottomNav && (
+        <BottomNav
+          currentScreen={screen}
+          onNavigate={
+            handleChangeScreen
+          }
+        />
+      )}
     </SafeAreaView>
+  );
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <GcodeApp />
+    </ThemeProvider>
   );
 }
 
@@ -279,7 +320,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  loading: {
+  content: {
+    flex: 1,
+  },
+
+  loadingContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
