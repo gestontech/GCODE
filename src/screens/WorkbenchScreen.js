@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+
 import {
   Alert,
   KeyboardAvoidingView,
@@ -30,9 +36,20 @@ export default function WorkbenchScreen({
 }) {
   const { colors, spacing, radius } = useTheme();
 
+  const editorRef = useRef(null);
+  const lineScrollRef = useRef(null);
+
+  const historyRef = useRef([]);
+  const redoRef = useRef([]);
+
   const [files, setFiles] = useState({});
   const [activeFile, setActiveFile] = useState(null);
   const [code, setCode] = useState('');
+
+  const [selection, setSelection] = useState({
+    start: 0,
+    end: 0,
+  });
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -40,12 +57,24 @@ export default function WorkbenchScreen({
 
   const [showExplorer, setShowExplorer] = useState(true);
 
-  const [showNewFileModal, setShowNewFileModal] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchText, setSearchText] = useState('');
+  const [replaceText, setReplaceText] = useState('');
+  const [searchIndex, setSearchIndex] = useState(-1);
+
+  const [showNewFileModal, setShowNewFileModal] =
+    useState(false);
+
   const [newFileName, setNewFileName] = useState('');
 
-  const [showRenameModal, setShowRenameModal] = useState(false);
-  const [renameTarget, setRenameTarget] = useState(null);
-  const [renameFileName, setRenameFileName] = useState('');
+  const [showRenameModal, setShowRenameModal] =
+    useState(false);
+
+  const [renameTarget, setRenameTarget] =
+    useState(null);
+
+  const [renameFileName, setRenameFileName] =
+    useState('');
 
   const styles = useMemo(
     () =>
@@ -127,6 +156,10 @@ export default function WorkbenchScreen({
           backgroundColor: colors.panel,
         },
 
+        toolbarScroll: {
+          flex: 1,
+        },
+
         toolbarButton: {
           minWidth: 38,
           height: 36,
@@ -147,8 +180,10 @@ export default function WorkbenchScreen({
         },
 
         statusText: {
-          marginLeft: 'auto',
-          color: dirty ? colors.yellow : colors.green,
+          marginLeft: 6,
+          color: dirty
+            ? colors.yellow
+            : colors.green,
           fontSize: 11,
           fontWeight: '600',
         },
@@ -213,7 +248,8 @@ export default function WorkbenchScreen({
         },
 
         activeFileItem: {
-          backgroundColor: colors.editorSelection,
+          backgroundColor:
+            colors.editorSelection,
           borderWidth: 1,
           borderColor: colors.purpleDark,
         },
@@ -236,6 +272,19 @@ export default function WorkbenchScreen({
           fontWeight: '700',
         },
 
+        fileMenuButton: {
+          width: 28,
+          height: 28,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+
+        fileMenuText: {
+          color: colors.muted,
+          fontSize: 16,
+          fontWeight: '700',
+        },
+
         editorArea: {
           flex: 1,
           backgroundColor: colors.editor,
@@ -246,7 +295,8 @@ export default function WorkbenchScreen({
           paddingHorizontal: spacing.sm,
           flexDirection: 'row',
           alignItems: 'center',
-          backgroundColor: colors.editorActiveLine,
+          backgroundColor:
+            colors.editorActiveLine,
           borderBottomWidth: 1,
           borderBottomColor: colors.editorLine,
         },
@@ -261,13 +311,17 @@ export default function WorkbenchScreen({
           flexDirection: 'row',
         },
 
-        lineNumbers: {
+        lineScroll: {
           width: 48,
-          paddingTop: 12,
-          paddingRight: 8,
           backgroundColor: colors.editor,
           borderRightWidth: 1,
           borderRightColor: colors.editorLine,
+        },
+
+        lineNumbers: {
+          paddingTop: 12,
+          paddingRight: 8,
+          paddingBottom: 40,
         },
 
         lineNumber: {
@@ -276,7 +330,10 @@ export default function WorkbenchScreen({
           fontSize: 12,
           lineHeight: 22,
           textAlign: 'right',
-          fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+          fontFamily:
+            Platform.OS === 'ios'
+              ? 'Menlo'
+              : 'monospace',
         },
 
         codeInput: {
@@ -289,8 +346,71 @@ export default function WorkbenchScreen({
           backgroundColor: colors.editor,
           fontSize: 13,
           lineHeight: 22,
-          fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+          fontFamily:
+            Platform.OS === 'ios'
+              ? 'Menlo'
+              : 'monospace',
           textAlignVertical: 'top',
+        },
+
+        searchPanel: {
+          padding: spacing.sm,
+          backgroundColor: colors.panel,
+          borderTopWidth: 1,
+          borderTopColor: colors.border,
+        },
+
+        searchRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          marginBottom: 7,
+        },
+
+        searchInput: {
+          flex: 1,
+          height: 40,
+          paddingHorizontal: 12,
+          borderRadius: radius.xs,
+          backgroundColor: colors.editor,
+          borderWidth: 1,
+          borderColor: colors.borderStrong,
+          color: colors.text,
+          fontSize: 13,
+        },
+
+        searchButton: {
+          height: 40,
+          minWidth: 42,
+          marginLeft: 6,
+          paddingHorizontal: 10,
+          borderRadius: radius.xs,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: colors.panel2,
+          borderWidth: 1,
+          borderColor: colors.border,
+        },
+
+        searchButtonText: {
+          color: colors.text,
+          fontSize: 12,
+          fontWeight: '700',
+        },
+
+        searchClose: {
+          height: 40,
+          width: 40,
+          marginLeft: 6,
+          borderRadius: radius.xs,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: colors.panel2,
+        },
+
+        searchInfo: {
+          color: colors.muted,
+          fontSize: 11,
+          marginTop: 2,
         },
 
         emptyEditor: {
@@ -394,7 +514,13 @@ export default function WorkbenchScreen({
           fontWeight: '700',
         },
       }),
-    [colors, spacing, radius, dirty, showExplorer]
+    [
+      colors,
+      spacing,
+      radius,
+      dirty,
+      showExplorer,
+    ]
   );
 
   useEffect(() => {
@@ -408,18 +534,23 @@ export default function WorkbenchScreen({
           setCode('');
           setLoading(false);
         }
+
         return;
       }
 
       setLoading(true);
 
-      const storedProject = await getProject(project.id);
+      const storedProject =
+        await getProject(project.id);
 
       if (!mounted) {
         return;
       }
 
-      const projectFiles = storedProject?.files || project?.files || {};
+      const projectFiles =
+        storedProject?.files ||
+        project?.files ||
+        {};
 
       const names = Object.keys(projectFiles);
 
@@ -429,13 +560,22 @@ export default function WorkbenchScreen({
         names[0] ||
         null;
 
+      const initialCode = initialFile
+        ? projectFiles[initialFile] || ''
+        : '';
+
       setFiles(projectFiles);
       setActiveFile(initialFile);
-      setCode(
-        initialFile
-          ? projectFiles[initialFile] || ''
-          : ''
-      );
+      setCode(initialCode);
+
+      setSelection({
+        start: initialCode.length,
+        end: initialCode.length,
+      });
+
+      historyRef.current = [];
+      redoRef.current = [];
+
       setDirty(false);
       setLoading(false);
     }
@@ -457,8 +597,13 @@ export default function WorkbenchScreen({
     (_, index) => index + 1
   );
 
-  const notifyProjectUpdated = (updatedProject) => {
-    if (typeof onProjectUpdated === 'function') {
+  const notifyProjectUpdated = (
+    updatedProject
+  ) => {
+    if (
+      typeof onProjectUpdated ===
+      'function'
+    ) {
       onProjectUpdated(updatedProject);
     }
   };
@@ -473,101 +618,327 @@ export default function WorkbenchScreen({
 
     setSaving(true);
 
-    const updatedProject = await saveProjectFile(
-      project.id,
-      fileName,
-      content
-    );
+    try {
+      const updatedProject =
+        await saveProjectFile(
+          project.id,
+          fileName,
+          content
+        );
 
-    setSaving(false);
+      if (updatedProject) {
+        setFiles(
+          updatedProject.files || {}
+        );
 
-    if (updatedProject) {
-      setFiles(updatedProject.files || {});
-      setDirty(false);
-      notifyProjectUpdated(updatedProject);
+        setDirty(false);
+
+        notifyProjectUpdated(
+          updatedProject
+        );
+      }
+
+      return updatedProject;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const pushHistory = (previousCode) => {
+    if (
+      previousCode === code
+    ) {
+      return;
     }
 
-    return updatedProject;
+    historyRef.current.push(
+      previousCode
+    );
+
+    if (
+      historyRef.current.length >
+      100
+    ) {
+      historyRef.current.shift();
+    }
+
+    redoRef.current = [];
   };
 
   const handleCodeChange = (value) => {
+    pushHistory(code);
+
     setCode(value);
+
     setFiles((previous) => ({
       ...previous,
       [activeFile]: value,
     }));
+
     setDirty(true);
   };
 
-  const handleSelectFile = async (fileName) => {
-    if (!fileName || fileName === activeFile) {
+  const handleSelectionChange = (
+    event
+  ) => {
+    const nextSelection =
+      event?.nativeEvent?.selection;
+
+    if (!nextSelection) {
+      return;
+    }
+
+    setSelection({
+      start: nextSelection.start,
+      end: nextSelection.end,
+    });
+  };
+
+  const insertTextAtCursor = (text) => {
+    if (!activeFile) {
+      return;
+    }
+
+    const start = Math.min(
+      selection.start,
+      selection.end
+    );
+
+    const end = Math.max(
+      selection.start,
+      selection.end
+    );
+
+    const before = code.slice(
+      0,
+      start
+    );
+
+    const after = code.slice(end);
+
+    const nextCode =
+      before + text + after;
+
+    pushHistory(code);
+
+    setCode(nextCode);
+
+    setFiles((previous) => ({
+      ...previous,
+      [activeFile]: nextCode,
+    }));
+
+    const nextCursor =
+      start + text.length;
+
+    setSelection({
+      start: nextCursor,
+      end: nextCursor,
+    });
+
+    setDirty(true);
+
+    requestAnimationFrame(() => {
+      editorRef.current?.focus();
+    });
+  };
+
+  const handleUndo = () => {
+    const history =
+      historyRef.current;
+
+    if (!history.length) {
+      return;
+    }
+
+    const previousCode =
+      history.pop();
+
+    redoRef.current.push(code);
+
+    setCode(previousCode);
+
+    setFiles((previous) => ({
+      ...previous,
+      [activeFile]: previousCode,
+    }));
+
+    const cursor =
+      previousCode.length;
+
+    setSelection({
+      start: cursor,
+      end: cursor,
+    });
+
+    setDirty(true);
+  };
+
+  const handleRedo = () => {
+    const redo =
+      redoRef.current;
+
+    if (!redo.length) {
+      return;
+    }
+
+    const nextCode =
+      redo.pop();
+
+    historyRef.current.push(code);
+
+    setCode(nextCode);
+
+    setFiles((previous) => ({
+      ...previous,
+      [activeFile]: nextCode,
+    }));
+
+    const cursor =
+      nextCode.length;
+
+    setSelection({
+      start: cursor,
+      end: cursor,
+    });
+
+    setDirty(true);
+  };
+
+  const handleEditorScroll = (
+    event
+  ) => {
+    const offsetY =
+      event?.nativeEvent?.contentOffset
+        ?.y || 0;
+
+    lineScrollRef.current?.scrollTo({
+      y: offsetY,
+      animated: false,
+    });
+  };
+
+  const handleSelectFile = async (
+    fileName
+  ) => {
+    if (
+      !fileName ||
+      fileName === activeFile
+    ) {
       return;
     }
 
     if (dirty) {
-      await performSave(activeFile, code);
+      await performSave(
+        activeFile,
+        code
+      );
     }
 
+    const nextCode =
+      files[fileName] || '';
+
     setActiveFile(fileName);
-    setCode(files[fileName] || '');
+    setCode(nextCode);
+
+    setSelection({
+      start: 0,
+      end: 0,
+    });
+
+    historyRef.current = [];
+    redoRef.current = [];
+
     setDirty(false);
+
+    requestAnimationFrame(() => {
+      editorRef.current?.focus();
+    });
   };
 
   const handleAddFile = async () => {
-    const name = newFileName.trim();
+    const name =
+      newFileName.trim();
 
     if (!name) {
       Alert.alert(
         'Nom requis',
         'Entre un nom de fichier.'
       );
+
       return;
     }
 
-    if (Object.prototype.hasOwnProperty.call(files, name)) {
+    if (
+      Object.prototype.hasOwnProperty.call(
+        files,
+        name
+      )
+    ) {
       Alert.alert(
         'Fichier existant',
         'Un fichier avec ce nom existe déjà.'
       );
+
       return;
     }
 
-    const updatedProject = await addProjectFile(
-      project.id,
-      name,
-      ''
-    );
+    const updatedProject =
+      await addProjectFile(
+        project.id,
+        name,
+        ''
+      );
 
     if (!updatedProject) {
       Alert.alert(
         'Erreur',
         'Impossible de créer le fichier.'
       );
+
       return;
     }
 
-    setFiles(updatedProject.files || {});
+    setFiles(
+      updatedProject.files || {}
+    );
+
     setActiveFile(name);
     setCode('');
+
+    setSelection({
+      start: 0,
+      end: 0,
+    });
+
+    historyRef.current = [];
+    redoRef.current = [];
+
     setDirty(false);
     setNewFileName('');
     setShowNewFileModal(false);
 
-    notifyProjectUpdated(updatedProject);
+    notifyProjectUpdated(
+      updatedProject
+    );
   };
 
-  const handleDeleteFile = (fileName) => {
+  const handleDeleteFile = (
+    fileName
+  ) => {
     if (!fileName) {
       return;
     }
 
-    const fileNames = Object.keys(files);
+    const fileNames =
+      Object.keys(files);
 
     if (fileNames.length <= 1) {
       Alert.alert(
         'Action impossible',
         'Un projet doit conserver au moins un fichier.'
       );
+
       return;
     }
 
@@ -598,34 +969,54 @@ export default function WorkbenchScreen({
 
             const nextFile =
               updatedProject.activeFile ||
-              Object.keys(updatedFiles)[0] ||
+              Object.keys(
+                updatedFiles
+              )[0] ||
               null;
+
+            const nextCode =
+              nextFile
+                ? updatedFiles[nextFile] ||
+                  ''
+                : '';
 
             setFiles(updatedFiles);
             setActiveFile(nextFile);
-            setCode(
-              nextFile
-                ? updatedFiles[nextFile] || ''
-                : ''
-            );
+            setCode(nextCode);
+
+            setSelection({
+              start: 0,
+              end: 0,
+            });
+
+            historyRef.current = [];
+            redoRef.current = [];
+
             setDirty(false);
 
-            notifyProjectUpdated(updatedProject);
+            notifyProjectUpdated(
+              updatedProject
+            );
           },
         },
       ]
     );
   };
 
-  const openRenameModal = (fileName) => {
+  const openRenameModal = (
+    fileName
+  ) => {
     setRenameTarget(fileName);
     setRenameFileName(fileName);
     setShowRenameModal(true);
   };
 
   const handleRenameFile = async () => {
-    const oldName = renameTarget;
-    const newName = renameFileName.trim();
+    const oldName =
+      renameTarget;
+
+    const newName =
+      renameFileName.trim();
 
     if (!oldName) {
       return;
@@ -636,17 +1027,22 @@ export default function WorkbenchScreen({
         'Nom requis',
         'Entre un nouveau nom de fichier.'
       );
+
       return;
     }
 
     if (
       newName !== oldName &&
-      Object.prototype.hasOwnProperty.call(files, newName)
+      Object.prototype.hasOwnProperty.call(
+        files,
+        newName
+      )
     ) {
       Alert.alert(
         'Fichier existant',
         'Un fichier avec ce nom existe déjà.'
       );
+
       return;
     }
 
@@ -662,53 +1058,273 @@ export default function WorkbenchScreen({
         'Erreur',
         'Impossible de renommer le fichier.'
       );
+
       return;
     }
 
     const updatedFiles =
       updatedProject.files || {};
 
-    const nextActiveFile =
-      updatedProject.activeFile ||
-      activeFile;
-
     setFiles(updatedFiles);
-    setActiveFile(nextActiveFile);
-    setCode(
-      nextActiveFile
-        ? updatedFiles[nextActiveFile] || ''
-        : ''
-    );
-    setDirty(false);
+
+    if (
+      activeFile === oldName
+    ) {
+      setActiveFile(newName);
+      setCode(
+        updatedFiles[newName] || ''
+      );
+
+      setSelection({
+        start: 0,
+        end: 0,
+      });
+    }
 
     setRenameTarget(null);
     setRenameFileName('');
     setShowRenameModal(false);
+    setDirty(false);
 
-    notifyProjectUpdated(updatedProject);
+    notifyProjectUpdated(
+      updatedProject
+    );
   };
 
-  const insertAtEnd = (text) => {
+  const findNext = () => {
+    if (!searchText) {
+      return;
+    }
+
+    const startFrom =
+      searchIndex >= 0
+        ? searchIndex +
+          searchText.length
+        : selection.end;
+
+    let index =
+      code.indexOf(
+        searchText,
+        startFrom
+      );
+
+    if (index === -1) {
+      index =
+        code.indexOf(
+          searchText,
+          0
+        );
+    }
+
+    if (index === -1) {
+      Alert.alert(
+        'Recherche',
+        'Aucune occurrence trouvée.'
+      );
+
+      return;
+    }
+
+    const nextEnd =
+      index + searchText.length;
+
+    setSearchIndex(index);
+
+    setSelection({
+      start: index,
+      end: nextEnd,
+    });
+
+    requestAnimationFrame(() => {
+      editorRef.current?.focus();
+    });
+  };
+
+  const replaceCurrent = () => {
+    if (!searchText) {
+      return;
+    }
+
+    const start =
+      selection.start;
+
+    const end =
+      selection.end;
+
+    const selectedText =
+      code.slice(start, end);
+
+    if (
+      selectedText !== searchText
+    ) {
+      findNext();
+      return;
+    }
+
     const nextCode =
-      code.length > 0
-        ? `${code}${text}`
-        : text;
+      code.slice(0, start) +
+      replaceText +
+      code.slice(end);
 
-    handleCodeChange(nextCode);
+    pushHistory(code);
+
+    setCode(nextCode);
+
+    setFiles((previous) => ({
+      ...previous,
+      [activeFile]: nextCode,
+    }));
+
+    const nextCursor =
+      start + replaceText.length;
+
+    setSelection({
+      start: nextCursor,
+      end: nextCursor,
+    });
+
+    setDirty(true);
   };
 
-  const insertTemplate = (template) => {
-    insertAtEnd(template);
+  const replaceAll = () => {
+    if (!searchText) {
+      return;
+    }
+
+    if (
+      !code.includes(searchText)
+    ) {
+      Alert.alert(
+        'Remplacement',
+        'Aucune occurrence trouvée.'
+      );
+
+      return;
+    }
+
+    const nextCode =
+      code.split(searchText)
+        .join(replaceText);
+
+    pushHistory(code);
+
+    setCode(nextCode);
+
+    setFiles((previous) => ({
+      ...previous,
+      [activeFile]: nextCode,
+    }));
+
+    setSelection({
+      start: 0,
+      end: 0,
+    });
+
+    setDirty(true);
+  };
+
+  const handleSave = async () => {
+    await performSave(
+      activeFile,
+      code
+    );
+  };
+
+  const handlePreview = async () => {
+    if (!project?.id) {
+      return;
+    }
+
+    const updatedProject =
+      await performSave(
+        activeFile,
+        code
+      );
+
+    if (
+      typeof onPreview ===
+      'function'
+    ) {
+      onPreview(
+        updatedProject || {
+          ...project,
+          files,
+        }
+      );
+    }
   };
 
   const handleBack = async () => {
-    if (dirty) {
-      await performSave(activeFile, code);
+    if (!dirty) {
+      onBack?.();
+      return;
     }
 
-    if (typeof onBack === 'function') {
-      onBack();
+    Alert.alert(
+      'Modifications non enregistrées',
+      'Voulez-vous enregistrer avant de quitter ?',
+      [
+        {
+          text: 'Annuler',
+          style: 'cancel',
+        },
+        {
+          text: 'Quitter',
+          style: 'destructive',
+          onPress: () => {
+            onBack?.();
+          },
+        },
+        {
+          text: 'Enregistrer',
+          onPress: async () => {
+            await performSave(
+              activeFile,
+              code
+            );
+
+            onBack?.();
+          },
+        },
+      ]
+    );
+  };
+
+  const getFileIcon = (
+    fileName
+  ) => {
+    const extension =
+      fileName
+        .split('.')
+        .pop()
+        ?.toLowerCase();
+
+    if (extension === 'html') {
+      return '◇';
     }
+
+    if (extension === 'css') {
+      return '#';
+    }
+
+    if (
+      extension === 'js' ||
+      extension === 'jsx' ||
+      extension === 'ts' ||
+      extension === 'tsx'
+    ) {
+      return 'JS';
+    }
+
+    if (extension === 'json') {
+      return '{}';
+    }
+
+    if (extension === 'md') {
+      return 'M';
+    }
+
+    return '•';
   };
 
   if (loading) {
@@ -728,7 +1344,7 @@ export default function WorkbenchScreen({
             fontSize: 13,
           }}
         >
-          Chargement de l’éditeur…
+          Chargement du projet…
         </Text>
       </View>
     );
@@ -745,225 +1361,568 @@ export default function WorkbenchScreen({
     >
       <View style={styles.header}>
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Retour"
           onPress={handleBack}
-          style={styles.headerButton}
+          style={({ pressed }) => [
+            styles.headerButton,
+            {
+              opacity: pressed
+                ? 0.65
+                : 1,
+            },
+          ]}
         >
-          <Text style={styles.headerButtonText}>
+          <Text
+            style={styles.headerButtonText}
+          >
             ‹
           </Text>
         </Pressable>
 
-        <View style={styles.headerCenter}>
+        <View
+          style={styles.headerCenter}
+        >
           <Text
-            style={styles.projectTitle}
             numberOfLines={1}
+            style={styles.projectTitle}
           >
-            {project?.name || 'Projet GCODE'}
+            {project?.name ||
+              'Projet GCODE'}
           </Text>
 
           <Text
-            style={styles.fileTitle}
             numberOfLines={1}
+            style={styles.fileTitle}
           >
-            {activeFile || 'Aucun fichier'}
+            {activeFile ||
+              'Aucun fichier'}
           </Text>
         </View>
 
         <Pressable
-          onPress={async () => {
-            await performSave();
-            if (typeof onPreview === 'function') {
-              onPreview();
-            }
-          }}
-          style={styles.previewButton}
+          accessibilityRole="button"
+          accessibilityLabel="Preview"
+          onPress={handlePreview}
+          style={({ pressed }) => [
+            styles.previewButton,
+            {
+              opacity: pressed
+                ? 0.75
+                : 1,
+            },
+          ]}
         >
-          <Text style={styles.previewButtonText}>
-            Preview
+          <Text
+            style={
+              styles.previewButtonText
+            }
+          >
+            ▶ Preview
           </Text>
         </Pressable>
       </View>
 
       <View style={styles.toolbar}>
-        <Pressable
-          onPress={() =>
-            setShowExplorer((value) => !value)
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={
+            false
           }
-          style={styles.toolbarButton}
+          style={styles.toolbarScroll}
+          contentContainerStyle={{
+            alignItems: 'center',
+          }}
         >
-          <Text style={styles.toolbarButtonText}>
-            ☰
-          </Text>
-        </Pressable>
+          <Pressable
+            onPress={() =>
+              setShowExplorer(
+                (value) => !value
+              )
+            }
+            style={styles.toolbarButton}
+          >
+            <Text
+              style={
+                styles.toolbarButtonText
+              }
+            >
+              ☰
+            </Text>
+          </Pressable>
 
-        <Pressable
-          onPress={() => insertTemplate('  ')}
-          style={styles.toolbarButton}
-        >
-          <Text style={styles.toolbarButtonText}>
-            Tab
-          </Text>
-        </Pressable>
+          <Pressable
+            onPress={() =>
+              setShowSearch(true)
+            }
+            style={styles.toolbarButton}
+          >
+            <Text
+              style={
+                styles.toolbarButtonText
+              }
+            >
+              🔍
+            </Text>
+          </Pressable>
 
-        <Pressable
-          onPress={() =>
-            insertTemplate('// ')
-          }
-          style={styles.toolbarButton}
-        >
-          <Text style={styles.toolbarButtonText}>
-            //
-          </Text>
-        </Pressable>
+          <Pressable
+            onPress={handleUndo}
+            style={styles.toolbarButton}
+          >
+            <Text
+              style={
+                styles.toolbarButtonText
+              }
+            >
+              ↶
+            </Text>
+          </Pressable>
 
-        <Pressable
-          onPress={() =>
-            insertTemplate('console.log();')
-          }
-          style={styles.toolbarButton}
-        >
-          <Text style={styles.toolbarButtonText}>
-            log
-          </Text>
-        </Pressable>
+          <Pressable
+            onPress={handleRedo}
+            style={styles.toolbarButton}
+          >
+            <Text
+              style={
+                styles.toolbarButtonText
+              }
+            >
+              ↷
+            </Text>
+          </Pressable>
 
-        <Pressable
-          onPress={() =>
-            insertTemplate(
-              '\n\nfunction main() {\n  \n}\n'
-            )
-          }
-          style={styles.toolbarButton}
-        >
-          <Text style={styles.toolbarButtonText}>
-            fn
-          </Text>
-        </Pressable>
+          <Pressable
+            onPress={() =>
+              insertTextAtCursor(
+                '  '
+              )
+            }
+            style={styles.toolbarButton}
+          >
+            <Text
+              style={
+                styles.toolbarButtonText
+              }
+            >
+              Tab
+            </Text>
+          </Pressable>
 
-        <Text style={styles.statusText}>
-          {saving
-            ? 'Enregistrement…'
-            : dirty
-              ? 'Modifié'
-              : 'Enregistré'}
-        </Text>
+          <Pressable
+            onPress={() =>
+              insertTextAtCursor(
+                '// '
+              )
+            }
+            style={styles.toolbarButton}
+          >
+            <Text
+              style={
+                styles.toolbarButtonText
+              }
+            >
+              //
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() =>
+              insertTextAtCursor(
+                'console.log();'
+              )
+            }
+            style={styles.toolbarButton}
+          >
+            <Text
+              style={
+                styles.toolbarButtonText
+              }
+            >
+              log
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() =>
+              insertTextAtCursor(
+                'function name() {\n  \n}'
+              )
+            }
+            style={styles.toolbarButton}
+          >
+            <Text
+              style={
+                styles.toolbarButtonText
+              }
+            >
+              fn
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={handleSave}
+            style={styles.toolbarButton}
+          >
+            <Text
+              style={
+                styles.toolbarButtonText
+              }
+            >
+              💾
+            </Text>
+          </Pressable>
+
+          <Text
+            style={styles.statusText}
+          >
+            {saving
+              ? 'Sauvegarde…'
+              : dirty
+                ? 'Modifié'
+                : 'Enregistré'}
+          </Text>
+        </ScrollView>
       </View>
 
       <View style={styles.workspace}>
         <View style={styles.explorer}>
-          <View style={styles.explorerHeader}>
-            <Text style={styles.explorerTitle}>
-              Explorer
+          <View
+            style={styles.explorerHeader}
+          >
+            <Text
+              style={styles.explorerTitle}
+            >
+              Explorateur
             </Text>
 
             <Pressable
               onPress={() =>
-                setShowNewFileModal(true)
+                setShowNewFileModal(
+                  true
+                )
               }
               style={styles.addButton}
             >
-              <Text style={styles.addButtonText}>
+              <Text
+                style={
+                  styles.addButtonText
+                }
+              >
                 +
               </Text>
             </Pressable>
           </View>
 
           <ScrollView
-            contentContainerStyle={styles.fileList}
+            contentContainerStyle={
+              styles.fileList
+            }
           >
-            {Object.keys(files).map((fileName) => (
-              <Pressable
-                key={fileName}
-                onPress={() =>
-                  handleSelectFile(fileName)
-                }
-                onLongPress={() =>
-                  openRenameModal(fileName)
-                }
-                style={[
-                  styles.fileItem,
-                  activeFile === fileName &&
-                    styles.activeFileItem,
-                ]}
-              >
-                <Text style={styles.fileIcon}>
-                  {fileName.endsWith('.js')
-                    ? 'JS'
-                    : fileName.endsWith('.json')
-                      ? '{}'
-                      : fileName.endsWith('.md')
-                        ? 'MD'
-                        : '•'}
-                </Text>
+            {Object.keys(files).map(
+              (fileName) => {
+                const selected =
+                  fileName ===
+                  activeFile;
 
-                <Text
-                  numberOfLines={1}
-                  style={[
-                    styles.fileName,
-                    activeFile === fileName &&
-                      styles.activeFileName,
-                  ]}
-                >
-                  {fileName}
-                </Text>
-              </Pressable>
-            ))}
+                return (
+                  <Pressable
+                    key={fileName}
+                    onPress={() =>
+                      handleSelectFile(
+                        fileName
+                      )
+                    }
+                    onLongPress={() =>
+                      openRenameModal(
+                        fileName
+                      )
+                    }
+                    style={[
+                      styles.fileItem,
+                      selected &&
+                        styles.activeFileItem,
+                    ]}
+                  >
+                    <Text
+                      style={
+                        styles.fileIcon
+                      }
+                    >
+                      {getFileIcon(
+                        fileName
+                      )}
+                    </Text>
+
+                    <Text
+                      numberOfLines={1}
+                      style={[
+                        styles.fileName,
+                        selected &&
+                          styles.activeFileName,
+                      ]}
+                    >
+                      {fileName}
+                    </Text>
+
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Options ${fileName}`}
+                      onPress={() =>
+                        Alert.alert(
+                          fileName,
+                          'Choisis une action.',
+                          [
+                            {
+                              text: 'Annuler',
+                              style: 'cancel',
+                            },
+                            {
+                              text: 'Renommer',
+                              onPress: () =>
+                                openRenameModal(
+                                  fileName
+                                ),
+                            },
+                            {
+                              text: 'Supprimer',
+                              style: 'destructive',
+                              onPress: () =>
+                                handleDeleteFile(
+                                  fileName
+                                ),
+                            },
+                          ]
+                        )
+                      }
+                      style={
+                        styles.fileMenuButton
+                      }
+                    >
+                      <Text
+                        style={
+                          styles.fileMenuText
+                        }
+                      >
+                        ⋯
+                      </Text>
+                    </Pressable>
+                  </Pressable>
+                );
+              }
+            )}
           </ScrollView>
         </View>
 
-        <View style={styles.editorArea}>
+        <View
+          style={styles.editorArea}
+        >
+          <View
+            style={styles.editorHeader}
+          >
+            <Text
+              style={
+                styles.editorHeaderText
+              }
+            >
+              {activeFile ||
+                'Aucun fichier ouvert'}
+            </Text>
+          </View>
+
           {activeFile ? (
-            <>
-              <View style={styles.editorHeader}>
-                <Text
-                  style={styles.editorHeaderText}
-                >
-                  {activeFile} · local
-                </Text>
-              </View>
-
-              <View style={styles.editor}>
-                <ScrollView
+            <View style={styles.editor}>
+              <ScrollView
+                ref={lineScrollRef}
+                style={styles.lineScroll}
+                scrollEnabled={false}
+                showsVerticalScrollIndicator={
+                  false
+                }
+              >
+                <View
                   style={styles.lineNumbers}
-                  showsVerticalScrollIndicator={false}
-                  scrollEnabled={false}
                 >
-                  {lineNumbers.map((number) => (
-                    <Text
-                      key={number}
-                      style={styles.lineNumber}
-                    >
-                      {number}
-                    </Text>
-                  ))}
-                </ScrollView>
+                  {lineNumbers.map(
+                    (number) => (
+                      <Text
+                        key={number}
+                        style={
+                          styles.lineNumber
+                        }
+                      >
+                        {number}
+                      </Text>
+                    )
+                  )}
+                </View>
+              </ScrollView>
 
-                <TextInput
-                  value={code}
-                  onChangeText={handleCodeChange}
-                  style={styles.codeInput}
-                  multiline
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  spellCheck={false}
-                  textAlignVertical="top"
-                  selectionColor={colors.purpleLight}
-                  placeholder="Commence à coder…"
-                  placeholderTextColor={colors.muted2}
-                />
-              </View>
-            </>
+              <TextInput
+                ref={editorRef}
+                value={code}
+                onChangeText={
+                  handleCodeChange
+                }
+                onSelectionChange={
+                  handleSelectionChange
+                }
+                onScroll={
+                  handleEditorScroll
+                }
+                selection={selection}
+                multiline
+                autoCapitalize="none"
+                autoCorrect={false}
+                spellCheck={false}
+                textAlignVertical="top"
+                scrollEnabled
+                style={styles.codeInput}
+                placeholder="Commence à écrire ton code…"
+                placeholderTextColor={
+                  colors.muted2
+                }
+              />
+            </View>
           ) : (
-            <View style={styles.emptyEditor}>
+            <View
+              style={styles.emptyEditor}
+            >
               <Text
-                style={styles.emptyEditorTitle}
+                style={
+                  styles.emptyEditorTitle
+                }
               >
                 Aucun fichier
               </Text>
 
-              <Text style={styles.emptyEditorText}>
-                Crée un fichier pour commencer à
-                coder dans GCODE.
+              <Text
+                style={
+                  styles.emptyEditorText
+                }
+              >
+                Crée un fichier pour
+                commencer à coder.
+              </Text>
+            </View>
+          )}
+
+          {showSearch && (
+            <View
+              style={styles.searchPanel}
+            >
+              <View
+                style={styles.searchRow}
+              >
+                <TextInput
+                  value={searchText}
+                  onChangeText={(value) => {
+                    setSearchText(value);
+                    setSearchIndex(-1);
+                  }}
+                  placeholder="Rechercher…"
+                  placeholderTextColor={
+                    colors.muted2
+                  }
+                  style={
+                    styles.searchInput
+                  }
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+
+                <Pressable
+                  onPress={findNext}
+                  style={
+                    styles.searchButton
+                  }
+                >
+                  <Text
+                    style={
+                      styles.searchButtonText
+                    }
+                  >
+                    Suivant
+                  </Text>
+                </Pressable>
+              </View>
+
+              <View
+                style={styles.searchRow}
+              >
+                <TextInput
+                  value={replaceText}
+                  onChangeText={
+                    setReplaceText
+                  }
+                  placeholder="Remplacer par…"
+                  placeholderTextColor={
+                    colors.muted2
+                  }
+                  style={
+                    styles.searchInput
+                  }
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+
+                <Pressable
+                  onPress={
+                    replaceCurrent
+                  }
+                  style={
+                    styles.searchButton
+                  }
+                >
+                  <Text
+                    style={
+                      styles.searchButtonText
+                    }
+                  >
+                    Remplacer
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={replaceAll}
+                  style={
+                    styles.searchButton
+                  }
+                >
+                  <Text
+                    style={
+                      styles.searchButtonText
+                    }
+                  >
+                    Tout
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={() => {
+                    setShowSearch(false);
+                    setSearchIndex(-1);
+                  }}
+                  style={
+                    styles.searchClose
+                  }
+                >
+                  <Text
+                    style={
+                      styles.searchButtonText
+                    }
+                  >
+                    ×
+                  </Text>
+                </Pressable>
+              </View>
+
+              <Text
+                style={styles.searchInfo}
+              >
+                La recherche fonctionne
+                directement dans le fichier
+                actuellement ouvert.
               </Text>
             </View>
           )}
@@ -978,32 +1937,47 @@ export default function WorkbenchScreen({
           setShowNewFileModal(false)
         }
       >
-        <View style={styles.modalOverlay}>
+        <View
+          style={styles.modalOverlay}
+        >
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>
+            <Text
+              style={styles.modalTitle}
+            >
               Nouveau fichier
             </Text>
 
-            <Text style={styles.modalSubtitle}>
-              Donne un nom au nouveau fichier.
+            <Text
+              style={styles.modalSubtitle}
+            >
+              Exemple : index.html,
+              styles.css ou app.js
             </Text>
 
             <TextInput
               value={newFileName}
-              onChangeText={setNewFileName}
-              style={styles.input}
-              placeholder="ex. app.js"
-              placeholderTextColor={colors.muted2}
+              onChangeText={
+                setNewFileName
+              }
+              placeholder="nom-du-fichier.ext"
+              placeholderTextColor={
+                colors.muted2
+              }
               autoCapitalize="none"
               autoCorrect={false}
+              style={styles.input}
               autoFocus
             />
 
-            <View style={styles.modalActions}>
+            <View
+              style={styles.modalActions}
+            >
               <Pressable
                 onPress={() => {
                   setNewFileName('');
-                  setShowNewFileModal(false);
+                  setShowNewFileModal(
+                    false
+                  );
                 }}
                 style={[
                   styles.modalButton,
@@ -1011,7 +1985,9 @@ export default function WorkbenchScreen({
                 ]}
               >
                 <Text
-                  style={styles.cancelButtonText}
+                  style={
+                    styles.cancelButtonText
+                  }
                 >
                   Annuler
                 </Text>
@@ -1025,7 +2001,9 @@ export default function WorkbenchScreen({
                 ]}
               >
                 <Text
-                  style={styles.confirmButtonText}
+                  style={
+                    styles.confirmButtonText
+                  }
                 >
                   Créer
                 </Text>
@@ -1043,35 +2021,45 @@ export default function WorkbenchScreen({
           setShowRenameModal(false)
         }
       >
-        <View style={styles.modalOverlay}>
+        <View
+          style={styles.modalOverlay}
+        >
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>
+            <Text
+              style={styles.modalTitle}
+            >
               Renommer le fichier
             </Text>
 
-            <Text style={styles.modalSubtitle}>
-              Modifie le nom puis appuie sur
-              « Renommer ».
+            <Text
+              style={styles.modalSubtitle}
+            >
+              Le contenu du fichier sera
+              conservé.
             </Text>
 
             <TextInput
               value={renameFileName}
-              onChangeText={setRenameFileName}
-              style={styles.input}
-              placeholder="Nom du fichier"
-              placeholderTextColor={colors.muted2}
+              onChangeText={
+                setRenameFileName
+              }
               autoCapitalize="none"
               autoCorrect={false}
+              style={styles.input}
               autoFocus
               selectTextOnFocus
             />
 
-            <View style={styles.modalActions}>
+            <View
+              style={styles.modalActions}
+            >
               <Pressable
                 onPress={() => {
                   setRenameTarget(null);
                   setRenameFileName('');
-                  setShowRenameModal(false);
+                  setShowRenameModal(
+                    false
+                  );
                 }}
                 style={[
                   styles.modalButton,
@@ -1079,21 +2067,27 @@ export default function WorkbenchScreen({
                 ]}
               >
                 <Text
-                  style={styles.cancelButtonText}
+                  style={
+                    styles.cancelButtonText
+                  }
                 >
                   Annuler
                 </Text>
               </Pressable>
 
               <Pressable
-                onPress={handleRenameFile}
+                onPress={
+                  handleRenameFile
+                }
                 style={[
                   styles.modalButton,
                   styles.confirmButton,
                 ]}
               >
                 <Text
-                  style={styles.confirmButtonText}
+                  style={
+                    styles.confirmButtonText
+                  }
                 >
                   Renommer
                 </Text>
