@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -8,8 +8,17 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
+
 import { useTheme } from '../theme/ThemeContext';
+
+import {
+  saveProjectFile,
+  addProjectFile,
+  deleteProjectFile,
+  renameProjectFile,
+} from '../storage/projectStorage';
 
 const DEFAULT_CODE = `// Bienvenue dans GCODE
 // Commence à coder ici.
@@ -20,40 +29,520 @@ function hello() {
 
 hello();`;
 
+const DEFAULT_FILES = {
+  'index.js': DEFAULT_CODE,
+
+  'README.md': `# Mon projet GCODE
+
+Bienvenue dans ton projet.
+
+Créé avec GCODE.`,
+
+  'package.json': `{
+  "name": "gcode-project",
+  "version": "1.0.0",
+  "private": true
+}`,
+};
+
 export default function WorkbenchScreen({
   project,
   onBack,
   onPreview,
+  onProjectUpdated,
 }) {
-  const { colors, spacing, radius } = useTheme();
+  const { colors } = useTheme();
 
-  const [code, setCode] = useState(
-    project?.code || DEFAULT_CODE
-  );
+  const initialFiles = {
+    ...DEFAULT_FILES,
+    ...(project?.files || {}),
+  };
+
+  const [files, setFiles] = useState(initialFiles);
 
   const [activeFile, setActiveFile] = useState(
-    project?.fileName || 'index.js'
+    project?.activeFile ||
+      project?.fileName ||
+      'index.js'
+  );
+
+  const [code, setCode] = useState(
+    initialFiles[
+      project?.activeFile ||
+        project?.fileName ||
+        'index.js'
+    ] || DEFAULT_CODE
   );
 
   const [isSaved, setIsSaved] = useState(true);
+
   const [showExplorer, setShowExplorer] = useState(true);
+
+  const [saving, setSaving] = useState(false);
+
+  const [isAddingFile, setIsAddingFile] = useState(false);
+
+  const [newFileName, setNewFileName] = useState('');
+
+  const [cursorPosition, setCursorPosition] = useState({
+    start: 0,
+    end: 0,
+  });
+
+  /*
+   * Si le projet change, recharge ses fichiers.
+   */
+  useEffect(() => {
+    const projectFiles = {
+      ...DEFAULT_FILES,
+      ...(project?.files || {}),
+    };
+
+    const file =
+      project?.activeFile ||
+      project?.fileName ||
+      'index.js';
+
+    setFiles(projectFiles);
+    setActiveFile(file);
+    setCode(
+      projectFiles[file] ||
+        project?.code ||
+        DEFAULT_CODE
+    );
+    setIsSaved(true);
+  }, [project?.id]);
 
   const lines = useMemo(() => {
     return code.split('\n');
   }, [code]);
 
+  const fileNames = useMemo(() => {
+    return Object.keys(files);
+  }, [files]);
+
+  /*
+   * Modification du code.
+   */
   const handleChange = (value) => {
     setCode(value);
+    setFiles((current) => ({
+      ...current,
+      [activeFile]: value,
+    }));
     setIsSaved(false);
   };
 
-  const handleSave = () => {
+  /*
+   * Ouvre un fichier.
+   */
+  const openFile = (fileName) => {
+    if (fileName === activeFile) {
+      return;
+    }
+
+    if (!isSaved) {
+      Alert.alert(
+        'Modifications non enregistrées',
+        `Tu as des modifications dans ${activeFile}. Enregistre-les avant de changer de fichier.`,
+        [
+          {
+            text: 'Annuler',
+            style: 'cancel',
+          },
+          {
+            text: 'Enregistrer',
+            onPress: async () => {
+              const success =
+                await performSave();
+
+              if (success) {
+                switchFile(fileName);
+              }
+            },
+          },
+        ]
+      );
+
+      return;
+    }
+
+    switchFile(fileName);
+  };
+
+  const switchFile = (fileName) => {
+    const nextCode =
+      files[fileName] || '';
+
+    setActiveFile(fileName);
+    setCode(nextCode);
     setIsSaved(true);
   };
 
+  /*
+   * Sauvegarde réelle dans AsyncStorage.
+   */
+  const performSave = async () => {
+    if (!project?.id) {
+      Alert.alert(
+        'Projet introuvable',
+        'Impossible de sauvegarder ce projet.'
+      );
+
+      return false;
+    }
+
+    try {
+      setSaving(true);
+
+      const updatedProject =
+        await saveProjectFile(
+          project.id,
+          activeFile,
+          code
+        );
+
+      if (!updatedProject) {
+        throw new Error(
+          'Projet introuvable dans le stockage.'
+        );
+      }
+
+      setFiles(
+        updatedProject.files || files
+      );
+
+      setIsSaved(true);
+
+      if (onProjectUpdated) {
+        onProjectUpdated(updatedProject);
+      }
+
+      return true;
+    } catch (error) {
+      console.warn(
+        '[GCODE] Erreur sauvegarde :',
+        error
+      );
+
+      Alert.alert(
+        'Erreur',
+        'Impossible de sauvegarder le projet.'
+      );
+
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSave = async () => {
+    await performSave();
+  };
+
+  /*
+   * Ajoute du texte à la position actuelle.
+   */
   const insertText = (text) => {
-    setCode((current) => `${current}${text}`);
+    const start = cursorPosition.start;
+
+    const end = cursorPosition.end;
+
+    const before = code.slice(0, start);
+
+    const after = code.slice(end);
+
+    const nextCode =
+      before + text + after;
+
+    const nextCursor =
+      start + text.length;
+
+    setCode(nextCode);
+
+    setFiles((current) => ({
+      ...current,
+      [activeFile]: nextCode,
+    }));
+
+    setCursorPosition({
+      start: nextCursor,
+      end: nextCursor,
+    });
+
     setIsSaved(false);
+  };
+
+  /*
+   * Supprime le caractère précédent.
+   */
+  const deletePreviousCharacter = () => {
+    const start = cursorPosition.start;
+    const end = cursorPosition.end;
+
+    if (start !== end) {
+      const nextCode =
+        code.slice(0, start) +
+        code.slice(end);
+
+      setCode(nextCode);
+
+      setFiles((current) => ({
+        ...current,
+        [activeFile]: nextCode,
+      }));
+
+      setCursorPosition({
+        start,
+        end: start,
+      });
+
+      setIsSaved(false);
+
+      return;
+    }
+
+    if (start <= 0) {
+      return;
+    }
+
+    const nextCode =
+      code.slice(0, start - 1) +
+      code.slice(start);
+
+    setCode(nextCode);
+
+    setFiles((current) => ({
+      ...current,
+      [activeFile]: nextCode,
+    }));
+
+    setCursorPosition({
+      start: start - 1,
+      end: start - 1,
+    });
+
+    setIsSaved(false);
+  };
+
+  /*
+   * Ajout d'un nouveau fichier.
+   */
+  const handleAddFile = () => {
+    setNewFileName('');
+    setIsAddingFile(true);
+  };
+
+  const confirmAddFile = async () => {
+    const name =
+      newFileName.trim();
+
+    if (!name) {
+      return;
+    }
+
+    if (files[name]) {
+      Alert.alert(
+        'Fichier existant',
+        'Un fichier portant ce nom existe déjà.'
+      );
+
+      return;
+    }
+
+    if (!project?.id) {
+      return;
+    }
+
+    try {
+      const updatedProject =
+        await addProjectFile(
+          project.id,
+          name,
+          ''
+        );
+
+      if (!updatedProject) {
+        throw new Error(
+          'Projet introuvable.'
+        );
+      }
+
+      setFiles(
+        updatedProject.files || {}
+      );
+
+      setIsAddingFile(false);
+
+      setActiveFile(name);
+
+      setCode('');
+
+      setIsSaved(true);
+
+      if (onProjectUpdated) {
+        onProjectUpdated(updatedProject);
+      }
+    } catch (error) {
+      console.warn(
+        '[GCODE] Erreur création fichier :',
+        error
+      );
+
+      Alert.alert(
+        'Erreur',
+        'Impossible de créer le fichier.'
+      );
+    }
+  };
+
+  /*
+   * Suppression d'un fichier.
+   */
+  const handleDeleteFile = (fileName) => {
+    if (fileNames.length <= 1) {
+      Alert.alert(
+        'Impossible',
+        'Un projet doit conserver au moins un fichier.'
+      );
+
+      return;
+    }
+
+    Alert.alert(
+      'Supprimer le fichier ?',
+      fileName,
+      [
+        {
+          text: 'Annuler',
+          style: 'cancel',
+        },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const updatedProject =
+                await deleteProjectFile(
+                  project.id,
+                  fileName
+                );
+
+              if (!updatedProject) {
+                throw new Error(
+                  'Projet introuvable.'
+                );
+              }
+
+              setFiles(
+                updatedProject.files || {}
+              );
+
+              const nextFile =
+                updatedProject.activeFile ||
+                Object.keys(
+                  updatedProject.files || {}
+                )[0];
+
+              setActiveFile(nextFile);
+
+              setCode(
+                updatedProject.files?.[
+                  nextFile
+                ] || ''
+              );
+
+              setIsSaved(true);
+
+              if (onProjectUpdated) {
+                onProjectUpdated(
+                  updatedProject
+                );
+              }
+            } catch (error) {
+              Alert.alert(
+                'Erreur',
+                'Impossible de supprimer le fichier.'
+              );
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  /*
+   * Renommer un fichier.
+   */
+  const handleRenameFile = (fileName) => {
+    Alert.prompt(
+      'Renommer le fichier',
+      'Nouveau nom :',
+      async (value) => {
+        const newName =
+          value?.trim();
+
+        if (!newName || newName === fileName) {
+          return;
+        }
+
+        if (files[newName]) {
+          Alert.alert(
+            'Fichier existant',
+            'Ce nom est déjà utilisé.'
+          );
+
+          return;
+        }
+
+        try {
+          const updatedProject =
+            await renameProjectFile(
+              project.id,
+              fileName,
+              newName
+            );
+
+          if (!updatedProject) {
+            throw new Error(
+              'Projet introuvable.'
+            );
+          }
+
+          setFiles(
+            updatedProject.files || {}
+          );
+
+          if (
+            updatedProject.activeFile ===
+            newName
+          ) {
+            setActiveFile(newName);
+
+            setCode(
+              updatedProject.files?.[
+                newName
+              ] || ''
+            );
+          }
+
+          setIsSaved(true);
+
+          if (onProjectUpdated) {
+            onProjectUpdated(
+              updatedProject
+            );
+          }
+        } catch (error) {
+          Alert.alert(
+            'Erreur',
+            'Impossible de renommer le fichier.'
+          );
+        }
+      },
+      'plain-text',
+      fileName
+    );
   };
 
   return (
@@ -61,7 +550,8 @@ export default function WorkbenchScreen({
       style={[
         styles.container,
         {
-          backgroundColor: colors.background,
+          backgroundColor:
+            colors.background,
         },
       ]}
     >
@@ -70,8 +560,10 @@ export default function WorkbenchScreen({
         style={[
           styles.topBar,
           {
-            backgroundColor: colors.panel,
-            borderBottomColor: colors.border,
+            backgroundColor:
+              colors.panel,
+            borderBottomColor:
+              colors.border,
           },
         ]}
       >
@@ -81,7 +573,9 @@ export default function WorkbenchScreen({
           style={({ pressed }) => [
             styles.backButton,
             {
-              opacity: pressed ? 0.55 : 1,
+              opacity: pressed
+                ? 0.55
+                : 1,
             },
           ]}
         >
@@ -97,27 +591,38 @@ export default function WorkbenchScreen({
           </Text>
         </Pressable>
 
-        <View style={styles.projectHeader}>
+        <View
+          style={
+            styles.projectHeader
+          }
+        >
           <Text
             numberOfLines={1}
             style={[
               styles.projectName,
               {
-                color: colors.textStrong,
+                color:
+                  colors.textStrong,
               },
             ]}
           >
-            {project?.name || 'Nouveau projet'}
+            {project?.name ||
+              'Nouveau projet'}
           </Text>
 
-          <View style={styles.fileStatus}>
+          <View
+            style={
+              styles.fileStatus
+            }
+          >
             <View
               style={[
                 styles.statusDot,
                 {
-                  backgroundColor: isSaved
-                    ? colors.green
-                    : colors.yellow,
+                  backgroundColor:
+                    isSaved
+                      ? colors.green
+                      : colors.yellow,
                 },
               ]}
             />
@@ -126,37 +631,56 @@ export default function WorkbenchScreen({
               style={[
                 styles.statusText,
                 {
-                  color: colors.muted,
+                  color:
+                    colors.muted,
                 },
               ]}
             >
-              {isSaved ? 'Enregistré' : 'Modifié'}
+              {saving
+                ? 'Enregistrement…'
+                : isSaved
+                  ? 'Enregistré'
+                  : 'Modifié'}
             </Text>
           </View>
         </View>
 
-        <View style={styles.topActions}>
+        <View
+          style={styles.topActions}
+        >
           <Pressable
             onPress={handleSave}
             hitSlop={8}
             style={({ pressed }) => [
-              styles.topAction,
+              styles.saveButton,
               {
-                opacity: pressed ? 0.55 : 1,
+                backgroundColor:
+                  isSaved
+                    ? colors.panel2
+                    : colors.purple,
+                borderColor:
+                  isSaved
+                    ? colors.border
+                    : colors.purple,
+                opacity: pressed
+                  ? 0.6
+                  : 1,
               },
             ]}
           >
             <Text
               style={[
-                styles.actionIcon,
+                styles.saveText,
                 {
                   color: isSaved
                     ? colors.muted
-                    : colors.purple,
+                    : '#FFFFFF',
                 },
               ]}
             >
-              ●
+              {saving
+                ? '...'
+                : 'Sauver'}
             </Text>
           </Pressable>
 
@@ -166,12 +690,21 @@ export default function WorkbenchScreen({
             style={({ pressed }) => [
               styles.runButton,
               {
-                backgroundColor: colors.purple,
-                opacity: pressed ? 0.75 : 1,
+                backgroundColor:
+                  colors.purple,
+                opacity: pressed
+                  ? 0.75
+                  : 1,
               },
             ]}
           >
-            <Text style={styles.runIcon}>▶</Text>
+            <Text
+              style={
+                styles.runIcon
+              }
+            >
+              ▶
+            </Text>
           </Pressable>
         </View>
       </View>
@@ -181,16 +714,19 @@ export default function WorkbenchScreen({
         style={[
           styles.tabsBar,
           {
-            backgroundColor: colors.panel2,
-            borderBottomColor: colors.border,
+            backgroundColor:
+              colors.panel2,
+            borderBottomColor:
+              colors.border,
           },
         ]}
       >
-        <Pressable
+        <View
           style={[
             styles.tab,
             {
-              borderBottomColor: colors.purple,
+              borderBottomColor:
+                colors.purple,
             },
           ]}
         >
@@ -198,7 +734,8 @@ export default function WorkbenchScreen({
             style={[
               styles.fileIcon,
               {
-                color: colors.purple,
+                color:
+                  colors.purple,
               },
             ]}
           >
@@ -210,7 +747,8 @@ export default function WorkbenchScreen({
             style={[
               styles.tabText,
               {
-                color: colors.text,
+                color:
+                  colors.text,
               },
             ]}
           >
@@ -222,19 +760,26 @@ export default function WorkbenchScreen({
               style={[
                 styles.modifiedDot,
                 {
-                  backgroundColor: colors.yellow,
+                  backgroundColor:
+                    colors.yellow,
                 },
               ]}
             />
           )}
-        </Pressable>
+        </View>
 
         <Pressable
-          onPress={() => setShowExplorer((value) => !value)}
+          onPress={() =>
+            setShowExplorer(
+              (value) => !value
+            )
+          }
           style={({ pressed }) => [
             styles.explorerToggle,
             {
-              opacity: pressed ? 0.55 : 1,
+              opacity: pressed
+                ? 0.55
+                : 1,
             },
           ]}
         >
@@ -242,7 +787,8 @@ export default function WorkbenchScreen({
             style={[
               styles.explorerIcon,
               {
-                color: colors.muted,
+                color:
+                  colors.muted,
               },
             ]}
           >
@@ -251,47 +797,63 @@ export default function WorkbenchScreen({
         </Pressable>
       </View>
 
-      <View style={styles.workspace}>
+      <View
+        style={styles.workspace}
+      >
         {/* EXPLORER */}
         {showExplorer && (
           <View
             style={[
               styles.explorer,
               {
-                backgroundColor: colors.panel,
-                borderRightColor: colors.border,
+                backgroundColor:
+                  colors.panel,
+                borderRightColor:
+                  colors.border,
               },
             ]}
           >
-            <View style={styles.explorerHeader}>
+            <View
+              style={
+                styles.explorerHeader
+              }
+            >
               <Text
                 style={[
                   styles.explorerTitle,
                   {
-                    color: colors.muted,
+                    color:
+                      colors.muted,
                   },
                 ]}
               >
                 EXPLORER
               </Text>
 
-              <Text
-                style={[
-                  styles.explorerAction,
-                  {
-                    color: colors.muted,
-                  },
-                ]}
+              <Pressable
+                onPress={handleAddFile}
+                hitSlop={8}
               >
-                +
-              </Text>
+                <Text
+                  style={[
+                    styles.explorerAction,
+                    {
+                      color:
+                        colors.muted,
+                    },
+                  ]}
+                >
+                  +
+                </Text>
+              </Pressable>
             </View>
 
             <View
               style={[
                 styles.folder,
                 {
-                  backgroundColor: colors.panel2,
+                  backgroundColor:
+                    colors.panel2,
                 },
               ]}
             >
@@ -299,7 +861,8 @@ export default function WorkbenchScreen({
                 style={[
                   styles.folderArrow,
                   {
-                    color: colors.muted,
+                    color:
+                      colors.muted,
                   },
                 ]}
               >
@@ -310,7 +873,8 @@ export default function WorkbenchScreen({
                 style={[
                   styles.folderIcon,
                   {
-                    color: colors.yellow,
+                    color:
+                      colors.yellow,
                   },
                 ]}
               >
@@ -322,92 +886,101 @@ export default function WorkbenchScreen({
                 style={[
                   styles.folderName,
                   {
-                    color: colors.text,
+                    color:
+                      colors.text,
                   },
                 ]}
               >
-                {project?.name || 'project'}
+                {project?.name ||
+                  'project'}
               </Text>
             </View>
 
-            <Pressable
-              style={[
-                styles.fileItem,
-                {
-                  backgroundColor: colors.panel2,
-                  borderLeftColor: colors.purple,
-                },
-              ]}
+            {fileNames.map(
+              (fileName) => {
+                const active =
+                  fileName ===
+                  activeFile;
+
+                return (
+                  <Pressable
+                    key={fileName}
+                    onPress={() =>
+                      openFile(
+                        fileName
+                      )
+                    }
+                    onLongPress={() =>
+                      handleRenameFile(
+                        fileName
+                      )
+                    }
+                    style={[
+                      styles.fileItem,
+                      {
+                        backgroundColor:
+                          active
+                            ? colors.panel2
+                            : 'transparent',
+                        borderLeftColor:
+                          active
+                            ? colors.purple
+                            : 'transparent',
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.fileType,
+                        {
+                          color:
+                            getFileColor(
+                              fileName,
+                              colors
+                            ),
+                        },
+                      ]}
+                    >
+                      {getFileType(
+                        fileName
+                      )}
+                    </Text>
+
+                    <Text
+                      numberOfLines={1}
+                      style={[
+                        styles.fileName,
+                        {
+                          color:
+                            active
+                              ? colors.textStrong
+                              : colors.muted,
+                        },
+                      ]}
+                    >
+                      {fileName}
+                    </Text>
+                  </Pressable>
+                );
+              }
+            )}
+
+            <View
+              style={
+                styles.explorerHint
+              }
             >
               <Text
                 style={[
-                  styles.fileType,
+                  styles.explorerHintText,
                   {
-                    color: colors.yellow,
+                    color:
+                      colors.muted2,
                   },
                 ]}
               >
-                JS
-              </Text>
-
-              <Text
-                numberOfLines={1}
-                style={[
-                  styles.fileName,
-                  {
-                    color: colors.textStrong,
-                  },
-                ]}
-              >
-                index.js
-              </Text>
-            </Pressable>
-
-            <View style={styles.fileItem}>
-              <Text
-                style={[
-                  styles.fileType,
-                  {
-                    color: colors.red,
-                  },
-                ]}
-              >
-                #
-              </Text>
-
-              <Text
-                style={[
-                  styles.fileName,
-                  {
-                    color: colors.muted,
-                  },
-                ]}
-              >
-                README.md
-              </Text>
-            </View>
-
-            <View style={styles.fileItem}>
-              <Text
-                style={[
-                  styles.fileType,
-                  {
-                    color: colors.blue,
-                  },
-                ]}
-              >
-                JSON
-              </Text>
-
-              <Text
-                style={[
-                  styles.fileName,
-                  {
-                    color: colors.muted,
-                  },
-                ]}
-              >
-                package.json
+                Maintiens un fichier
+                pour le renommer.
               </Text>
             </View>
           </View>
@@ -415,7 +988,9 @@ export default function WorkbenchScreen({
 
         {/* EDITOR */}
         <KeyboardAvoidingView
-          style={styles.editorContainer}
+          style={
+            styles.editorContainer
+          }
           behavior={
             Platform.OS === 'ios'
               ? 'padding'
@@ -424,39 +999,66 @@ export default function WorkbenchScreen({
         >
           <ScrollView
             horizontal
-            showsHorizontalScrollIndicator={false}
+            showsHorizontalScrollIndicator={
+              false
+            }
             keyboardShouldPersistTaps="handled"
-            contentContainerStyle={styles.editorScroll}
+            contentContainerStyle={
+              styles.editorScroll
+            }
           >
             <View
               style={[
                 styles.editor,
                 {
-                  backgroundColor: colors.editor,
+                  backgroundColor:
+                    colors.editor,
                 },
               ]}
             >
               {/* LINE NUMBERS */}
-              <View style={styles.lineNumbers}>
-                {lines.map((_, index) => (
-                  <Text
-                    key={index}
-                    style={[
-                      styles.lineNumber,
-                      {
-                        color: colors.muted2,
-                      },
-                    ]}
-                  >
-                    {String(index + 1).padStart(3, ' ')}
-                  </Text>
-                ))}
+              <View
+                style={
+                  styles.lineNumbers
+                }
+              >
+                {lines.map(
+                  (_, index) => (
+                    <Text
+                      key={index}
+                      style={[
+                        styles.lineNumber,
+                        {
+                          color:
+                            colors.muted2,
+                        },
+                      ]}
+                    >
+                      {String(
+                        index + 1
+                      ).padStart(
+                        3,
+                        ' '
+                      )}
+                    </Text>
+                  )
+                )}
               </View>
 
               {/* CODE */}
               <TextInput
                 value={code}
-                onChangeText={handleChange}
+                onChangeText={
+                  handleChange
+                }
+                onSelectionChange={(
+                  event
+                ) =>
+                  setCursorPosition(
+                    event.nativeEvent
+                      .selection
+                  )
+                }
                 multiline
                 textAlignVertical="top"
                 autoCapitalize="none"
@@ -466,8 +1068,10 @@ export default function WorkbenchScreen({
                 style={[
                   styles.codeInput,
                   {
-                    color: colors.editorText,
-                    backgroundColor: colors.editor,
+                    color:
+                      colors.editorText,
+                    backgroundColor:
+                      colors.editor,
                   },
                 ]}
               />
@@ -479,56 +1083,74 @@ export default function WorkbenchScreen({
             style={[
               styles.toolbar,
               {
-                backgroundColor: colors.panel2,
-                borderTopColor: colors.border,
+                backgroundColor:
+                  colors.panel2,
+                borderTopColor:
+                  colors.border,
               },
             ]}
           >
             <ToolbarButton
               label="TAB"
-              onPress={() => insertText('  ')}
+              onPress={() =>
+                insertText('  ')
+              }
               colors={colors}
             />
 
             <ToolbarButton
               label="{ }"
-              onPress={() => insertText('{}')}
+              onPress={() =>
+                insertText('{}')
+              }
               colors={colors}
             />
 
             <ToolbarButton
               label="( )"
-              onPress={() => insertText('()')}
+              onPress={() =>
+                insertText('()')
+              }
               colors={colors}
             />
 
             <ToolbarButton
               label="[ ]"
-              onPress={() => insertText('[]')}
+              onPress={() =>
+                insertText('[]')
+              }
               colors={colors}
             />
 
             <ToolbarButton
               label="="
-              onPress={() => insertText(' = ')}
+              onPress={() =>
+                insertText(' = ')
+              }
               colors={colors}
             />
 
             <ToolbarButton
               label=";"
-              onPress={() => insertText(';')}
+              onPress={() =>
+                insertText(';')
+              }
               colors={colors}
             />
 
             <ToolbarButton
               label="→"
-              onPress={() => insertText(' => ')}
+              onPress={() =>
+                insertText(' => ')
+              }
               colors={colors}
             />
 
             <ToolbarButton
               label="⌫"
-              onPress={() => setCode((value) => value.slice(0, -1))}
+              onPress={
+                deletePreviousCharacter
+              }
               colors={colors}
             />
           </View>
@@ -538,28 +1160,185 @@ export default function WorkbenchScreen({
             style={[
               styles.statusBar,
               {
-                backgroundColor: colors.purple,
+                backgroundColor:
+                  colors.purple,
               },
             ]}
           >
-            <Text style={styles.statusBarText}>
-              JavaScript
+            <Text
+              style={
+                styles.statusBarText
+              }
+            >
+              {getLanguage(
+                activeFile
+              )}
             </Text>
 
-            <Text style={styles.statusBarText}>
+            <Text
+              style={
+                styles.statusBarText
+              }
+            >
               UTF-8
             </Text>
 
-            <Text style={styles.statusBarText}>
+            <Text
+              style={
+                styles.statusBarText
+              }
+            >
               {lines.length} lignes
             </Text>
 
-            <Text style={styles.statusBarText}>
-              {isSaved ? 'Saved' : 'Unsaved'}
+            <Text
+              style={
+                styles.statusBarText
+              }
+            >
+              {isSaved
+                ? 'Saved'
+                : 'Unsaved'}
             </Text>
           </View>
         </KeyboardAvoidingView>
       </View>
+
+      {/* NEW FILE MODAL */}
+      {isAddingFile && (
+        <View
+          style={[
+            styles.modalOverlay,
+            {
+              backgroundColor:
+                colors.overlay,
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.modal,
+              {
+                backgroundColor:
+                  colors.panel,
+                borderColor:
+                  colors.border,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.modalTitle,
+                {
+                  color:
+                    colors.textStrong,
+                },
+              ]}
+            >
+              Nouveau fichier
+            </Text>
+
+            <Text
+              style={[
+                styles.modalSubtitle,
+                {
+                  color:
+                    colors.muted,
+                },
+              ]}
+            >
+              Exemple : app.js,
+              styles.css ou index.html
+            </Text>
+
+            <TextInput
+              value={newFileName}
+              onChangeText={
+                setNewFileName
+              }
+              autoCapitalize="none"
+              autoCorrect={false}
+              placeholder="nom-du-fichier.js"
+              placeholderTextColor={
+                colors.muted2
+              }
+              style={[
+                styles.modalInput,
+                {
+                  color:
+                    colors.text,
+                  backgroundColor:
+                    colors.panel2,
+                  borderColor:
+                    colors.border,
+                },
+              ]}
+            />
+
+            <View
+              style={
+                styles.modalActions
+              }
+            >
+              <Pressable
+                onPress={() =>
+                  setIsAddingFile(
+                    false
+                  )
+                }
+                style={[
+                  styles.modalButton,
+                  {
+                    backgroundColor:
+                      colors.panel2,
+                    borderColor:
+                      colors.border,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.modalButtonText,
+                    {
+                      color:
+                        colors.muted,
+                    },
+                  ]}
+                >
+                  Annuler
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={
+                  confirmAddFile
+                }
+                style={[
+                  styles.modalButton,
+                  {
+                    backgroundColor:
+                      colors.purple,
+                    borderColor:
+                      colors.purple,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.modalButtonText,
+                    {
+                      color:
+                        '#FFFFFF',
+                    },
+                  ]}
+                >
+                  Créer
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -575,9 +1354,13 @@ function ToolbarButton({
       style={({ pressed }) => [
         styles.toolbarButton,
         {
-          backgroundColor: colors.panel,
-          borderColor: colors.border,
-          opacity: pressed ? 0.55 : 1,
+          backgroundColor:
+            colors.panel,
+          borderColor:
+            colors.border,
+          opacity: pressed
+            ? 0.55
+            : 1,
         },
       ]}
     >
@@ -585,7 +1368,8 @@ function ToolbarButton({
         style={[
           styles.toolbarButtonText,
           {
-            color: colors.text,
+            color:
+              colors.text,
           },
         ]}
       >
@@ -593,6 +1377,108 @@ function ToolbarButton({
       </Text>
     </Pressable>
   );
+}
+
+function getFileType(fileName) {
+  const extension =
+    fileName
+      .split('.')
+      .pop()
+      ?.toLowerCase();
+
+  switch (extension) {
+    case 'js':
+    case 'jsx':
+    case 'ts':
+    case 'tsx':
+      return 'JS';
+
+    case 'json':
+      return '{}';
+
+    case 'html':
+      return 'HTML';
+
+    case 'css':
+      return '#';
+
+    case 'md':
+      return 'MD';
+
+    default:
+      return 'FILE';
+  }
+}
+
+function getFileColor(
+  fileName,
+  colors
+) {
+  const extension =
+    fileName
+      .split('.')
+      .pop()
+      ?.toLowerCase();
+
+  switch (extension) {
+    case 'js':
+    case 'jsx':
+    case 'ts':
+    case 'tsx':
+      return colors.yellow;
+
+    case 'json':
+      return colors.blue;
+
+    case 'html':
+      return colors.orange;
+
+    case 'css':
+      return colors.purpleLight;
+
+    case 'md':
+      return colors.red;
+
+    default:
+      return colors.muted;
+  }
+}
+
+function getLanguage(fileName) {
+  const extension =
+    fileName
+      .split('.')
+      .pop()
+      ?.toLowerCase();
+
+  switch (extension) {
+    case 'js':
+      return 'JavaScript';
+
+    case 'jsx':
+      return 'React JSX';
+
+    case 'ts':
+      return 'TypeScript';
+
+    case 'tsx':
+      return 'React TSX';
+
+    case 'html':
+      return 'HTML';
+
+    case 'css':
+      return 'CSS';
+
+    case 'json':
+      return 'JSON';
+
+    case 'md':
+      return 'Markdown';
+
+    default:
+      return 'Plain Text';
+  }
 }
 
 const styles = StyleSheet.create({
@@ -652,17 +1538,22 @@ const styles = StyleSheet.create({
   topActions: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
   },
 
-  topAction: {
-    width: 38,
+  saveButton: {
     height: 38,
+    minWidth: 55,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
-  actionIcon: {
-    fontSize: 17,
+  saveText: {
+    fontSize: 10,
+    fontWeight: '700',
   },
 
   runButton: {
@@ -687,6 +1578,7 @@ const styles = StyleSheet.create({
   },
 
   tab: {
+    flex: 1,
     minWidth: 150,
     maxWidth: 220,
     flexDirection: 'row',
@@ -729,7 +1621,7 @@ const styles = StyleSheet.create({
   },
 
   explorer: {
-    width: 142,
+    width: 150,
     borderRightWidth: 1,
   },
 
@@ -776,10 +1668,10 @@ const styles = StyleSheet.create({
   },
 
   fileItem: {
-    minHeight: 34,
+    minHeight: 35,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: 22,
+    paddingLeft: 18,
     paddingRight: 6,
     borderLeftWidth: 2,
   },
@@ -787,12 +1679,22 @@ const styles = StyleSheet.create({
   fileType: {
     fontSize: 7,
     fontWeight: '900',
-    width: 25,
+    width: 31,
   },
 
   fileName: {
     flex: 1,
     fontSize: 10,
+  },
+
+  explorerHint: {
+    paddingHorizontal: 12,
+    paddingTop: 14,
+  },
+
+  explorerHintText: {
+    fontSize: 8,
+    lineHeight: 13,
   },
 
   editorContainer: {
@@ -821,11 +1723,12 @@ const styles = StyleSheet.create({
     height: 20,
     lineHeight: 20,
     fontSize: 10,
-    fontFamily: Platform.select({
-      ios: 'Menlo',
-      android: 'monospace',
-      default: 'monospace',
-    }),
+    fontFamily:
+      Platform.select({
+        ios: 'Menlo',
+        android: 'monospace',
+        default: 'monospace',
+      }),
   },
 
   codeInput: {
@@ -835,11 +1738,12 @@ const styles = StyleSheet.create({
     margin: 0,
     fontSize: 12,
     lineHeight: 20,
-    fontFamily: Platform.select({
-      ios: 'Menlo',
-      android: 'monospace',
-      default: 'monospace',
-    }),
+    fontFamily:
+      Platform.select({
+        ios: 'Menlo',
+        android: 'monospace',
+        default: 'monospace',
+      }),
   },
 
   toolbar: {
@@ -847,8 +1751,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 6,
-    borderTopWidth: 1,
     gap: 5,
+    borderTopWidth: 1,
   },
 
   toolbarButton: {
@@ -878,5 +1782,66 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 8,
     fontWeight: '600',
+  },
+
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+
+  modal: {
+    width: '100%',
+    maxWidth: 380,
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 20,
+  },
+
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 7,
+  },
+
+  modalSubtitle: {
+    fontSize: 11,
+    lineHeight: 17,
+    marginBottom: 16,
+  },
+
+  modalInput: {
+    height: 46,
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    fontSize: 12,
+    marginBottom: 16,
+  },
+
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+
+  modalButton: {
+    minWidth: 85,
+    height: 40,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+  },
+
+  modalButtonText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
 });
