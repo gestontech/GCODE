@@ -1,502 +1,74 @@
-import React, {
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
-
+import React, { useMemo, useState } from 'react';
 import {
-  Alert,
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  TextInput,
+  ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
 } from 'react-native';
-
-import ActivityBar from '../components/ActivityBar';
-import FileExplorer from '../components/FileExplorer';
-import EditorTabs from '../components/EditorTabs';
-import BottomPanel from '../components/BottomPanel';
-import StatusBar from '../components/StatusBar';
-import CodeEditor from '../components/CodeEditor';
-
 import { useTheme } from '../theme/ThemeContext';
 
-import {
-  createFile,
-  createFolder,
-  renameFile,
-  deleteFile,
-  renameFolder,
-  deleteFolder,
-  updateProjectFile,
-} from '../storage/projectStorage';
+const DEFAULT_CODE = `// Bienvenue dans GCODE
+// Commence à coder ici.
 
-function getCursorPosition(text, offset = 0) {
-  const value = text || '';
-
-  const safeOffset = Math.max(
-    0,
-    Math.min(offset ?? 0, value.length),
-  );
-
-  const beforeCursor = value.slice(
-    0,
-    safeOffset,
-  );
-
-  const lines = beforeCursor.split('\n');
-
-  return {
-    line: lines.length,
-    column:
-      (lines[lines.length - 1] || '').length + 1,
-  };
+function hello() {
+  console.log("Hello from GCODE!");
 }
 
-function getLanguage(file) {
-  if (!file) {
-    return 'text';
-  }
-
-  if (file.language) {
-    return file.language;
-  }
-
-  const name = file.name || '';
-  const extension =
-    name.split('.').pop()?.toLowerCase() || '';
-
-  const languages = {
-    html: 'html',
-    htm: 'html',
-    css: 'css',
-    js: 'javascript',
-    jsx: 'javascript',
-    ts: 'typescript',
-    tsx: 'typescript',
-    json: 'json',
-    md: 'markdown',
-    txt: 'text',
-  };
-
-  return languages[extension] || extension || 'text';
-}
+hello();`;
 
 export default function WorkbenchScreen({
   project,
-  onChange,
   onBack,
   onPreview,
 }) {
-  const { colors } = useTheme();
+  const { colors, spacing, radius } = useTheme();
 
-  const files = project?.files || [];
-  const folders = project?.folders || [];
-
-  const [activeFileId, setActiveFileId] = useState(
-    files[0]?.id || null,
+  const [code, setCode] = useState(
+    project?.code || DEFAULT_CODE
   );
 
-  const [activeActivity, setActiveActivity] =
-    useState('explorer');
-
-  const [bottomPanel, setBottomPanel] =
-    useState('terminal');
-
-  const [dialog, setDialog] = useState(null);
-
-  const [dialogValue, setDialogValue] =
-    useState('');
-
-  const [cursorSelection, setCursorSelection] =
-    useState({
-      start: 0,
-      end: 0,
-    });
-
-  const activeFile = useMemo(() => {
-    return (
-      files.find(
-        (file) => file.id === activeFileId,
-      ) || files[0] || null
-    );
-  }, [files, activeFileId]);
-
-  useEffect(() => {
-    if (!activeFileId && files[0]) {
-      setActiveFileId(files[0].id);
-      return;
-    }
-
-    const exists = files.some(
-      (file) => file.id === activeFileId,
-    );
-
-    if (!exists && files[0]) {
-      setActiveFileId(files[0].id);
-    }
-  }, [files, activeFileId]);
-
-  useEffect(() => {
-    setCursorSelection({
-      start: 0,
-      end: 0,
-    });
-  }, [activeFileId]);
-
-  useEffect(() => {
-    const content = activeFile?.content || '';
-
-    const maxPosition = content.length;
-
-    if (
-      cursorSelection.start > maxPosition ||
-      cursorSelection.end > maxPosition
-    ) {
-      const position = Math.min(
-        cursorSelection.start,
-        maxPosition,
-      );
-
-      setCursorSelection({
-        start: position,
-        end: position,
-      });
-    }
-  }, [
-    activeFile?.id,
-    activeFile?.content,
-    cursorSelection.start,
-    cursorSelection.end,
-  ]);
-
-  const updateProject = (updatedProject) => {
-    if (!updatedProject) {
-      return;
-    }
-
-    onChange?.(updatedProject);
-  };
-
-  const updateCode = (text) => {
-    if (!project || !activeFile) {
-      return;
-    }
-
-    const updatedProject = updateProjectFile(
-      project,
-      activeFile.id,
-      text,
-    );
-
-    updateProject(updatedProject);
-  };
-
-  const handleSelectionChange = (
-    nextSelection,
-  ) => {
-    if (!nextSelection) {
-      return;
-    }
-
-    setCursorSelection({
-      start: nextSelection.start ?? 0,
-      end: nextSelection.end ?? nextSelection.start ?? 0,
-    });
-  };
-
-  const openFile = (file) => {
-    if (!file) {
-      return;
-    }
-
-    setActiveFileId(file.id);
-
-    setCursorSelection({
-      start: 0,
-      end: 0,
-    });
-  };
-
-  const openCreateDialog = (type) => {
-    setDialog({
-      type,
-      mode: 'create',
-      target: null,
-    });
-
-    setDialogValue('');
-  };
-
-  const openRenameFileDialog = (file) => {
-    if (!file) {
-      return;
-    }
-
-    setDialog({
-      type: 'file',
-      mode: 'rename',
-      target: file,
-    });
-
-    setDialogValue(file.name || '');
-  };
-
-  const openRenameFolderDialog = (folder) => {
-    if (!folder) {
-      return;
-    }
-
-    setDialog({
-      type: 'folder',
-      mode: 'rename',
-      target: folder,
-    });
-
-    setDialogValue(folder.name || '');
-  };
-
-  const closeDialog = () => {
-    setDialog(null);
-    setDialogValue('');
-  };
-
-  const submitDialog = () => {
-    const value = dialogValue.trim();
-
-    if (!value) {
-      return;
-    }
-
-    if (!dialog) {
-      return;
-    }
-
-    try {
-      let updatedProject = project;
-
-      if (
-        dialog.mode === 'create' &&
-        dialog.type === 'file'
-      ) {
-        const exists = files.some(
-          (file) =>
-            file.name.toLowerCase() ===
-            value.toLowerCase(),
-        );
-
-        if (exists) {
-          Alert.alert(
-            'Fichier existant',
-            `Le fichier "${value}" existe déjà.`,
-          );
-          return;
-        }
-
-        updatedProject = createFile(
-          project,
-          value,
-          '',
-          null,
-        );
-      }
-
-      if (
-        dialog.mode === 'create' &&
-        dialog.type === 'folder'
-      ) {
-        const exists = folders.some(
-          (folder) =>
-            folder.name.toLowerCase() ===
-            value.toLowerCase(),
-        );
-
-        if (exists) {
-          Alert.alert(
-            'Dossier existant',
-            `Le dossier "${value}" existe déjà.`,
-          );
-          return;
-        }
-
-        updatedProject = createFolder(
-          project,
-          value,
-          null,
-        );
-      }
-
-      if (
-        dialog.mode === 'rename' &&
-        dialog.type === 'file'
-      ) {
-        updatedProject = renameFile(
-          project,
-          dialog.target.id,
-          value,
-        );
-      }
-
-      if (
-        dialog.mode === 'rename' &&
-        dialog.type === 'folder'
-      ) {
-        updatedProject = renameFolder(
-          project,
-          dialog.target.id,
-          value,
-        );
-      }
-
-      updateProject(updatedProject);
-      closeDialog();
-    } catch (error) {
-      Alert.alert(
-        'Erreur',
-        error?.message ||
-          'Impossible de modifier le projet.',
-      );
-    }
-  };
-
-  const handleDeleteFile = (file) => {
-    if (!file) {
-      return;
-    }
-
-    if (file.name === 'index.html') {
-      Alert.alert(
-        'Fichier protégé',
-        'index.html est nécessaire au fonctionnement du projet et ne peut pas être supprimé.',
-      );
-      return;
-    }
-
-    Alert.alert(
-      'Supprimer le fichier',
-      `Voulez-vous supprimer "${file.name}" ?`,
-      [
-        {
-          text: 'Annuler',
-          style: 'cancel',
-        },
-        {
-          text: 'Supprimer',
-          style: 'destructive',
-          onPress: () => {
-            try {
-              const updatedProject = deleteFile(
-                project,
-                file.id,
-              );
-
-              updateProject(updatedProject);
-
-              if (file.id === activeFileId) {
-                const remainingFiles =
-                  updatedProject?.files || [];
-
-                setActiveFileId(
-                  remainingFiles[0]?.id || null,
-                );
-              }
-            } catch (error) {
-              Alert.alert(
-                'Erreur',
-                error?.message ||
-                  'Impossible de supprimer le fichier.',
-              );
-            }
-          },
-        },
-      ],
-    );
-  };
-
-  const handleDeleteFolder = (folder) => {
-    if (!folder) {
-      return;
-    }
-
-    Alert.alert(
-      'Supprimer le dossier',
-      `Voulez-vous supprimer "${folder.name}" et son contenu ?`,
-      [
-        {
-          text: 'Annuler',
-          style: 'cancel',
-        },
-        {
-          text: 'Supprimer',
-          style: 'destructive',
-          onPress: () => {
-            try {
-              const updatedProject =
-                deleteFolder(
-                  project,
-                  folder.id,
-                );
-
-              updateProject(updatedProject);
-
-              const remainingFiles =
-                updatedProject?.files || [];
-
-              const activeStillExists =
-                remainingFiles.some(
-                  (file) =>
-                    file.id === activeFileId,
-                );
-
-              if (!activeStillExists) {
-                setActiveFileId(
-                  remainingFiles[0]?.id || null,
-                );
-              }
-            } catch (error) {
-              Alert.alert(
-                'Erreur',
-                error?.message ||
-                  'Impossible de supprimer le dossier.',
-              );
-            }
-          },
-        },
-      ],
-    );
-  };
-
-  const cursor = getCursorPosition(
-    activeFile?.content || '',
-    cursorSelection.start,
+  const [activeFile, setActiveFile] = useState(
+    project?.fileName || 'index.js'
   );
 
-  const language = getLanguage(activeFile);
+  const [isSaved, setIsSaved] = useState(true);
+  const [showExplorer, setShowExplorer] = useState(true);
 
-  const projectName =
-    project?.name || 'Projet sans nom';
+  const lines = useMemo(() => {
+    return code.split('\n');
+  }, [code]);
+
+  const handleChange = (value) => {
+    setCode(value);
+    setIsSaved(false);
+  };
+
+  const handleSave = () => {
+    setIsSaved(true);
+  };
+
+  const insertText = (text) => {
+    setCode((current) => `${current}${text}`);
+    setIsSaved(false);
+  };
 
   return (
-    <KeyboardAvoidingView
+    <View
       style={[
         styles.container,
         {
           backgroundColor: colors.background,
         },
       ]}
-      behavior={
-        Platform.OS === 'ios'
-          ? 'padding'
-          : undefined
-      }
     >
-      {/* HEADER */}
+      {/* TOP BAR */}
       <View
         style={[
-          styles.header,
+          styles.topBar,
           {
             backgroundColor: colors.panel,
             borderBottomColor: colors.border,
@@ -505,432 +77,521 @@ export default function WorkbenchScreen({
       >
         <Pressable
           onPress={onBack}
+          hitSlop={8}
           style={({ pressed }) => [
-            styles.headerButton,
+            styles.backButton,
             {
-              opacity: pressed ? 0.6 : 1,
+              opacity: pressed ? 0.55 : 1,
             },
           ]}
         >
           <Text
             style={[
-              styles.headerButtonText,
-              { color: colors.text },
+              styles.backIcon,
+              {
+                color: colors.text,
+              },
             ]}
           >
             ‹
           </Text>
         </Pressable>
 
-        <View style={styles.headerTitleArea}>
+        <View style={styles.projectHeader}>
           <Text
             numberOfLines={1}
             style={[
               styles.projectName,
-              { color: colors.text },
+              {
+                color: colors.textStrong,
+              },
             ]}
           >
-            {projectName}
+            {project?.name || 'Nouveau projet'}
+          </Text>
+
+          <View style={styles.fileStatus}>
+            <View
+              style={[
+                styles.statusDot,
+                {
+                  backgroundColor: isSaved
+                    ? colors.green
+                    : colors.yellow,
+                },
+              ]}
+            />
+
+            <Text
+              style={[
+                styles.statusText,
+                {
+                  color: colors.muted,
+                },
+              ]}
+            >
+              {isSaved ? 'Enregistré' : 'Modifié'}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.topActions}>
+          <Pressable
+            onPress={handleSave}
+            hitSlop={8}
+            style={({ pressed }) => [
+              styles.topAction,
+              {
+                opacity: pressed ? 0.55 : 1,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.actionIcon,
+                {
+                  color: isSaved
+                    ? colors.muted
+                    : colors.purple,
+                },
+              ]}
+            >
+              ●
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={onPreview}
+            hitSlop={8}
+            style={({ pressed }) => [
+              styles.runButton,
+              {
+                backgroundColor: colors.purple,
+                opacity: pressed ? 0.75 : 1,
+              },
+            ]}
+          >
+            <Text style={styles.runIcon}>▶</Text>
+          </Pressable>
+        </View>
+      </View>
+
+      {/* FILE TABS */}
+      <View
+        style={[
+          styles.tabsBar,
+          {
+            backgroundColor: colors.panel2,
+            borderBottomColor: colors.border,
+          },
+        ]}
+      >
+        <Pressable
+          style={[
+            styles.tab,
+            {
+              borderBottomColor: colors.purple,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.fileIcon,
+              {
+                color: colors.purple,
+              },
+            ]}
+          >
+            JS
           </Text>
 
           <Text
             numberOfLines={1}
             style={[
-              styles.fileName,
-              { color: colors.muted },
+              styles.tabText,
+              {
+                color: colors.text,
+              },
             ]}
           >
-            {activeFile?.name || 'Aucun fichier'}
+            {activeFile}
           </Text>
-        </View>
 
-        <Pressable
-          onPress={() => openCreateDialog('file')}
-          style={({ pressed }) => [
-            styles.headerAction,
-            {
-              opacity: pressed ? 0.6 : 1,
-            },
-          ]}
-        >
-          <Text
-            style={[
-              styles.actionText,
-              { color: colors.text },
-            ]}
-          >
-            +
-          </Text>
+          {!isSaved && (
+            <View
+              style={[
+                styles.modifiedDot,
+                {
+                  backgroundColor: colors.yellow,
+                },
+              ]}
+            />
+          )}
         </Pressable>
 
         <Pressable
-          onPress={() => openCreateDialog('folder')}
+          onPress={() => setShowExplorer((value) => !value)}
           style={({ pressed }) => [
-            styles.headerAction,
+            styles.explorerToggle,
             {
-              opacity: pressed ? 0.6 : 1,
+              opacity: pressed ? 0.55 : 1,
             },
           ]}
         >
           <Text
             style={[
-              styles.actionText,
-              { color: colors.text },
+              styles.explorerIcon,
+              {
+                color: colors.muted,
+              },
             ]}
           >
-            ▱
-          </Text>
-        </Pressable>
-
-        <Pressable
-          onPress={onPreview}
-          style={({ pressed }) => [
-            styles.previewButton,
-            {
-              backgroundColor: colors.purple,
-              opacity: pressed ? 0.7 : 1,
-            },
-          ]}
-        >
-          <Text
-            style={[
-              styles.previewText,
-              { color: '#ffffff' },
-            ]}
-          >
-            ▶
+            ☰
           </Text>
         </Pressable>
       </View>
 
-      {/* CORPS */}
-      <View style={styles.body}>
-        {/* ACTIVITY BAR */}
-        <ActivityBar
-          active={activeActivity}
-          onChange={setActiveActivity}
-        />
-
-        {/* SIDEBAR */}
-        {activeActivity === 'explorer' && (
+      <View style={styles.workspace}>
+        {/* EXPLORER */}
+        {showExplorer && (
           <View
             style={[
-              styles.sidebar,
+              styles.explorer,
               {
                 backgroundColor: colors.panel,
                 borderRightColor: colors.border,
               },
             ]}
           >
+            <View style={styles.explorerHeader}>
+              <Text
+                style={[
+                  styles.explorerTitle,
+                  {
+                    color: colors.muted,
+                  },
+                ]}
+              >
+                EXPLORER
+              </Text>
+
+              <Text
+                style={[
+                  styles.explorerAction,
+                  {
+                    color: colors.muted,
+                  },
+                ]}
+              >
+                +
+              </Text>
+            </View>
+
             <View
               style={[
-                styles.sidebarHeader,
+                styles.folder,
                 {
-                  borderBottomColor:
-                    colors.border,
+                  backgroundColor: colors.panel2,
                 },
               ]}
             >
               <Text
                 style={[
-                  styles.sidebarTitle,
-                  { color: colors.text },
+                  styles.folderArrow,
+                  {
+                    color: colors.muted,
+                  },
                 ]}
               >
-                EXPLORATEUR
+                ▾
               </Text>
 
-              <View style={styles.sidebarActions}>
-                <Pressable
-                  onPress={() =>
-                    openCreateDialog('file')
-                  }
-                  style={styles.smallButton}
-                >
-                  <Text
-                    style={[
-                      styles.smallButtonText,
-                      { color: colors.text },
-                    ]}
-                  >
-                    +
-                  </Text>
-                </Pressable>
+              <Text
+                style={[
+                  styles.folderIcon,
+                  {
+                    color: colors.yellow,
+                  },
+                ]}
+              >
+                ■
+              </Text>
 
-                <Pressable
-                  onPress={() =>
-                    openCreateDialog('folder')
-                  }
-                  style={styles.smallButton}
-                >
+              <Text
+                numberOfLines={1}
+                style={[
+                  styles.folderName,
+                  {
+                    color: colors.text,
+                  },
+                ]}
+              >
+                {project?.name || 'project'}
+              </Text>
+            </View>
+
+            <Pressable
+              style={[
+                styles.fileItem,
+                {
+                  backgroundColor: colors.panel2,
+                  borderLeftColor: colors.purple,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.fileType,
+                  {
+                    color: colors.yellow,
+                  },
+                ]}
+              >
+                JS
+              </Text>
+
+              <Text
+                numberOfLines={1}
+                style={[
+                  styles.fileName,
+                  {
+                    color: colors.textStrong,
+                  },
+                ]}
+              >
+                index.js
+              </Text>
+            </Pressable>
+
+            <View style={styles.fileItem}>
+              <Text
+                style={[
+                  styles.fileType,
+                  {
+                    color: colors.red,
+                  },
+                ]}
+              >
+                #
+              </Text>
+
+              <Text
+                style={[
+                  styles.fileName,
+                  {
+                    color: colors.muted,
+                  },
+                ]}
+              >
+                README.md
+              </Text>
+            </View>
+
+            <View style={styles.fileItem}>
+              <Text
+                style={[
+                  styles.fileType,
+                  {
+                    color: colors.blue,
+                  },
+                ]}
+              >
+                JSON
+              </Text>
+
+              <Text
+                style={[
+                  styles.fileName,
+                  {
+                    color: colors.muted,
+                  },
+                ]}
+              >
+                package.json
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* EDITOR */}
+        <KeyboardAvoidingView
+          style={styles.editorContainer}
+          behavior={
+            Platform.OS === 'ios'
+              ? 'padding'
+              : undefined
+          }
+        >
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.editorScroll}
+          >
+            <View
+              style={[
+                styles.editor,
+                {
+                  backgroundColor: colors.editor,
+                },
+              ]}
+            >
+              {/* LINE NUMBERS */}
+              <View style={styles.lineNumbers}>
+                {lines.map((_, index) => (
                   <Text
+                    key={index}
                     style={[
-                      styles.smallButtonText,
-                      { color: colors.text },
+                      styles.lineNumber,
+                      {
+                        color: colors.muted2,
+                      },
                     ]}
                   >
-                    ▱
+                    {String(index + 1).padStart(3, ' ')}
                   </Text>
-                </Pressable>
+                ))}
               </View>
+
+              {/* CODE */}
+              <TextInput
+                value={code}
+                onChangeText={handleChange}
+                multiline
+                textAlignVertical="top"
+                autoCapitalize="none"
+                autoCorrect={false}
+                spellCheck={false}
+                scrollEnabled={false}
+                style={[
+                  styles.codeInput,
+                  {
+                    color: colors.editorText,
+                    backgroundColor: colors.editor,
+                  },
+                ]}
+              />
             </View>
+          </ScrollView>
 
-            <FileExplorer
-              project={project}
-              activeFile={activeFile}
-              onOpenFile={openFile}
-              onCreateFile={() =>
-                openCreateDialog('file')
-              }
-              onCreateFolder={() =>
-                openCreateDialog('folder')
-              }
-              onRenameFile={
-                openRenameFileDialog
-              }
-              onDeleteFile={
-                handleDeleteFile
-              }
-              onRenameFolder={
-                openRenameFolderDialog
-              }
-              onDeleteFolder={
-                handleDeleteFolder
-              }
-            />
-          </View>
-        )}
-
-        {/* AUTRES OUTILS */}
-        {activeActivity !== 'explorer' && (
+          {/* TOOLBAR */}
           <View
             style={[
-              styles.toolSidebar,
+              styles.toolbar,
               {
-                backgroundColor: colors.panel,
-                borderRightColor: colors.border,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.toolSidebarTitle,
-                { color: colors.text },
-              ]}
-            >
-              {activeActivity === 'search'
-                ? 'RECHERCHE'
-                : activeActivity === 'git'
-                  ? 'GIT'
-                  : activeActivity === 'run'
-                    ? 'EXÉCUTER'
-                    : activeActivity ===
-                        'extensions'
-                      ? 'EXTENSIONS'
-                      : 'PARAMÈTRES'}
-            </Text>
-
-            <Text
-              style={[
-                styles.toolSidebarText,
-                { color: colors.muted },
-              ]}
-            >
-              Cette section est prête pour les fonctions
-              correspondantes de GCODE Mobile.
-            </Text>
-          </View>
-        )}
-
-        {/* ÉDITEUR */}
-        <View style={styles.editorColumn}>
-          <EditorTabs
-            files={files}
-            activeFile={activeFile}
-            onSelect={openFile}
-          />
-
-          {activeFile ? (
-            <CodeEditor
-              value={activeFile.content || ''}
-              language={language}
-              onChangeText={updateCode}
-              onSelectionChange={
-                handleSelectionChange
-              }
-            />
-          ) : (
-            <View
-              style={[
-                styles.emptyEditor,
-                {
-                  backgroundColor:
-                    colors.editor,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.emptyTitle,
-                  { color: colors.text },
-                ]}
-              >
-                Aucun fichier ouvert
-              </Text>
-
-              <Text
-                style={[
-                  styles.emptyText,
-                  { color: colors.muted },
-                ]}
-              >
-                Crée un fichier pour commencer.
-              </Text>
-            </View>
-          )}
-
-          {/* BOTTOM PANEL */}
-          <View
-            style={[
-              styles.bottomPanel,
-              {
+                backgroundColor: colors.panel2,
                 borderTopColor: colors.border,
               },
             ]}
           >
-            <BottomPanel
-              active={bottomPanel}
-              onChange={setBottomPanel}
-              project={project}
+            <ToolbarButton
+              label="TAB"
+              onPress={() => insertText('  ')}
+              colors={colors}
+            />
+
+            <ToolbarButton
+              label="{ }"
+              onPress={() => insertText('{}')}
+              colors={colors}
+            />
+
+            <ToolbarButton
+              label="( )"
+              onPress={() => insertText('()')}
+              colors={colors}
+            />
+
+            <ToolbarButton
+              label="[ ]"
+              onPress={() => insertText('[]')}
+              colors={colors}
+            />
+
+            <ToolbarButton
+              label="="
+              onPress={() => insertText(' = ')}
+              colors={colors}
+            />
+
+            <ToolbarButton
+              label=";"
+              onPress={() => insertText(';')}
+              colors={colors}
+            />
+
+            <ToolbarButton
+              label="→"
+              onPress={() => insertText(' => ')}
+              colors={colors}
+            />
+
+            <ToolbarButton
+              label="⌫"
+              onPress={() => setCode((value) => value.slice(0, -1))}
+              colors={colors}
             />
           </View>
 
           {/* STATUS BAR */}
-          <StatusBar
-            language={language}
-            line={cursor.line}
-            column={cursor.column}
-            branch="main"
-            encoding="UTF-8"
-            spaces={2}
-          />
-        </View>
-      </View>
-
-      {/* DIALOGUE */}
-      {dialog && (
-        <View
-          style={[
-            styles.modalOverlay,
-            {
-              backgroundColor:
-                'rgba(0,0,0,0.65)',
-            },
-          ]}
-        >
           <View
             style={[
-              styles.modal,
+              styles.statusBar,
               {
-                backgroundColor: colors.panel,
-                borderColor: colors.border,
+                backgroundColor: colors.purple,
               },
             ]}
           >
-            <Text
-              style={[
-                styles.modalTitle,
-                { color: colors.text },
-              ]}
-            >
-              {dialog.mode === 'create'
-                ? dialog.type === 'file'
-                  ? 'Nouveau fichier'
-                  : 'Nouveau dossier'
-                : dialog.type === 'file'
-                  ? 'Renommer le fichier'
-                  : 'Renommer le dossier'}
+            <Text style={styles.statusBarText}>
+              JavaScript
             </Text>
 
-            <TextInput
-              value={dialogValue}
-              onChangeText={setDialogValue}
-              autoFocus
-              placeholder={
-                dialog.type === 'file'
-                  ? 'nom-du-fichier'
-                  : 'nom-du-dossier'
-              }
-              placeholderTextColor={
-                colors.muted
-              }
-              style={[
-                styles.modalInput,
-                {
-                  backgroundColor:
-                    colors.panel2,
-                  borderColor:
-                    colors.border,
-                  color: colors.text,
-                },
-              ]}
-              onSubmitEditing={
-                submitDialog
-              }
-              returnKeyType="done"
-            />
+            <Text style={styles.statusBarText}>
+              UTF-8
+            </Text>
 
-            <View style={styles.modalActions}>
-              <Pressable
-                onPress={closeDialog}
-                style={({ pressed }) => [
-                  styles.modalButton,
-                  {
-                    backgroundColor:
-                      colors.panel2,
-                    borderColor:
-                      colors.border,
-                    opacity: pressed ? 0.7 : 1,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.modalButtonText,
-                    { color: colors.text },
-                  ]}
-                >
-                  Annuler
-                </Text>
-              </Pressable>
+            <Text style={styles.statusBarText}>
+              {lines.length} lignes
+            </Text>
 
-              <Pressable
-                onPress={submitDialog}
-                style={({ pressed }) => [
-                  styles.modalButton,
-                  {
-                    backgroundColor:
-                      colors.purple,
-                    borderColor:
-                      colors.purple,
-                    opacity: pressed ? 0.7 : 1,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.modalButtonText,
-                    { color: '#ffffff' },
-                  ]}
-                >
-                  Valider
-                </Text>
-              </Pressable>
-            </View>
+            <Text style={styles.statusBarText}>
+              {isSaved ? 'Saved' : 'Unsaved'}
+            </Text>
           </View>
-        </View>
-      )}
-    </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
+      </View>
+    </View>
+  );
+}
+
+function ToolbarButton({
+  label,
+  onPress,
+  colors,
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.toolbarButton,
+        {
+          backgroundColor: colors.panel,
+          borderColor: colors.border,
+          opacity: pressed ? 0.55 : 1,
+        },
+      ]}
+    >
+      <Text
+        style={[
+          styles.toolbarButtonText,
+          {
+            color: colors.text,
+          },
+        ]}
+      >
+        {label}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -939,207 +600,283 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  header: {
-    height: 56,
+  topBar: {
+    height: 64,
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 10,
     borderBottomWidth: 1,
-    paddingHorizontal: 6,
   },
 
-  headerButton: {
-    width: 42,
-    height: 44,
+  backButton: {
+    width: 40,
+    height: 42,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
-  headerButtonText: {
-    fontSize: 34,
+  backIcon: {
+    fontSize: 32,
     fontWeight: '300',
-    lineHeight: 38,
+    marginTop: -3,
   },
 
-  headerTitleArea: {
+  projectHeader: {
     flex: 1,
     minWidth: 0,
-    paddingHorizontal: 5,
+    marginHorizontal: 5,
   },
 
   projectName: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-
-  fileName: {
-    fontSize: 10,
-    marginTop: 2,
-  },
-
-  headerAction: {
-    width: 38,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  actionText: {
-    fontSize: 22,
-    fontWeight: '600',
-  },
-
-  previewButton: {
-    width: 42,
-    height: 36,
-    borderRadius: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 3,
-  },
-
-  previewText: {
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: '700',
+    marginBottom: 4,
   },
 
-  body: {
-    flex: 1,
-    minHeight: 0,
-    flexDirection: 'row',
-  },
-
-  sidebar: {
-    width: 220,
-    minWidth: 180,
-    maxWidth: 260,
-    borderRightWidth: 1,
-  },
-
-  sidebarHeader: {
-    height: 42,
+  fileStatus: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 9,
+  },
+
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 5,
+  },
+
+  statusText: {
+    fontSize: 9,
+  },
+
+  topActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  topAction: {
+    width: 38,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  actionIcon: {
+    fontSize: 17,
+  },
+
+  runButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  runIcon: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    marginLeft: 2,
+  },
+
+  tabsBar: {
+    height: 43,
+    flexDirection: 'row',
+    alignItems: 'stretch',
     borderBottomWidth: 1,
   },
 
-  sidebarTitle: {
-    fontSize: 10,
-    fontWeight: '800',
-  },
-
-  sidebarActions: {
+  tab: {
+    minWidth: 150,
+    maxWidth: 220,
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 12,
+    borderBottomWidth: 2,
   },
 
-  smallButton: {
-    width: 30,
-    height: 30,
+  fileIcon: {
+    fontSize: 8,
+    fontWeight: '900',
+    marginRight: 7,
+  },
+
+  tabText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+
+  modifiedDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    marginLeft: 7,
+  },
+
+  explorerToggle: {
+    width: 45,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
-  smallButtonText: {
-    fontSize: 18,
-    fontWeight: '700',
+  explorerIcon: {
+    fontSize: 17,
   },
 
-  toolSidebar: {
-    width: 220,
-    padding: 16,
+  workspace: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+
+  explorer: {
+    width: 142,
     borderRightWidth: 1,
   },
 
-  toolSidebarTitle: {
-    fontSize: 10,
+  explorerHeader: {
+    height: 43,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+  },
+
+  explorerTitle: {
+    fontSize: 9,
     fontWeight: '800',
-    marginBottom: 16,
+    letterSpacing: 1,
   },
 
-  toolSidebarText: {
+  explorerAction: {
+    fontSize: 21,
+    fontWeight: '300',
+  },
+
+  folder: {
+    height: 34,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 7,
+  },
+
+  folderArrow: {
     fontSize: 11,
-    lineHeight: 18,
+    marginRight: 5,
   },
 
-  editorColumn: {
+  folderIcon: {
+    fontSize: 9,
+    marginRight: 6,
+  },
+
+  folderName: {
+    flex: 1,
+    fontSize: 10,
+    fontWeight: '600',
+  },
+
+  fileItem: {
+    minHeight: 34,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 22,
+    paddingRight: 6,
+    borderLeftWidth: 2,
+  },
+
+  fileType: {
+    fontSize: 7,
+    fontWeight: '900',
+    width: 25,
+  },
+
+  fileName: {
+    flex: 1,
+    fontSize: 10,
+  },
+
+  editorContainer: {
     flex: 1,
     minWidth: 0,
-    minHeight: 0,
   },
 
-  bottomPanel: {
-    minHeight: 115,
-    maxHeight: 190,
-    borderTopWidth: 1,
+  editorScroll: {
+    flexGrow: 1,
   },
 
-  emptyEditor: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 30,
-  },
-
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-
-  emptyText: {
-    fontSize: 12,
-  },
-
-  modalOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-    zIndex: 100,
-  },
-
-  modal: {
-    width: '100%',
-    maxWidth: 420,
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 18,
-  },
-
-  modalTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 14,
-  },
-
-  modalInput: {
-    minHeight: 44,
-    borderWidth: 1,
-    borderRadius: 9,
-    paddingHorizontal: 12,
-    fontSize: 13,
-  },
-
-  modalActions: {
+  editor: {
+    minHeight: '100%',
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: 14,
+    paddingTop: 12,
+    paddingRight: 30,
   },
 
-  modalButton: {
-    minHeight: 40,
-    paddingHorizontal: 16,
-    borderRadius: 9,
-    borderWidth: 1,
+  lineNumbers: {
+    width: 42,
+    alignItems: 'flex-end',
+    paddingRight: 10,
+  },
+
+  lineNumber: {
+    height: 20,
+    lineHeight: 20,
+    fontSize: 10,
+    fontFamily: Platform.select({
+      ios: 'Menlo',
+      android: 'monospace',
+      default: 'monospace',
+    }),
+  },
+
+  codeInput: {
+    minWidth: 500,
+    minHeight: 600,
+    padding: 0,
+    margin: 0,
+    fontSize: 12,
+    lineHeight: 20,
+    fontFamily: Platform.select({
+      ios: 'Menlo',
+      android: 'monospace',
+      default: 'monospace',
+    }),
+  },
+
+  toolbar: {
+    minHeight: 46,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    borderTopWidth: 1,
+    gap: 5,
+  },
+
+  toolbarButton: {
+    minWidth: 35,
+    height: 32,
+    paddingHorizontal: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 8,
+    borderWidth: 1,
+    borderRadius: 8,
   },
 
-  modalButtonText: {
-    fontSize: 12,
+  toolbarButtonText: {
+    fontSize: 10,
     fontWeight: '700',
+  },
+
+  statusBar: {
+    height: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+  },
+
+  statusBarText: {
+    color: '#FFFFFF',
+    fontSize: 8,
+    fontWeight: '600',
   },
 });
