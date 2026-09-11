@@ -3,9 +3,12 @@
     "name": "GCODE",
     "slug": "gcode",
     "version": "3.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "userInterfaceStyle": "dark",
     "scheme": "gcode",
+
+    "icon": "./assets/gcode-icon-new.png",
+
     "platforms": [
       "android",
       "ios",
@@ -17,16 +20,22 @@
       "versionCode": 3,
       "userInterfaceStyle": "dark",
       "softwareKeyboardLayoutMode": "resize",
-      "predictiveBackGestureEnabled": true
+      "predictiveBackGestureEnabled": true,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/gcode-icon-new.png",
+        "backgroundColor": "#070914"
+      }
     },
 
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.gcode.mobile"
+      "bundleIdentifier": "com.gcode.mobile",
+      "icon": "./assets/gcode-icon-new.png"
     },
 
     "web": {
-      "bundler": "metro"
+      "bundler": "metro",
+      "favicon": "./assets/gcode-favicon-new.png"
     }
   }
 }
