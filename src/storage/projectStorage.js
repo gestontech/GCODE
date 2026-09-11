@@ -2,9 +2,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const STORAGE_KEY = '@gcode_projects_v3';
 
-/**
- * Projet par défaut
- */
 const createDefaultFiles = () => ({
   'index.js': `// Bienvenue dans GCODE
 // Commence à coder ici.
@@ -28,9 +25,6 @@ Créé avec GCODE.`,
 }`,
 });
 
-/**
- * Charge tous les projets enregistrés localement.
- */
 export async function loadProjects() {
   try {
     const stored = await AsyncStorage.getItem(STORAGE_KEY);
@@ -56,9 +50,6 @@ export async function loadProjects() {
   }
 }
 
-/**
- * Sauvegarde la liste complète des projets.
- */
 export async function saveProjects(projects) {
   try {
     await AsyncStorage.setItem(
@@ -77,13 +68,13 @@ export async function saveProjects(projects) {
   }
 }
 
-/**
- * Crée un nouveau projet.
- */
-export async function createProject(name = 'Nouveau projet') {
+export async function createProject(
+  name = 'Nouveau projet'
+) {
   const projects = await loadProjects();
 
   const now = new Date().toISOString();
+  const defaultFiles = createDefaultFiles();
 
   const project = {
     id: `project_${Date.now()}`,
@@ -93,12 +84,11 @@ export async function createProject(name = 'Nouveau projet') {
     updatedAt: now,
 
     fileName: 'index.js',
-
     activeFile: 'index.js',
 
-    code: createDefaultFiles()['index.js'],
+    code: defaultFiles['index.js'],
 
-    files: createDefaultFiles(),
+    files: defaultFiles,
 
     preview: '',
 
@@ -117,9 +107,6 @@ export async function createProject(name = 'Nouveau projet') {
   return project;
 }
 
-/**
- * Met à jour un projet.
- */
 export async function updateProject(
   projectId,
   changes = {}
@@ -149,9 +136,6 @@ export async function updateProject(
   return updatedProject;
 }
 
-/**
- * Sauvegarde le code d'un fichier.
- */
 export async function saveProjectFile(
   projectId,
   fileName,
@@ -197,9 +181,6 @@ export async function saveProjectFile(
   return updatedProject;
 }
 
-/**
- * Récupère le contenu d'un fichier.
- */
 export async function getProjectFile(
   projectId,
   fileName
@@ -210,20 +191,13 @@ export async function getProjectFile(
     (item) => item.id === projectId
   );
 
-  if (!project) {
-    return null;
-  }
-
-  if (!project.files) {
+  if (!project || !project.files) {
     return null;
   }
 
   return project.files[fileName] ?? null;
 }
 
-/**
- * Ajoute un nouveau fichier au projet.
- */
 export async function addProjectFile(
   projectId,
   fileName,
@@ -261,9 +235,6 @@ export async function addProjectFile(
   return updatedProject;
 }
 
-/**
- * Supprime un fichier du projet.
- */
 export async function deleteProjectFile(
   projectId,
   fileName
@@ -284,7 +255,13 @@ export async function deleteProjectFile(
     ...(project.files || {}),
   };
 
-  if (!Object.prototype.hasOwnProperty.call(files, fileName)) {
+  const fileExists =
+    Object.prototype.hasOwnProperty.call(
+      files,
+      fileName
+    );
+
+  if (!fileExists) {
     return project;
   }
 
@@ -299,12 +276,17 @@ export async function deleteProjectFile(
 
   const updatedProject = {
     ...project,
+
     files,
+
     activeFile,
+
     fileName: activeFile,
+
     code: activeFile
       ? files[activeFile] || ''
       : '',
+
     updatedAt: new Date().toISOString(),
   };
 
@@ -317,9 +299,6 @@ export async function deleteProjectFile(
   return updatedProject;
 }
 
-/**
- * Renomme un fichier.
- */
 export async function renameProjectFile(
   projectId,
   oldName,
@@ -341,13 +320,28 @@ export async function renameProjectFile(
     ...(project.files || {}),
   };
 
-  if (!files[oldName]) {
+  // Important :
+  // on vérifie l'existence de la clé,
+  // et non la valeur du fichier.
+  //
+  // Ainsi, un fichier vide ("") peut aussi
+  // être correctement renommé.
+  const oldFileExists =
+    Object.prototype.hasOwnProperty.call(
+      files,
+      oldName
+    );
+
+  if (!oldFileExists) {
     return project;
   }
 
   if (
-    files[newName] !== undefined &&
-    oldName !== newName
+    oldName !== newName &&
+    Object.prototype.hasOwnProperty.call(
+      files,
+      newName
+    )
   ) {
     return project;
   }
@@ -363,16 +357,21 @@ export async function renameProjectFile(
 
   const updatedProject = {
     ...project,
+
     files,
+
     activeFile,
+
     fileName:
       project.fileName === oldName
         ? newName
         : project.fileName,
+
     code:
       activeFile
         ? files[activeFile] || ''
         : '',
+
     updatedAt: new Date().toISOString(),
   };
 
@@ -385,10 +384,9 @@ export async function renameProjectFile(
   return updatedProject;
 }
 
-/**
- * Supprime un projet complet.
- */
-export async function deleteProject(projectId) {
+export async function deleteProject(
+  projectId
+) {
   const projects = await loadProjects();
 
   const updatedProjects = projects.filter(
@@ -400,10 +398,6 @@ export async function deleteProject(projectId) {
   return updatedProjects;
 }
 
-/**
- * Supprime tous les projets locaux.
- * À utiliser uniquement depuis les paramètres.
- */
 export async function clearAllProjects() {
   try {
     await AsyncStorage.removeItem(STORAGE_KEY);
@@ -419,10 +413,9 @@ export async function clearAllProjects() {
   }
 }
 
-/**
- * Vérifie si un projet existe.
- */
-export async function projectExists(projectId) {
+export async function projectExists(
+  projectId
+) {
   const projects = await loadProjects();
 
   return projects.some(
@@ -430,10 +423,9 @@ export async function projectExists(projectId) {
   );
 }
 
-/**
- * Récupère un projet précis.
- */
-export async function getProject(projectId) {
+export async function getProject(
+  projectId
+) {
   const projects = await loadProjects();
 
   return (
