@@ -28,10 +28,16 @@ const items = [
 ];
 
 export default function BottomNav({
-  active = 'home',
-  onChange,
+  currentScreen = 'home',
+  onNavigate,
 }) {
   const { colors } = useTheme();
+
+  const handleNavigate = (screen) => {
+    if (typeof onNavigate === 'function') {
+      onNavigate(screen);
+    }
+  };
 
   return (
     <View
@@ -44,12 +50,20 @@ export default function BottomNav({
       ]}
     >
       {items.map((item) => {
-        const selected = active === item.id;
+        const selected =
+          currentScreen === item.id;
 
         return (
           <Pressable
             key={item.id}
-            onPress={() => onChange?.(item.id)}
+            accessibilityRole="button"
+            accessibilityLabel={item.label}
+            accessibilityState={{
+              selected,
+            }}
+            onPress={() =>
+              handleNavigate(item.id)
+            }
             style={({ pressed }) => [
               styles.item,
               {
