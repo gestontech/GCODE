@@ -26,11 +26,13 @@ export default function CodeEditor({
   onChangeText,
   onSelectionChange,
 }) {
-  const { colors } = useTheme();
+  const { theme } = useTheme();
+  const { colors, radius, spacing } = theme;
 
   const inputRef = useRef(null);
 
   const [text, setText] = useState(value || '');
+
   const [selection, setSelection] = useState({
     start: 0,
     end: 0,
@@ -90,7 +92,8 @@ export default function CodeEditor({
   };
 
   const handleSelectionChange = (event) => {
-    const nextSelection = event?.nativeEvent?.selection;
+    const nextSelection =
+      event?.nativeEvent?.selection;
 
     if (!nextSelection) {
       return;
@@ -106,9 +109,12 @@ export default function CodeEditor({
       return;
     }
 
-    const previousText = undoStack[undoStack.length - 1];
+    const previousText =
+      undoStack[undoStack.length - 1];
 
-    setUndoStack((current) => current.slice(0, -1));
+    setUndoStack((current) =>
+      current.slice(0, -1)
+    );
 
     setRedoStack((current) => [
       ...current,
@@ -139,9 +145,12 @@ export default function CodeEditor({
       return;
     }
 
-    const nextText = redoStack[redoStack.length - 1];
+    const nextText =
+      redoStack[redoStack.length - 1];
 
-    setRedoStack((current) => current.slice(0, -1));
+    setRedoStack((current) =>
+      current.slice(0, -1)
+    );
 
     setUndoStack((current) => [
       ...current,
@@ -202,7 +211,9 @@ export default function CodeEditor({
       return;
     }
 
-    const nextText = text.split(searchText).join(replaceText);
+    const nextText = text
+      .split(searchText)
+      .join(replaceText);
 
     if (nextText === text) {
       return;
@@ -270,39 +281,61 @@ export default function CodeEditor({
       style={[
         styles.container,
         {
-          backgroundColor: colors.editor,
+          backgroundColor: colors.editorBackground,
         },
       ]}
     >
-      {/* OUTILS ÉDITEUR */}
+      {/* BARRE D'OUTILS */}
       <View
         style={[
           styles.toolbar,
           {
-            backgroundColor: colors.panel,
+            backgroundColor: colors.glass,
             borderBottomColor: colors.border,
+            paddingHorizontal: spacing.xs,
           },
         ]}
       >
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Rechercher"
+          accessibilityState={{
+            selected: searchVisible,
+          }}
           onPress={() => {
-            setSearchVisible((current) => !current);
+            setSearchVisible(
+              (current) => !current
+            );
             setReplaceVisible(false);
           }}
+          hitSlop={4}
           style={({ pressed }) => [
             styles.toolButton,
             {
               backgroundColor: searchVisible
-                ? colors.panel2
-                : 'transparent',
-              opacity: pressed ? 0.65 : 1,
+                ? colors.primarySoft
+                : colors.glassSoft,
+              borderColor: searchVisible
+                ? colors.primary
+                : colors.border,
+              borderRadius: radius.md,
+              opacity: pressed ? 0.68 : 1,
+              transform: [
+                {
+                  scale: pressed ? 0.94 : 1,
+                },
+              ],
             },
           ]}
         >
           <Text
             style={[
               styles.toolText,
-              { color: colors.text },
+              {
+                color: searchVisible
+                  ? colors.primary
+                  : colors.textSecondary,
+              },
             ]}
           >
             🔎
@@ -310,24 +343,45 @@ export default function CodeEditor({
         </Pressable>
 
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Remplacer"
+          accessibilityState={{
+            selected: replaceVisible,
+          }}
           onPress={() => {
-            setReplaceVisible((current) => !current);
+            setReplaceVisible(
+              (current) => !current
+            );
             setSearchVisible(true);
           }}
+          hitSlop={4}
           style={({ pressed }) => [
             styles.toolButton,
             {
               backgroundColor: replaceVisible
-                ? colors.panel2
-                : 'transparent',
-              opacity: pressed ? 0.65 : 1,
+                ? colors.primarySoft
+                : colors.glassSoft,
+              borderColor: replaceVisible
+                ? colors.primary
+                : colors.border,
+              borderRadius: radius.md,
+              opacity: pressed ? 0.68 : 1,
+              transform: [
+                {
+                  scale: pressed ? 0.94 : 1,
+                },
+              ],
             },
           ]}
         >
           <Text
             style={[
               styles.toolText,
-              { color: colors.text },
+              {
+                color: replaceVisible
+                  ? colors.primary
+                  : colors.textSecondary,
+              },
             ]}
           >
             ⇄
@@ -337,24 +391,44 @@ export default function CodeEditor({
         <View style={styles.toolbarSpacer} />
 
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Annuler"
+          accessibilityState={{
+            disabled: undoStack.length === 0,
+          }}
           onPress={handleUndo}
           disabled={undoStack.length === 0}
+          hitSlop={4}
           style={({ pressed }) => [
             styles.toolButton,
             {
+              backgroundColor: colors.glassSoft,
+              borderColor: colors.border,
+              borderRadius: radius.md,
               opacity:
                 undoStack.length === 0
                   ? 0.3
                   : pressed
-                    ? 0.65
+                    ? 0.68
                     : 1,
+              transform: [
+                {
+                  scale:
+                    pressed &&
+                    undoStack.length > 0
+                      ? 0.94
+                      : 1,
+                },
+              ],
             },
           ]}
         >
           <Text
             style={[
               styles.toolText,
-              { color: colors.text },
+              {
+                color: colors.textSecondary,
+              },
             ]}
           >
             ↶
@@ -362,24 +436,44 @@ export default function CodeEditor({
         </Pressable>
 
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Rétablir"
+          accessibilityState={{
+            disabled: redoStack.length === 0,
+          }}
           onPress={handleRedo}
           disabled={redoStack.length === 0}
+          hitSlop={4}
           style={({ pressed }) => [
             styles.toolButton,
             {
+              backgroundColor: colors.glassSoft,
+              borderColor: colors.border,
+              borderRadius: radius.md,
               opacity:
                 redoStack.length === 0
                   ? 0.3
                   : pressed
-                    ? 0.65
+                    ? 0.68
                     : 1,
+              transform: [
+                {
+                  scale:
+                    pressed &&
+                    redoStack.length > 0
+                      ? 0.94
+                      : 1,
+                },
+              ],
             },
           ]}
         >
           <Text
             style={[
               styles.toolText,
-              { color: colors.text },
+              {
+                color: colors.textSecondary,
+              },
             ]}
           >
             ↷
@@ -388,13 +482,14 @@ export default function CodeEditor({
       </View>
 
       {/* RECHERCHE / REMPLACEMENT */}
-      {searchVisible && (
+      {searchVisible ? (
         <View
           style={[
             styles.searchPanel,
             {
-              backgroundColor: colors.panel,
+              backgroundColor: colors.glass,
               borderBottomColor: colors.border,
+              paddingHorizontal: spacing.sm,
             },
           ]}
         >
@@ -403,33 +498,52 @@ export default function CodeEditor({
               value={searchText}
               onChangeText={setSearchText}
               placeholder="Rechercher..."
-              placeholderTextColor={colors.muted}
+              placeholderTextColor={
+                colors.textMuted
+              }
               style={[
                 styles.searchInput,
                 {
-                  backgroundColor: colors.panel2,
+                  backgroundColor:
+                    colors.glassStrong,
                   borderColor: colors.border,
                   color: colors.text,
+                  borderRadius: radius.md,
                 },
               ]}
               returnKeyType="search"
               onSubmitEditing={findNext}
+              autoCapitalize="none"
+              autoCorrect={false}
             />
 
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Résultat suivant"
               onPress={findNext}
+              hitSlop={4}
               style={({ pressed }) => [
                 styles.searchButton,
                 {
-                  backgroundColor: colors.purple,
-                  opacity: pressed ? 0.7 : 1,
+                  backgroundColor:
+                    colors.primarySoft,
+                  borderColor: colors.primary,
+                  borderRadius: radius.md,
+                  opacity: pressed ? 0.68 : 1,
+                  transform: [
+                    {
+                      scale: pressed ? 0.94 : 1,
+                    },
+                  ],
                 },
               ]}
             >
               <Text
                 style={[
                   styles.searchButtonText,
-                  { color: '#ffffff' },
+                  {
+                    color: colors.primary,
+                  },
                 ]}
               >
                 ↓
@@ -437,20 +551,32 @@ export default function CodeEditor({
             </Pressable>
 
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Effacer la recherche"
               onPress={clearSearch}
+              hitSlop={4}
               style={({ pressed }) => [
                 styles.searchButton,
                 {
-                  backgroundColor: colors.panel2,
+                  backgroundColor:
+                    colors.glassSoft,
                   borderColor: colors.border,
-                  opacity: pressed ? 0.7 : 1,
+                  borderRadius: radius.md,
+                  opacity: pressed ? 0.68 : 1,
+                  transform: [
+                    {
+                      scale: pressed ? 0.94 : 1,
+                    },
+                  ],
                 },
               ]}
             >
               <Text
                 style={[
                   styles.searchButtonText,
-                  { color: colors.text },
+                  {
+                    color: colors.textSecondary,
+                  },
                 ]}
               >
                 ×
@@ -458,38 +584,56 @@ export default function CodeEditor({
             </Pressable>
           </View>
 
-          {replaceVisible && (
+          {replaceVisible ? (
             <View style={styles.searchRow}>
               <TextInput
                 value={replaceText}
                 onChangeText={setReplaceText}
                 placeholder="Remplacer par..."
-                placeholderTextColor={colors.muted}
+                placeholderTextColor={
+                  colors.textMuted
+                }
                 style={[
                   styles.searchInput,
                   {
-                    backgroundColor: colors.panel2,
+                    backgroundColor:
+                      colors.glassStrong,
                     borderColor: colors.border,
                     color: colors.text,
+                    borderRadius: radius.md,
                   },
                 ]}
+                autoCapitalize="none"
+                autoCorrect={false}
               />
 
               <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Remplacer le résultat"
                 onPress={handleReplace}
+                hitSlop={4}
                 style={({ pressed }) => [
                   styles.replaceButton,
                   {
-                    backgroundColor: colors.panel2,
+                    backgroundColor:
+                      colors.glassSoft,
                     borderColor: colors.border,
-                    opacity: pressed ? 0.7 : 1,
+                    borderRadius: radius.md,
+                    opacity: pressed ? 0.68 : 1,
+                    transform: [
+                      {
+                        scale: pressed ? 0.96 : 1,
+                      },
+                    ],
                   },
                 ]}
               >
                 <Text
                   style={[
                     styles.replaceText,
-                    { color: colors.text },
+                    {
+                      color: colors.text,
+                    },
                   ]}
                 >
                   Remplacer
@@ -497,35 +641,55 @@ export default function CodeEditor({
               </Pressable>
 
               <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Tout remplacer"
                 onPress={handleReplaceAll}
+                hitSlop={4}
                 style={({ pressed }) => [
                   styles.replaceButton,
                   {
-                    backgroundColor: colors.purple,
-                    borderColor: colors.purple,
-                    opacity: pressed ? 0.7 : 1,
+                    backgroundColor:
+                      colors.primarySoft,
+                    borderColor: colors.primary,
+                    borderRadius: radius.md,
+                    opacity: pressed ? 0.68 : 1,
+                    transform: [
+                      {
+                        scale: pressed ? 0.96 : 1,
+                      },
+                    ],
                   },
                 ]}
               >
                 <Text
                   style={[
                     styles.replaceText,
-                    { color: '#ffffff' },
+                    {
+                      color: colors.primary,
+                    },
                   ]}
                 >
                   Tout
                 </Text>
               </Pressable>
             </View>
-          )}
+          ) : null}
         </View>
-      )}
+      ) : null}
 
-      {/* ÉDITEUR */}
+      {/* ZONE ÉDITEUR */}
       <View style={styles.editorArea}>
         <ScrollView
-          style={styles.lineNumbersScroll}
-          contentContainerStyle={styles.lineNumbersContent}
+          style={[
+            styles.lineNumbersScroll,
+            {
+              backgroundColor: colors.editorSurface,
+              borderRightColor: colors.border,
+            },
+          ]}
+          contentContainerStyle={
+            styles.lineNumbersContent
+          }
           showsVerticalScrollIndicator={false}
           scrollEnabled={false}
         >
@@ -535,7 +699,7 @@ export default function CodeEditor({
               style={[
                 styles.lineNumber,
                 {
-                  color: colors.muted,
+                  color: colors.lineNumber,
                 },
               ]}
             >
@@ -544,12 +708,22 @@ export default function CodeEditor({
           ))}
         </ScrollView>
 
-        <View style={styles.codeArea}>
+        <View
+          style={[
+            styles.codeArea,
+            {
+              backgroundColor:
+                colors.editorBackground,
+            },
+          ]}
+        >
           <ScrollView
             style={styles.highlightScroll}
-            contentContainerStyle={styles.highlightContent}
-            showsVerticalScrollIndicator={true}
-            showsHorizontalScrollIndicator={true}
+            contentContainerStyle={
+              styles.highlightContent
+            }
+            showsVerticalScrollIndicator
+            showsHorizontalScrollIndicator
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.highlightWrapper}>
@@ -569,37 +743,45 @@ export default function CodeEditor({
                 spellCheck={false}
                 textAlignVertical="top"
                 selection={selection}
-                onSelectionChange={handleSelectionChange}
+                onSelectionChange={
+                  handleSelectionChange
+                }
                 style={[
                   styles.input,
                   {
                     color: 'transparent',
-                    backgroundColor: 'transparent',
+                    backgroundColor:
+                      'transparent',
                     caretColor: colors.text,
                   },
                 ]}
-                placeholderTextColor={colors.muted}
-                selectionColor={colors.purple}
+                placeholderTextColor={
+                  colors.textMuted
+                }
+                selectionColor={colors.primary}
               />
             </View>
           </ScrollView>
         </View>
       </View>
 
-      {/* FOOTER */}
+      {/* PIED DE L'ÉDITEUR */}
       <View
         style={[
           styles.footer,
           {
-            backgroundColor: colors.panel,
+            backgroundColor: colors.glass,
             borderTopColor: colors.border,
+            paddingHorizontal: spacing.sm,
           },
         ]}
       >
         <Text
           style={[
             styles.footerText,
-            { color: colors.muted },
+            {
+              color: colors.textMuted,
+            },
           ]}
         >
           {lineCount} lignes
@@ -608,7 +790,9 @@ export default function CodeEditor({
         <Text
           style={[
             styles.footerText,
-            { color: colors.muted },
+            {
+              color: colors.textMuted,
+            },
           ]}
         >
           {selectedCharacters > 0
@@ -627,19 +811,20 @@ const styles = StyleSheet.create({
   },
 
   toolbar: {
-    height: 42,
+    height: 46,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 6,
-    borderBottomWidth: 1,
+    borderBottomWidth:
+      StyleSheet.hairlineWidth,
   },
 
   toolButton: {
     width: 38,
-    height: 34,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 7,
+    borderWidth:
+      StyleSheet.hairlineWidth,
     marginHorizontal: 2,
   },
 
@@ -653,9 +838,9 @@ const styles = StyleSheet.create({
   },
 
   searchPanel: {
-    paddingHorizontal: 8,
     paddingVertical: 7,
-    borderBottomWidth: 1,
+    borderBottomWidth:
+      StyleSheet.hairlineWidth,
   },
 
   searchRow: {
@@ -667,8 +852,8 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     minHeight: 38,
-    borderWidth: 1,
-    borderRadius: 8,
+    borderWidth:
+      StyleSheet.hairlineWidth,
     paddingHorizontal: 10,
     paddingVertical: 7,
     fontSize: 12,
@@ -678,8 +863,8 @@ const styles = StyleSheet.create({
     minWidth: 38,
     height: 38,
     marginLeft: 5,
-    borderRadius: 8,
-    borderWidth: 1,
+    borderWidth:
+      StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -693,15 +878,15 @@ const styles = StyleSheet.create({
     minHeight: 38,
     paddingHorizontal: 10,
     marginLeft: 5,
-    borderRadius: 8,
-    borderWidth: 1,
+    borderWidth:
+      StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   replaceText: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 
   editorArea: {
@@ -711,8 +896,9 @@ const styles = StyleSheet.create({
   },
 
   lineNumbersScroll: {
-    width: 43,
-    backgroundColor: 'transparent',
+    width: 48,
+    borderRightWidth:
+      StyleSheet.hairlineWidth,
   },
 
   lineNumbersContent: {
@@ -766,15 +952,16 @@ const styles = StyleSheet.create({
   },
 
   footer: {
-    minHeight: 27,
+    minHeight: 30,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 10,
-    borderTopWidth: 1,
+    borderTopWidth:
+      StyleSheet.hairlineWidth,
   },
 
   footerText: {
     fontSize: 9,
+    fontWeight: '600',
   },
 });
