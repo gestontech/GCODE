@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+
 import {
   View,
   Text,
@@ -8,6 +9,7 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
+
 import { useTheme } from '../theme/ThemeContext';
 
 export default function ProjectsScreen({
@@ -22,7 +24,9 @@ export default function ProjectsScreen({
   const filteredProjects = useMemo(() => {
     const query = search.trim().toLowerCase();
 
-    if (!query) return projects;
+    if (!query) {
+      return projects;
+    }
 
     return projects.filter((project) => {
       const name = project?.name || project?.title || '';
@@ -80,12 +84,12 @@ export default function ProjectsScreen({
       >
         {/* HEADER */}
         <View style={styles.header}>
-          <View>
+          <View style={styles.headerText}>
             <Text
               style={[
                 styles.eyebrow,
                 {
-                  color: colors.muted,
+                  color: colors.textMuted,
                 },
               ]}
             >
@@ -96,7 +100,7 @@ export default function ProjectsScreen({
               style={[
                 styles.title,
                 {
-                  color: colors.textStrong,
+                  color: colors.text,
                 },
               ]}
             >
@@ -109,13 +113,24 @@ export default function ProjectsScreen({
             style={({ pressed }) => [
               styles.addButton,
               {
-                backgroundColor: colors.purple,
-                borderRadius: radius.md,
-                opacity: pressed ? 0.78 : 1,
+                backgroundColor: colors.glassStrong,
+                borderColor: colors.borderStrong,
+                borderRadius: radius.lg,
+                transform: [{ scale: pressed ? 0.94 : 1 }],
+                opacity: pressed ? 0.82 : 1,
               },
             ]}
           >
-            <Text style={styles.addIcon}>+</Text>
+            <Text
+              style={[
+                styles.addIcon,
+                {
+                  color: colors.primary,
+                },
+              ]}
+            >
+              +
+            </Text>
           </Pressable>
         </View>
 
@@ -124,9 +139,9 @@ export default function ProjectsScreen({
           style={[
             styles.searchBox,
             {
-              backgroundColor: colors.panel,
+              backgroundColor: colors.glass,
               borderColor: colors.border,
-              borderRadius: radius.md,
+              borderRadius: radius.lg,
             },
           ]}
         >
@@ -134,7 +149,7 @@ export default function ProjectsScreen({
             style={[
               styles.searchIcon,
               {
-                color: colors.muted,
+                color: colors.textSecondary,
               },
             ]}
           >
@@ -145,7 +160,7 @@ export default function ProjectsScreen({
             value={search}
             onChangeText={setSearch}
             placeholder="Rechercher un projet..."
-            placeholderTextColor={colors.muted2}
+            placeholderTextColor={colors.textMuted}
             style={[
               styles.searchInput,
               {
@@ -161,12 +176,20 @@ export default function ProjectsScreen({
             <Pressable
               onPress={() => setSearch('')}
               hitSlop={10}
+              style={({ pressed }) => [
+                styles.clearButton,
+                {
+                  backgroundColor: colors.glassSoft,
+                  borderColor: colors.border,
+                  transform: [{ scale: pressed ? 0.9 : 1 }],
+                },
+              ]}
             >
               <Text
                 style={[
                   styles.clear,
                   {
-                    color: colors.muted,
+                    color: colors.textSecondary,
                   },
                 ]}
               >
@@ -182,7 +205,7 @@ export default function ProjectsScreen({
             style={[
               styles.summaryText,
               {
-                color: colors.muted,
+                color: colors.textSecondary,
               },
             ]}
           >
@@ -194,7 +217,7 @@ export default function ProjectsScreen({
             style={[
               styles.liveBadge,
               {
-                backgroundColor: colors.panel2,
+                backgroundColor: colors.glassSoft,
                 borderColor: colors.border,
               },
             ]}
@@ -203,7 +226,7 @@ export default function ProjectsScreen({
               style={[
                 styles.liveDot,
                 {
-                  backgroundColor: colors.green,
+                  backgroundColor: colors.success,
                 },
               ]}
             />
@@ -212,7 +235,7 @@ export default function ProjectsScreen({
               style={[
                 styles.liveText,
                 {
-                  color: colors.muted,
+                  color: colors.textSecondary,
                 },
               ]}
             >
@@ -227,9 +250,9 @@ export default function ProjectsScreen({
             style={[
               styles.empty,
               {
-                backgroundColor: colors.panel,
+                backgroundColor: colors.glass,
                 borderColor: colors.border,
-                borderRadius: radius.lg,
+                borderRadius: radius.xl,
               },
             ]}
           >
@@ -237,7 +260,9 @@ export default function ProjectsScreen({
               style={[
                 styles.emptyIcon,
                 {
-                  backgroundColor: colors.panel2,
+                  backgroundColor: colors.glassStrong,
+                  borderColor: colors.border,
+                  borderRadius: radius.lg,
                 },
               ]}
             >
@@ -245,7 +270,7 @@ export default function ProjectsScreen({
                 style={[
                   styles.codeIcon,
                   {
-                    color: colors.purple,
+                    color: colors.primary,
                   },
                 ]}
               >
@@ -257,20 +282,18 @@ export default function ProjectsScreen({
               style={[
                 styles.emptyTitle,
                 {
-                  color: colors.textStrong,
+                  color: colors.text,
                 },
               ]}
             >
-              {search
-                ? 'Aucun résultat'
-                : 'Ton espace est vide'}
+              {search ? 'Aucun résultat' : 'Ton espace est vide'}
             </Text>
 
             <Text
               style={[
                 styles.emptyDescription,
                 {
-                  color: colors.muted,
+                  color: colors.textSecondary,
                 },
               ]}
             >
@@ -286,8 +309,10 @@ export default function ProjectsScreen({
                   styles.secondaryButton,
                   {
                     borderColor: colors.border,
-                    backgroundColor: colors.panel2,
-                    opacity: pressed ? 0.7 : 1,
+                    backgroundColor: colors.glassStrong,
+                    borderRadius: radius.md,
+                    transform: [{ scale: pressed ? 0.97 : 1 }],
+                    opacity: pressed ? 0.75 : 1,
                   },
                 ]}
               >
@@ -308,12 +333,22 @@ export default function ProjectsScreen({
                 style={({ pressed }) => [
                   styles.primaryButton,
                   {
-                    backgroundColor: colors.purple,
-                    opacity: pressed ? 0.8 : 1,
+                    backgroundColor: colors.primary,
+                    borderColor: colors.borderStrong,
+                    borderRadius: radius.md,
+                    transform: [{ scale: pressed ? 0.97 : 1 }],
+                    opacity: pressed ? 0.82 : 1,
                   },
                 ]}
               >
-                <Text style={styles.primaryButtonText}>
+                <Text
+                  style={[
+                    styles.primaryButtonText,
+                    {
+                      color: colors.textInverse,
+                    },
+                  ]}
+                >
                   + Créer un projet
                 </Text>
               </Pressable>
@@ -323,15 +358,19 @@ export default function ProjectsScreen({
           <View>
             {filteredProjects.map((project, index) => (
               <Pressable
-                key={project.id || `${getProjectName(project)}-${index}`}
+                key={
+                  project.id ||
+                  `${getProjectName(project)}-${index}`
+                }
                 onPress={() => onOpenProject?.(project)}
                 style={({ pressed }) => [
                   styles.projectCard,
                   {
-                    backgroundColor: colors.panel,
+                    backgroundColor: colors.glass,
                     borderColor: colors.border,
-                    borderRadius: radius.md,
-                    opacity: pressed ? 0.76 : 1,
+                    borderRadius: radius.lg,
+                    transform: [{ scale: pressed ? 0.985 : 1 }],
+                    opacity: pressed ? 0.82 : 1,
                   },
                 ]}
               >
@@ -340,7 +379,9 @@ export default function ProjectsScreen({
                   style={[
                     styles.projectIcon,
                     {
-                      backgroundColor: colors.panel2,
+                      backgroundColor: colors.glassStrong,
+                      borderColor: colors.border,
+                      borderRadius: radius.md,
                     },
                   ]}
                 >
@@ -348,7 +389,7 @@ export default function ProjectsScreen({
                     style={[
                       styles.projectIconText,
                       {
-                        color: colors.purple,
+                        color: colors.primary,
                       },
                     ]}
                   >
@@ -363,7 +404,7 @@ export default function ProjectsScreen({
                     style={[
                       styles.projectName,
                       {
-                        color: colors.textStrong,
+                        color: colors.text,
                       },
                     ]}
                   >
@@ -375,7 +416,7 @@ export default function ProjectsScreen({
                     style={[
                       styles.projectDescription,
                       {
-                        color: colors.muted,
+                        color: colors.textSecondary,
                       },
                     ]}
                   >
@@ -387,7 +428,9 @@ export default function ProjectsScreen({
                       style={[
                         styles.languageBadge,
                         {
-                          backgroundColor: colors.panel2,
+                          backgroundColor: colors.glassSoft,
+                          borderColor: colors.border,
+                          borderRadius: radius.sm,
                         },
                       ]}
                     >
@@ -395,7 +438,7 @@ export default function ProjectsScreen({
                         style={[
                           styles.languageText,
                           {
-                            color: colors.muted,
+                            color: colors.textSecondary,
                           },
                         ]}
                       >
@@ -407,7 +450,7 @@ export default function ProjectsScreen({
                       style={[
                         styles.projectIndex,
                         {
-                          color: colors.muted2,
+                          color: colors.textMuted,
                         },
                       ]}
                     >
@@ -424,7 +467,10 @@ export default function ProjectsScreen({
                     style={({ pressed }) => [
                       styles.deleteButton,
                       {
-                        backgroundColor: colors.panel2,
+                        backgroundColor: colors.glassSoft,
+                        borderColor: colors.border,
+                        borderRadius: radius.sm,
+                        transform: [{ scale: pressed ? 0.9 : 1 }],
                         opacity: pressed ? 0.55 : 1,
                       },
                     ]}
@@ -433,7 +479,7 @@ export default function ProjectsScreen({
                       style={[
                         styles.deleteIcon,
                         {
-                          color: colors.red,
+                          color: colors.danger,
                         },
                       ]}
                     >
@@ -445,7 +491,7 @@ export default function ProjectsScreen({
                     style={[
                       styles.arrow,
                       {
-                        color: colors.muted,
+                        color: colors.textSecondary,
                       },
                     ]}
                   >
@@ -464,9 +510,11 @@ export default function ProjectsScreen({
             style={({ pressed }) => [
               styles.createMore,
               {
+                backgroundColor: colors.glassSoft,
                 borderColor: colors.border,
-                borderRadius: radius.md,
-                opacity: pressed ? 0.7 : 1,
+                borderRadius: radius.lg,
+                transform: [{ scale: pressed ? 0.985 : 1 }],
+                opacity: pressed ? 0.75 : 1,
               },
             ]}
           >
@@ -474,7 +522,9 @@ export default function ProjectsScreen({
               style={[
                 styles.createMoreIcon,
                 {
-                  backgroundColor: colors.panel2,
+                  backgroundColor: colors.glassStrong,
+                  borderColor: colors.border,
+                  borderRadius: radius.md,
                 },
               ]}
             >
@@ -482,7 +532,7 @@ export default function ProjectsScreen({
                 style={[
                   styles.createMorePlus,
                   {
-                    color: colors.purple,
+                    color: colors.primary,
                   },
                 ]}
               >
@@ -495,7 +545,7 @@ export default function ProjectsScreen({
                 style={[
                   styles.createMoreTitle,
                   {
-                    color: colors.textStrong,
+                    color: colors.text,
                   },
                 ]}
               >
@@ -506,7 +556,7 @@ export default function ProjectsScreen({
                 style={[
                   styles.createMoreSubtitle,
                   {
-                    color: colors.muted,
+                    color: colors.textSecondary,
                   },
                 ]}
               >
@@ -518,7 +568,7 @@ export default function ProjectsScreen({
               style={[
                 styles.arrow,
                 {
-                  color: colors.muted,
+                  color: colors.textSecondary,
                 },
               ]}
             >
@@ -533,7 +583,7 @@ export default function ProjectsScreen({
             style={[
               styles.footerText,
               {
-                color: colors.muted2,
+                color: colors.textMuted,
               },
             ]}
           >
@@ -561,6 +611,10 @@ const styles = StyleSheet.create({
     marginBottom: 22,
   },
 
+  headerText: {
+    flex: 1,
+  },
+
   eyebrow: {
     fontSize: 9,
     fontWeight: '700',
@@ -579,10 +633,17 @@ const styles = StyleSheet.create({
     height: 46,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    shadowOffset: {
+      width: 0,
+      height: 5,
+    },
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
+    elevation: 5,
   },
 
   addIcon: {
-    color: '#FFFFFF',
     fontSize: 27,
     fontWeight: '300',
     marginTop: -2,
@@ -609,10 +670,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 
+  clearButton: {
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+
   clear: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '300',
-    marginLeft: 8,
+    lineHeight: 22,
   },
 
   summary: {
@@ -654,15 +723,22 @@ const styles = StyleSheet.create({
     padding: 25,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    elevation: 4,
   },
 
   emptyIcon: {
     width: 66,
     height: 66,
-    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 18,
+    borderWidth: 1,
   },
 
   codeIcon: {
@@ -688,11 +764,17 @@ const styles = StyleSheet.create({
   primaryButton: {
     paddingHorizontal: 20,
     paddingVertical: 12,
-    borderRadius: 11,
+    borderWidth: 1,
+    shadowOffset: {
+      width: 0,
+      height: 5,
+    },
+    shadowOpacity: 0.16,
+    shadowRadius: 10,
+    elevation: 4,
   },
 
   primaryButtonText: {
-    color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -715,15 +797,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 12,
     borderWidth: 1,
-    marginBottom: 9,
+    marginBottom: 10,
+    shadowOffset: {
+      width: 0,
+      height: 5,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 14,
+    elevation: 3,
   },
 
   projectIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 15,
+    width: 48,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
     marginRight: 12,
   },
 
@@ -739,13 +828,13 @@ const styles = StyleSheet.create({
 
   projectName: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '750',
     marginBottom: 4,
   },
 
   projectDescription: {
     fontSize: 11,
-    marginBottom: 7,
+    marginBottom: 8,
   },
 
   projectMeta: {
@@ -756,66 +845,68 @@ const styles = StyleSheet.create({
   languageBadge: {
     paddingHorizontal: 7,
     paddingVertical: 3,
-    borderRadius: 5,
+    borderWidth: 1,
     marginRight: 7,
   },
 
   languageText: {
     fontSize: 8,
     fontWeight: '700',
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
   },
 
   projectIndex: {
-    fontSize: 8,
+    fontSize: 9,
+    fontWeight: '600',
   },
 
   actions: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 7,
+    marginLeft: 8,
   },
 
   deleteButton: {
     width: 30,
     height: 30,
-    borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 2,
+    borderWidth: 1,
   },
 
   deleteIcon: {
-    fontSize: 21,
+    fontSize: 20,
     fontWeight: '300',
+    lineHeight: 21,
   },
 
   arrow: {
     fontSize: 25,
     fontWeight: '300',
+    marginLeft: 6,
+    marginTop: -2,
   },
 
   createMore: {
-    minHeight: 75,
+    minHeight: 76,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 13,
+    paddingHorizontal: 12,
     borderWidth: 1,
-    borderStyle: 'dashed',
-    marginTop: 4,
+    marginTop: 2,
   },
 
   createMoreIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 11,
+    borderWidth: 1,
+    marginRight: 12,
   },
 
   createMorePlus: {
-    fontSize: 25,
+    fontSize: 24,
     fontWeight: '300',
   },
 
@@ -835,12 +926,13 @@ const styles = StyleSheet.create({
 
   footer: {
     alignItems: 'center',
-    marginTop: 28,
+    paddingTop: 24,
+    paddingBottom: 6,
   },
 
   footerText: {
     fontSize: 8,
-    fontWeight: '600',
-    letterSpacing: 1.1,
+    fontWeight: '700',
+    letterSpacing: 1.4,
   },
 });
