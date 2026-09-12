@@ -31,7 +31,6 @@ import {
 
 import {
   ensureProjectDirectory,
-  getProjectDirectoryUri,
   syncProjectToFilesystem,
 } from '../storage/projectFileSystem';
 
@@ -83,7 +82,10 @@ function normalizePath(path) {
   return '/' + result.join('/');
 }
 
-function resolveDirectoryPath(currentPath, target) {
+function resolveDirectoryPath(
+  currentPath,
+  target
+) {
   if (!target || target === '.') {
     return currentPath;
   }
@@ -101,16 +103,72 @@ function resolveDirectoryPath(currentPath, target) {
   );
 }
 
+function GlassButton({
+  children,
+  onPress,
+  colors,
+  radius,
+  danger = false,
+  disabled = false,
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      style={({ pressed }) => [
+        styles.glassButton,
+        {
+          backgroundColor: danger
+            ? colors.dangerSoft
+            : colors.glassStrong,
+
+          borderColor: danger
+            ? colors.danger
+            : colors.border,
+
+          borderRadius: radius.pill,
+
+          opacity: disabled
+            ? 0.45
+            : pressed
+            ? 0.68
+            : 1,
+
+          transform: [
+            {
+              scale: pressed
+                ? 0.96
+                : 1,
+            },
+          ],
+        },
+      ]}
+    >
+      {children}
+    </Pressable>
+  );
+}
+
 export default function TerminalScreen({
   project,
   projects = [],
   onBack,
   onProjectUpdated,
 }) {
-  const { colors } = useTheme();
+  const { theme } = useTheme();
 
-  const scrollRef = useRef(null);
-  const inputRef = useRef(null);
+  const {
+    colors,
+    spacing,
+    radius,
+  } = theme;
+
+  const scrollRef =
+    useRef(null);
+
+  const inputRef =
+    useRef(null);
 
   const [currentProject, setCurrentProject] =
     useState(project || null);
@@ -149,7 +207,9 @@ export default function TerminalScreen({
 
     setCurrentProject(project);
 
-    initializeProjectFilesystem(project);
+    initializeProjectFilesystem(
+      project
+    );
   }, [project]);
 
   useEffect(() => {
@@ -163,232 +223,6 @@ export default function TerminalScreen({
       clearTimeout(timer);
     };
   }, [output]);
-
-  const initializeProjectFilesystem = async (
-    activeProject
-  ) => {
-    try {
-      if (!activeProject?.id) {
-        return;
-      }
-
-      const directory =
-        ensureProjectDirectory(
-          activeProject.id
-        );
-
-      syncProjectToFilesystem(
-        activeProject
-      );
-
-      const physicalPath =
-        uriToPath(
-          directory.uri
-        );
-
-      setProjectRoot(
-        physicalPath
-      );
-
-      setCwd(
-        physicalPath
-      );
-    } catch (error) {
-      console.error(
-        'Erreur filesystem GCODE:',
-        error
-      );
-
-      appendOutput([
-        'Filesystem error:',
-        error?.message ||
-          'Impossible d’initialiser le dossier du projet.',
-      ]);
-    }
-  };
-
-  const getProject = async () => {
-    if (currentProject) {
-      return currentProject;
-    }
-
-    if (projects.length > 0) {
-      const firstProject =
-        projects[0];
-
-      setCurrentProject(
-        firstProject
-      );
-
-      await initializeProjectFilesystem(
-        firstProject
-      );
-
-      return firstProject;
-    }
-
-    const storedProjects =
-      await loadProjects();
-
-    if (storedProjects.length > 0) {
-      const firstProject =
-        storedProjects[0];
-
-      setCurrentProject(
-        firstProject
-      );
-
-      await initializeProjectFilesystem(
-        firstProject
-      );
-
-      return firstProject;
-    }
-
-    return null;
-  };
-
-  const updateProjectState = async (
-    projectId
-  ) => {
-    const storedProjects =
-      await loadProjects();
-
-    const updatedProject =
-      storedProjects.find(
-        (item) =>
-          item.id === projectId
-      );
-
-    if (!updatedProject) {
-      return null;
-    }
-
-    setCurrentProject(
-      updatedProject
-    );
-
-    try {
-      syncProjectToFilesystem(
-        updatedProject
-      );
-    } catch (error) {
-      console.error(
-        'Erreur synchronisation filesystem:',
-        error
-      );
-    }
-
-    if (
-      typeof onProjectUpdated ===
-      'function'
-    ) {
-      await onProjectUpdated(
-        updatedProject
-      );
-    }
-
-    return updatedProject;
-  };
-
-  const handleCreateFile = async (
-    fileName,
-    content = ''
-  ) => {
-    const activeProject =
-      await getProject();
-
-    if (!activeProject?.id) {
-      throw new Error(
-        'Aucun projet actif.'
-      );
-    }
-
-    await addProjectFile(
-      activeProject.id,
-      fileName,
-      content
-    );
-
-    const directory =
-      ensureProjectDirectory(
-        activeProject.id
-      );
-
-    syncProjectToFilesystem(
-      {
-        ...activeProject,
-        files: {
-          ...(activeProject.files || {}),
-          [fileName]: content,
-        },
-      }
-    );
-
-    return updateProjectState(
-      activeProject.id
-    );
-  };
-
-  const handleDeleteFile = async (
-    fileName
-  ) => {
-    const activeProject =
-      await getProject();
-
-    if (!activeProject?.id) {
-      throw new Error(
-        'Aucun projet actif.'
-      );
-    }
-
-    await deleteProjectFile(
-      activeProject.id,
-      fileName
-    );
-
-    return updateProjectState(
-      activeProject.id
-    );
-  };
-
-  const handleWriteFile = async (
-    fileName,
-    content
-  ) => {
-    const activeProject =
-      await getProject();
-
-    if (!activeProject?.id) {
-      throw new Error(
-        'Aucun projet actif.'
-      );
-    }
-
-    const exists =
-      Object.prototype.hasOwnProperty.call(
-        activeProject.files || {},
-        fileName
-      );
-
-    if (exists) {
-      await saveProjectFile(
-        activeProject.id,
-        fileName,
-        content
-      );
-    } else {
-      await addProjectFile(
-        activeProject.id,
-        fileName,
-        content
-      );
-    }
-
-    return updateProjectState(
-      activeProject.id
-    );
-  };
 
   const appendOutput = (
     lines
@@ -407,376 +241,601 @@ export default function TerminalScreen({
     );
   };
 
-  const executeNative = async (
-    command,
-    workingDirectory
-  ) => {
-    return executeNativeCommand(
-      command,
-      workingDirectory || undefined,
-      {
-        GCODE_PROJECT_ID:
-          String(
-            currentProject?.id || ''
-          ),
-
-        GCODE_PROJECT_NAME:
-          String(
-            currentProject?.name || ''
-          ),
-
-        GCODE_PROJECT_ROOT:
-          String(
-            projectRoot || ''
-          ),
-      }
-    );
-  };
-
-  const executeCdCommand = async (
-    trimmed,
-    activeProject
-  ) => {
-    const match =
-      trimmed.match(
-        /^cd(?:\s+(.+))?$/
-      );
-
-    if (!match) {
-      return false;
-    }
-
-    const target =
-      (match[1] || '').trim();
-
-    if (!target || target === '~') {
-      setCwd(projectRoot);
-
-      appendOutput([
-        `CWD: ${projectRoot}`,
-      ]);
-
-      return true;
-    }
-
-    if (
-      target === '..' &&
-      cwd === projectRoot
-    ) {
-      appendOutput([
-        'cd: impossible de sortir du dossier du projet.',
-      ]);
-
-      return true;
-    }
-
-    const nextPath =
-      resolveDirectoryPath(
-        cwd || projectRoot,
-        target
-      );
-
-    if (
-      !nextPath.startsWith(
-        projectRoot
-      )
-    ) {
-      appendOutput([
-        'cd: accès en dehors du dossier du projet refusé.',
-      ]);
-
-      return true;
-    }
-
-    const check =
-      await executeNativeCommand(
-        `test -d '${nextPath.replace(
-          /'/g,
-          "'\\''"
-        )}'`,
-        projectRoot,
-        {
-          GCODE_PROJECT_ROOT:
-            projectRoot,
+  const initializeProjectFilesystem =
+    async (activeProject) => {
+      try {
+        if (!activeProject?.id) {
+          return;
         }
-      );
 
-    if (!check.success) {
-      appendOutput([
-        `cd: dossier introuvable: ${target}`,
-      ]);
+        const directory =
+          ensureProjectDirectory(
+            activeProject.id
+          );
 
-      return true;
-    }
-
-    setCwd(nextPath);
-
-    appendOutput([
-      `CWD: ${nextPath}`,
-    ]);
-
-    return true;
-  };
-
-  const executeCommand = async (
-    command
-  ) => {
-    const trimmed =
-      command.trim();
-
-    if (!trimmed || running) {
-      return;
-    }
-
-    setHistory(
-      (currentHistory) => [
-        ...currentHistory,
-        trimmed,
-      ]
-    );
-
-    setHistoryIndex(-1);
-
-    const activeProject =
-      await getProject();
-
-    if (!activeProject) {
-      appendOutput([
-        `> ${trimmed}`,
-        'Aucun projet disponible.',
-        'Crée d’abord un projet.',
-      ]);
-
-      return;
-    }
-
-    if (!projectRoot) {
-      await initializeProjectFilesystem(
-        activeProject
-      );
-    }
-
-    setRunning(true);
-
-    setOutput(
-      (currentOutput) => [
-        ...currentOutput,
-        `> ${trimmed}`,
-      ]
-    );
-
-    try {
-      /*
-       * cd est géré par GCODE afin que le
-       * répertoire courant reste persistant
-       * entre deux commandes.
-       */
-      if (
-        /^cd(?:\s+.*)?$/.test(
-          trimmed
-        )
-      ) {
-        await executeCdCommand(
-          trimmed,
+        syncProjectToFilesystem(
           activeProject
         );
+
+        const physicalPath =
+          uriToPath(
+            directory.uri
+          );
+
+        setProjectRoot(
+          physicalPath
+        );
+
+        setCwd(
+          physicalPath
+        );
+      } catch (error) {
+        console.error(
+          'Erreur filesystem GCODE:',
+          error
+        );
+
+        appendOutput([
+          'Filesystem error:',
+          error?.message ||
+            'Impossible d’initialiser le dossier du projet.',
+        ]);
+      }
+    };
+
+  const getProject =
+    async () => {
+      if (currentProject) {
+        return currentProject;
+      }
+
+      if (projects.length > 0) {
+        const firstProject =
+          projects[0];
+
+        setCurrentProject(
+          firstProject
+        );
+
+        await initializeProjectFilesystem(
+          firstProject
+        );
+
+        return firstProject;
+      }
+
+      const storedProjects =
+        await loadProjects();
+
+      if (storedProjects.length > 0) {
+        const firstProject =
+          storedProjects[0];
+
+        setCurrentProject(
+          firstProject
+        );
+
+        await initializeProjectFilesystem(
+          firstProject
+        );
+
+        return firstProject;
+      }
+
+      return null;
+    };
+
+  const updateProjectState =
+    async (projectId) => {
+      const storedProjects =
+        await loadProjects();
+
+      const updatedProject =
+        storedProjects.find(
+          (item) =>
+            item.id === projectId
+        );
+
+      if (!updatedProject) {
+        return null;
+      }
+
+      setCurrentProject(
+        updatedProject
+      );
+
+      try {
+        syncProjectToFilesystem(
+          updatedProject
+        );
+      } catch (error) {
+        console.error(
+          'Erreur synchronisation filesystem:',
+          error
+        );
+      }
+
+      if (
+        typeof onProjectUpdated ===
+        'function'
+      ) {
+        await onProjectUpdated(
+          updatedProject
+        );
+      }
+
+      return updatedProject;
+    };
+
+  const handleCreateFile =
+    async (
+      fileName,
+      content = ''
+    ) => {
+      const activeProject =
+        await getProject();
+
+      if (!activeProject?.id) {
+        throw new Error(
+          'Aucun projet actif.'
+        );
+      }
+
+      await addProjectFile(
+        activeProject.id,
+        fileName,
+        content
+      );
+
+      syncProjectToFilesystem({
+        ...activeProject,
+        files: {
+          ...(activeProject.files || {}),
+          [fileName]: content,
+        },
+      });
+
+      return updateProjectState(
+        activeProject.id
+      );
+    };
+
+  const handleDeleteFile =
+    async (fileName) => {
+      const activeProject =
+        await getProject();
+
+      if (!activeProject?.id) {
+        throw new Error(
+          'Aucun projet actif.'
+        );
+      }
+
+      await deleteProjectFile(
+        activeProject.id,
+        fileName
+      );
+
+      return updateProjectState(
+        activeProject.id
+      );
+    };
+
+  const handleWriteFile =
+    async (
+      fileName,
+      content
+    ) => {
+      const activeProject =
+        await getProject();
+
+      if (!activeProject?.id) {
+        throw new Error(
+          'Aucun projet actif.'
+        );
+      }
+
+      const exists =
+        Object.prototype.hasOwnProperty.call(
+          activeProject.files || {},
+          fileName
+        );
+
+      if (exists) {
+        await saveProjectFile(
+          activeProject.id,
+          fileName,
+          content
+        );
+      } else {
+        await addProjectFile(
+          activeProject.id,
+          fileName,
+          content
+        );
+      }
+
+      return updateProjectState(
+        activeProject.id
+      );
+    };
+
+  const executeNative =
+    async (
+      command,
+      workingDirectory
+    ) => {
+      return executeNativeCommand(
+        command,
+        workingDirectory ||
+          undefined,
+        {
+          GCODE_PROJECT_ID:
+            String(
+              currentProject?.id || ''
+            ),
+
+          GCODE_PROJECT_NAME:
+            String(
+              currentProject?.name || ''
+            ),
+
+          GCODE_PROJECT_ROOT:
+            String(
+              projectRoot || ''
+            ),
+        }
+      );
+    };
+
+  const executeCdCommand =
+    async (
+      trimmed
+    ) => {
+      const match =
+        trimmed.match(
+          /^cd(?:\s+(.+))?$/
+        );
+
+      if (!match) {
+        return false;
+      }
+
+      const target =
+        (match[1] || '').trim();
+
+      if (
+        !target ||
+        target === '~'
+      ) {
+        setCwd(
+          projectRoot
+        );
+
+        appendOutput([
+          `CWD: ${projectRoot}`,
+        ]);
+
+        return true;
+      }
+
+      if (
+        target === '..' &&
+        cwd === projectRoot
+      ) {
+        appendOutput([
+          'cd: impossible de sortir du dossier du projet.',
+        ]);
+
+        return true;
+      }
+
+      const nextPath =
+        resolveDirectoryPath(
+          cwd || projectRoot,
+          target
+        );
+
+      if (
+        !nextPath.startsWith(
+          projectRoot
+        )
+      ) {
+        appendOutput([
+          'cd: accès en dehors du dossier du projet refusé.',
+        ]);
+
+        return true;
+      }
+
+      const escapedPath =
+        nextPath.replace(
+          /'/g,
+          "'\\''"
+        );
+
+      const check =
+        await executeNativeCommand(
+          `test -d '${escapedPath}'`,
+          projectRoot,
+          {
+            GCODE_PROJECT_ROOT:
+              projectRoot,
+          }
+        );
+
+      if (!check.success) {
+        appendOutput([
+          `cd: dossier introuvable: ${target}`,
+        ]);
+
+        return true;
+      }
+
+      setCwd(
+        nextPath
+      );
+
+      appendOutput([
+        `CWD: ${nextPath}`,
+      ]);
+
+      return true;
+    };
+
+  const executeCommand =
+    async (command) => {
+      const trimmed =
+        command.trim();
+
+      if (
+        !trimmed ||
+        running
+      ) {
+        return;
+      }
+
+      setHistory(
+        (currentHistory) => [
+          ...currentHistory,
+          trimmed,
+        ]
+      );
+
+      setHistoryIndex(-1);
+
+      const activeProject =
+        await getProject();
+
+      if (!activeProject) {
+        appendOutput([
+          `> ${trimmed}`,
+          'Aucun projet disponible.',
+          'Crée d’abord un projet.',
+        ]);
 
         return;
       }
 
-      /*
-       * Toutes les autres commandes sont
-       * exécutées réellement par le shell
-       * Android dans le dossier physique
-       * du projet.
-       */
-      const result =
-        await executeNative(
-          trimmed,
-          cwd || projectRoot
-        );
-
-      const stdout =
-        typeof result?.stdout ===
-        'string'
-          ? result.stdout
-          : '';
-
-      const stderr =
-        typeof result?.stderr ===
-        'string'
-          ? result.stderr
-          : '';
-
-      const exitCode =
-        typeof result?.exitCode ===
-        'number'
-          ? result.exitCode
-          : -1;
-
-      if (stdout) {
-        appendOutput(
-          stdout.replace(
-            /\n$/,
-            ''
-          )
+      if (!projectRoot) {
+        await initializeProjectFilesystem(
+          activeProject
         );
       }
 
-      if (stderr) {
-        appendOutput(
-          stderr.replace(
-            /\n$/,
-            ''
-          )
-        );
-      }
+      setRunning(true);
 
-      appendOutput([
-        `[Process exited with code ${exitCode}]`,
-      ]);
-
-      /*
-       * Le terminal peut avoir créé/modifié
-       * des fichiers physiques.
-       *
-       * On recharge ensuite les métadonnées
-       * du projet pour conserver la cohérence
-       * de GCODE.
-       */
-      if (activeProject.id) {
-        await updateProjectState(
-          activeProject.id
-        );
-      }
-    } catch (error) {
-      console.error(
-        'Erreur Terminal GCODE:',
-        error
+      setOutput(
+        (currentOutput) => [
+          ...currentOutput,
+          `> ${trimmed}`,
+        ]
       );
 
-      appendOutput([
-        'Terminal error:',
-        error?.message ||
-          'Impossible d’exécuter la commande.',
-        '[Process exited with code -1]',
-      ]);
-    } finally {
-      setRunning(false);
-
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 50);
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (running) {
-      return;
-    }
-
-    const command =
-      input;
-
-    setInput('');
-
-    await executeCommand(
-      command
-    );
-  };
-
-  const handleStop = async () => {
-    try {
-      const stopped =
-        await stopNativeCommand();
-
-      if (stopped) {
-        appendOutput([
-          '^C',
-          'Processus arrêté.',
-        ]);
-      } else {
-        appendOutput([
-          'Aucun processus actif.',
-        ]);
-      }
-    } catch (error) {
-      appendOutput([
-        'Erreur lors de l’arrêt du processus:',
-        error?.message ||
-          'Impossible d’arrêter le processus.',
-      ]);
-    } finally {
-      setRunning(false);
-    }
-  };
-
-  const handleHistoryUp = () => {
-    if (history.length === 0) {
-      return;
-    }
-
-    const nextIndex =
-      historyIndex < 0
-        ? history.length - 1
-        : Math.max(
-            historyIndex - 1,
-            0
+      try {
+        if (
+          /^cd(?:\s+.*)?$/.test(
+            trimmed
+          )
+        ) {
+          await executeCdCommand(
+            trimmed
           );
 
-    setHistoryIndex(
-      nextIndex
-    );
+          return;
+        }
 
-    setInput(
-      history[nextIndex] || ''
-    );
-  };
+        const result =
+          await executeNative(
+            trimmed,
+            cwd || projectRoot
+          );
 
-  const handleHistoryDown = () => {
-    if (history.length === 0) {
-      return;
-    }
+        const stdout =
+          typeof result?.stdout ===
+          'string'
+            ? result.stdout
+            : '';
 
-    if (historyIndex < 0) {
-      return;
-    }
+        const stderr =
+          typeof result?.stderr ===
+          'string'
+            ? result.stderr
+            : '';
 
-    const nextIndex =
-      historyIndex + 1;
+        const exitCode =
+          typeof result?.exitCode ===
+          'number'
+            ? result.exitCode
+            : -1;
 
-    if (
-      nextIndex >=
-      history.length
-    ) {
-      setHistoryIndex(-1);
+        if (stdout) {
+          appendOutput(
+            stdout.replace(
+              /\n$/,
+              ''
+            )
+          );
+        }
+
+        if (stderr) {
+          appendOutput(
+            stderr.replace(
+              /\n$/,
+              ''
+            )
+          );
+        }
+
+        appendOutput([
+          `[Process exited with code ${exitCode}]`,
+        ]);
+
+        if (activeProject.id) {
+          await updateProjectState(
+            activeProject.id
+          );
+        }
+      } catch (error) {
+        console.error(
+          'Erreur Terminal GCODE:',
+          error
+        );
+
+        appendOutput([
+          'Terminal error:',
+          error?.message ||
+            'Impossible d’exécuter la commande.',
+          '[Process exited with code -1]',
+        ]);
+      } finally {
+        setRunning(false);
+
+        setTimeout(() => {
+          inputRef.current?.focus();
+        }, 50);
+      }
+    };
+
+  const handleSubmit =
+    async () => {
+      if (running) {
+        return;
+      }
+
+      const command =
+        input;
+
       setInput('');
-      return;
-    }
 
-    setHistoryIndex(
-      nextIndex
-    );
+      await executeCommand(
+        command
+      );
+    };
 
-    setInput(
-      history[nextIndex] || ''
-    );
-  };
+  const handleStop =
+    async () => {
+      try {
+        const stopped =
+          await stopNativeCommand();
 
-  const handleClear = () => {
-    setOutput([
-      'GCODE Terminal V3',
-      'Terminal natif Android.',
-      `Projet : ${
-        currentProject?.name ||
-        'Aucun projet'
-      }`,
-      `CWD : ${
-        cwd || projectRoot || '/'
-      }`,
-      '',
-    ]);
-  };
+        if (stopped) {
+          appendOutput([
+            '^C',
+            'Processus arrêté.',
+          ]);
+        } else {
+          appendOutput([
+            'Aucun processus actif.',
+          ]);
+        }
+      } catch (error) {
+        appendOutput([
+          'Erreur lors de l’arrêt du processus:',
+          error?.message ||
+            'Impossible d’arrêter le processus.',
+        ]);
+      } finally {
+        setRunning(false);
+
+        setTimeout(() => {
+          inputRef.current?.focus();
+        }, 50);
+      }
+    };
+
+  const handleHistoryUp =
+    () => {
+      if (history.length === 0) {
+        return;
+      }
+
+      const nextIndex =
+        historyIndex < 0
+          ? history.length - 1
+          : Math.max(
+              historyIndex - 1,
+              0
+            );
+
+      setHistoryIndex(
+        nextIndex
+      );
+
+      setInput(
+        history[nextIndex] ||
+          ''
+      );
+    };
+
+  const handleHistoryDown =
+    () => {
+      if (
+        history.length === 0 ||
+        historyIndex < 0
+      ) {
+        return;
+      }
+
+      const nextIndex =
+        historyIndex + 1;
+
+      if (
+        nextIndex >=
+        history.length
+      ) {
+        setHistoryIndex(-1);
+        setInput('');
+        return;
+      }
+
+      setHistoryIndex(
+        nextIndex
+      );
+
+      setInput(
+        history[nextIndex] ||
+          ''
+      );
+    };
+
+  const handleClear =
+    () => {
+      setOutput([
+        'GCODE Terminal V3',
+        'Terminal natif Android.',
+        `Projet : ${
+          currentProject?.name ||
+          'Aucun projet'
+        }`,
+        `CWD : ${
+          cwd ||
+          projectRoot ||
+          '/'
+        }`,
+        '',
+      ]);
+    };
 
   const projectName =
     currentProject?.name ||
@@ -797,28 +856,24 @@ export default function TerminalScreen({
           : undefined
       }
     >
+      {/* HEADER */}
+
       <View
         style={[
           styles.header,
           {
             backgroundColor:
-              colors.backgroundElevated,
+              colors.glassStrong,
+
             borderBottomColor:
               colors.border,
           },
         ]}
       >
-        <Pressable
+        <GlassButton
           onPress={onBack}
-          style={[
-            styles.backButton,
-            {
-              backgroundColor:
-                colors.panel2,
-              borderColor:
-                colors.border,
-            },
-          ]}
+          colors={colors}
+          radius={radius}
         >
           <Text
             style={[
@@ -831,7 +886,7 @@ export default function TerminalScreen({
           >
             ‹
           </Text>
-        </Pressable>
+        </GlassButton>
 
         <View
           style={
@@ -843,7 +898,7 @@ export default function TerminalScreen({
               styles.title,
               {
                 color:
-                  colors.textStrong,
+                  colors.text,
               },
             ]}
           >
@@ -855,7 +910,7 @@ export default function TerminalScreen({
               styles.project,
               {
                 color:
-                  colors.muted,
+                  colors.textSecondary,
               },
             ]}
             numberOfLines={1}
@@ -865,84 +920,93 @@ export default function TerminalScreen({
         </View>
 
         {running ? (
-          <Pressable
+          <GlassButton
             onPress={
               handleStop
             }
-            style={[
-              styles.stopButton,
-              {
-                backgroundColor:
-                  colors.panel2,
-                borderColor:
-                  colors.border,
-              },
-            ]}
+            colors={colors}
+            radius={radius}
+            danger
           >
             <Text
               style={[
-                styles.stopText,
+                styles.actionText,
                 {
                   color:
-                    colors.text,
+                    colors.danger,
                 },
               ]}
             >
               Stop
             </Text>
-          </Pressable>
+          </GlassButton>
         ) : (
-          <Pressable
+          <GlassButton
             onPress={
               handleClear
             }
-            style={[
-              styles.clearButton,
-              {
-                backgroundColor:
-                  colors.panel2,
-                borderColor:
-                  colors.border,
-              },
-            ]}
+            colors={colors}
+            radius={radius}
           >
             <Text
               style={[
-                styles.clearText,
+                styles.actionText,
                 {
                   color:
-                    colors.text,
+                    colors.textSecondary,
                 },
               ]}
             >
               Clear
             </Text>
-          </Pressable>
+          </GlassButton>
         )}
       </View>
 
+      {/* CWD */}
+
       <View
         style={[
-          styles.cwdBar,
+          styles.cwdCard,
           {
             backgroundColor:
-              colors.panel,
-            borderBottomColor:
+              colors.glass,
+
+            borderColor:
               colors.border,
+
+            borderRadius:
+              radius.lg,
           },
         ]}
       >
-        <Text
+        <View
           style={[
-            styles.cwdLabel,
+            styles.cwdBadge,
             {
-              color:
-                colors.muted,
+              backgroundColor:
+                colors.primarySoft,
+
+              borderColor:
+                colors.border,
+
+              borderRadius:
+                radius.pill,
             },
           ]}
         >
-          CWD
-        </Text>
+          <Text
+            style={[
+              styles.cwdLabel,
+              {
+                color:
+                  colors.primary,
+              },
+            ]}
+          >
+            CWD
+          </Text>
+        </View>
 
         <Text
           style={[
@@ -954,102 +1018,145 @@ export default function TerminalScreen({
           ]}
           numberOfLines={1}
         >
-          {cwd || projectRoot || '/'}
+          {cwd ||
+            projectRoot ||
+            '/'}
         </Text>
       </View>
 
-      <ScrollView
-        ref={scrollRef}
-        style={[
-          styles.output,
-          {
-            backgroundColor:
-              colors.editor,
-          },
-        ]}
-        contentContainerStyle={
-          styles.outputContent
-        }
-        keyboardShouldPersistTaps="handled"
-      >
-        {output.map(
-          (line, index) => {
-            const lower =
-              line.toLowerCase();
-
-            const isCommand =
-              line.startsWith('> ');
-
-            const isError =
-              lower.includes(
-                'error'
-              ) ||
-              lower.includes(
-                'not found'
-              ) ||
-              lower.includes(
-                'permission denied'
-              ) ||
-              lower.includes(
-                'introuvable'
-              ) ||
-              lower.includes(
-                'refusé'
-              );
-
-            const isExit =
-              line.startsWith(
-                '[Process exited'
-              );
-
-            return (
-              <Text
-                key={`${index}-${line}`}
-                style={[
-                  styles.outputLine,
-                  {
-                    color:
-                      isCommand
-                        ? colors.purpleLight
-                        : isError
-                        ? colors.danger
-                        : isExit
-                        ? colors.muted
-                        : colors.editorText,
-                  },
-                ]}
-              >
-                {line || ' '}
-              </Text>
-            );
-          }
-        )}
-      </ScrollView>
+      {/* TERMINAL OUTPUT */}
 
       <View
         style={[
-          styles.inputBar,
+          styles.outputShell,
           {
             backgroundColor:
-              colors.panel,
-            borderTopColor:
+              colors.editorBackground,
+
+            borderColor:
               colors.border,
+
+            borderRadius:
+              radius.xl,
           },
         ]}
       >
-        <Text
+        <ScrollView
+          ref={scrollRef}
+          style={styles.output}
+          contentContainerStyle={
+            styles.outputContent
+          }
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={
+            false
+          }
+        >
+          {output.map(
+            (line, index) => {
+              const lower =
+                line.toLowerCase();
+
+              const isCommand =
+                line.startsWith(
+                  '> '
+                );
+
+              const isError =
+                lower.includes(
+                  'error'
+                ) ||
+                lower.includes(
+                  'not found'
+                ) ||
+                lower.includes(
+                  'permission denied'
+                ) ||
+                lower.includes(
+                  'introuvable'
+                ) ||
+                lower.includes(
+                  'refusé'
+                );
+
+              const isExit =
+                line.startsWith(
+                  '[Process exited'
+                );
+
+              return (
+                <Text
+                  key={`${index}-${line}`}
+                  style={[
+                    styles.outputLine,
+                    {
+                      color:
+                        isCommand
+                          ? colors.primary
+                          : isError
+                          ? colors.danger
+                          : isExit
+                          ? colors.textMuted
+                          : colors.editorText,
+                    },
+                  ]}
+                >
+                  {line || ' '}
+                </Text>
+              );
+            }
+          )}
+        </ScrollView>
+      </View>
+
+      {/* INPUT */}
+
+      <View
+        style={[
+          styles.inputCard,
+          {
+            backgroundColor:
+              colors.glassStrong,
+
+            borderColor:
+              colors.borderStrong,
+
+            borderRadius:
+              radius.xl,
+          },
+        ]}
+      >
+        <View
           style={[
-            styles.prompt,
+            styles.promptBadge,
             {
-              color:
+              backgroundColor:
                 running
-                  ? colors.muted
-                  : colors.purple,
+                  ? colors.glassSoft
+                  : colors.primarySoft,
+
+              borderColor:
+                colors.border,
+
+              borderRadius:
+                radius.pill,
             },
           ]}
         >
-          $
-        </Text>
+          <Text
+            style={[
+              styles.prompt,
+              {
+                color:
+                  running
+                    ? colors.textMuted
+                    : colors.primary,
+              },
+            ]}
+          >
+            $
+          </Text>
+        </View>
 
         <TextInput
           ref={inputRef}
@@ -1091,7 +1198,7 @@ export default function TerminalScreen({
               : 'Entrer une commande...'
           }
           placeholderTextColor={
-            colors.muted
+            colors.textMuted
           }
           editable={!running}
           style={[
@@ -1108,49 +1215,59 @@ export default function TerminalScreen({
           blurOnSubmit={false}
         />
 
-        {running ? (
-          <Pressable
-            onPress={
-              handleStop
-            }
+        <Pressable
+          onPress={
+            running
+              ? handleStop
+              : handleSubmit
+          }
+          accessibilityRole="button"
+          style={({ pressed }) => [
+            styles.sendButton,
+            {
+              backgroundColor:
+                running
+                  ? colors.dangerSoft
+                  : colors.primarySoft,
+
+              borderColor:
+                running
+                  ? colors.danger
+                  : colors.border,
+
+              borderRadius:
+                radius.pill,
+
+              opacity:
+                pressed ? 0.65 : 1,
+
+              transform: [
+                {
+                  scale:
+                    pressed
+                      ? 0.93
+                      : 1,
+                },
+              ],
+            },
+          ]}
+        >
+          <Text
             style={[
-              styles.sendButton,
+              styles.sendButtonText,
               {
-                backgroundColor:
-                  colors.danger,
+                color:
+                  running
+                    ? colors.danger
+                    : colors.primary,
               },
             ]}
           >
-            <Text
-              style={
-                styles.sendButtonText
-              }
-            >
-              ■
-            </Text>
-          </Pressable>
-        ) : (
-          <Pressable
-            onPress={
-              handleSubmit
-            }
-            style={[
-              styles.sendButton,
-              {
-                backgroundColor:
-                  colors.purple,
-              },
-            ]}
-          >
-            <Text
-              style={
-                styles.sendButtonText
-              }
-            >
-              →
-            </Text>
-          </Pressable>
-        )}
+            {running
+              ? '■'
+              : '→'}
+          </Text>
+        </Pressable>
       </View>
     </KeyboardAvoidingView>
   );
@@ -1163,24 +1280,28 @@ const styles =
     },
 
     header: {
-      minHeight: 64,
+      minHeight: 70,
       paddingHorizontal: 12,
+      paddingVertical: 9,
       flexDirection: 'row',
       alignItems: 'center',
-      borderBottomWidth: 1,
+      borderBottomWidth:
+        StyleSheet.hairlineWidth,
     },
 
-    backButton: {
-      width: 42,
-      height: 42,
-      borderRadius: 12,
-      borderWidth: 1,
+    glassButton: {
+      minWidth: 42,
+      height: 40,
+      paddingHorizontal: 12,
       alignItems: 'center',
       justifyContent: 'center',
+      borderWidth:
+        StyleSheet.hairlineWidth,
+      elevation: 2,
     },
 
     backText: {
-      fontSize: 32,
+      fontSize: 31,
       lineHeight: 34,
       fontWeight: '400',
     },
@@ -1188,70 +1309,68 @@ const styles =
     headerCenter: {
       flex: 1,
       marginHorizontal: 12,
+      minWidth: 0,
     },
 
     title: {
       fontSize: 17,
-      fontWeight: '800',
+      fontWeight: '900',
     },
 
     project: {
       marginTop: 2,
-      fontSize: 11,
-      fontWeight: '600',
+      fontSize: 10,
+      fontWeight: '650',
     },
 
-    clearButton: {
-      minWidth: 62,
-      height: 38,
-      paddingHorizontal: 12,
-      borderRadius: 10,
-      borderWidth: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
+    actionText: {
+      fontSize: 10,
+      fontWeight: '850',
     },
 
-    clearText: {
-      fontSize: 12,
-      fontWeight: '800',
-    },
-
-    stopButton: {
-      minWidth: 62,
-      height: 38,
-      paddingHorizontal: 12,
-      borderRadius: 10,
-      borderWidth: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-
-    stopText: {
-      fontSize: 12,
-      fontWeight: '800',
-    },
-
-    cwdBar: {
-      minHeight: 32,
-      paddingHorizontal: 12,
+    cwdCard: {
+      minHeight: 46,
+      marginHorizontal: 10,
+      marginTop: 9,
+      paddingHorizontal: 9,
+      paddingVertical: 7,
       flexDirection: 'row',
       alignItems: 'center',
-      borderBottomWidth: 1,
+      borderWidth:
+        StyleSheet.hairlineWidth,
+      elevation: 2,
+    },
+
+    cwdBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 5,
+      marginRight: 8,
+      borderWidth:
+        StyleSheet.hairlineWidth,
     },
 
     cwdLabel: {
-      fontSize: 10,
+      fontSize: 8,
       fontWeight: '900',
-      marginRight: 8,
+      letterSpacing: 1,
     },
 
     cwdText: {
       flex: 1,
-      fontSize: 11,
+      fontSize: 10,
       fontFamily:
         Platform.OS === 'ios'
           ? 'Menlo'
           : 'monospace',
+    },
+
+    outputShell: {
+      flex: 1,
+      margin: 10,
+      overflow: 'hidden',
+      borderWidth:
+        StyleSheet.hairlineWidth,
+      elevation: 3,
     },
 
     output: {
@@ -1260,39 +1379,51 @@ const styles =
 
     outputContent: {
       padding: 14,
-      paddingBottom: 24,
+      paddingBottom: 28,
     },
 
     outputLine: {
-      fontSize: 13,
-      lineHeight: 20,
+      fontSize: 12,
+      lineHeight: 19,
       fontFamily:
         Platform.OS === 'ios'
           ? 'Menlo'
           : 'monospace',
     },
 
-    inputBar: {
-      minHeight: 62,
-      paddingHorizontal: 10,
+    inputCard: {
+      minHeight: 68,
+      marginHorizontal: 10,
+      marginBottom: 10,
+      paddingHorizontal: 9,
+      paddingVertical: 9,
       flexDirection: 'row',
       alignItems: 'center',
-      borderTopWidth: 1,
+      borderWidth:
+        StyleSheet.hairlineWidth,
+      elevation: 5,
+    },
+
+    promptBadge: {
+      width: 38,
+      height: 38,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth:
+        StyleSheet.hairlineWidth,
     },
 
     prompt: {
-      width: 24,
-      fontSize: 17,
+      fontSize: 15,
       fontWeight: '900',
-      textAlign: 'center',
     },
 
     input: {
       flex: 1,
       minHeight: 44,
-      paddingHorizontal: 8,
+      paddingHorizontal: 10,
       paddingVertical: 8,
-      fontSize: 13,
+      fontSize: 12,
       fontFamily:
         Platform.OS === 'ios'
           ? 'Menlo'
@@ -1300,16 +1431,16 @@ const styles =
     },
 
     sendButton: {
-      width: 44,
-      height: 44,
-      borderRadius: 12,
+      width: 42,
+      height: 42,
       alignItems: 'center',
       justifyContent: 'center',
+      borderWidth:
+        StyleSheet.hairlineWidth,
     },
 
     sendButtonText: {
-      color: '#FFFFFF',
-      fontSize: 18,
+      fontSize: 17,
       fontWeight: '900',
     },
   });
