@@ -15,32 +15,47 @@ export default function Header({
   onBack,
   right,
 }) {
-  const { colors } = useTheme();
+  const { theme } = useTheme();
+  const { colors, radius, spacing } = theme;
 
   return (
     <View
       style={[
         styles.container,
         {
-          backgroundColor: colors.panel,
+          backgroundColor: colors.glass,
           borderBottomColor: colors.border,
+          paddingHorizontal: spacing.sm,
         },
       ]}
     >
       {onBack ? (
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Retour"
           onPress={onBack}
+          hitSlop={8}
           style={({ pressed }) => [
-            styles.backButton,
+            styles.actionButton,
             {
-              opacity: pressed ? 0.6 : 1,
+              backgroundColor: colors.glassSoft,
+              borderColor: colors.border,
+              borderRadius: radius.pill,
+              opacity: pressed ? 0.55 : 1,
+              transform: [
+                {
+                  scale: pressed ? 0.94 : 1,
+                },
+              ],
             },
           ]}
         >
           <Text
             style={[
               styles.back,
-              { color: colors.text },
+              {
+                color: colors.text,
+              },
             ]}
           >
             ‹
@@ -50,12 +65,21 @@ export default function Header({
         <View style={styles.leftSpacer} />
       )}
 
-      <View style={styles.center}>
+      <View
+        style={[
+          styles.center,
+          {
+            paddingHorizontal: spacing.sm,
+          },
+        ]}
+      >
         <Text
           numberOfLines={1}
           style={[
             styles.title,
-            { color: colors.text },
+            {
+              color: colors.text,
+            },
           ]}
         >
           {title}
@@ -66,7 +90,9 @@ export default function Header({
             numberOfLines={1}
             style={[
               styles.subtitle,
-              { color: colors.muted },
+              {
+                color: colors.textSecondary,
+              },
             ]}
           >
             {subtitle}
@@ -83,48 +109,54 @@ export default function Header({
 
 const styles = StyleSheet.create({
   container: {
-    minHeight: 58,
-    borderBottomWidth: 1,
+    minHeight: 62,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
 
-  backButton: {
+  actionButton: {
     width: 42,
     height: 42,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
   },
 
   back: {
     fontSize: 34,
     fontWeight: '300',
+    lineHeight: 38,
     marginTop: -3,
   },
 
   leftSpacer: {
     width: 42,
+    height: 42,
   },
 
   center: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    minWidth: 0,
   },
 
   title: {
     fontSize: 15,
-    fontWeight: '900',
+    fontWeight: '800',
+    letterSpacing: 0.1,
   },
 
   subtitle: {
     fontSize: 10,
+    fontWeight: '500',
     marginTop: 2,
   },
 
   right: {
     minWidth: 42,
+    minHeight: 42,
     alignItems: 'flex-end',
     justifyContent: 'center',
   },
