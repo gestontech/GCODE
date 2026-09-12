@@ -18,15 +18,16 @@ import {
 import { useTheme } from '../theme/ThemeContext';
 
 import {
-  createTerminalEngine,
-} from '../storage/terminalEngine';
-
-import {
   loadProjects,
   saveProjectFile,
   addProjectFile,
   deleteProjectFile,
 } from '../storage/projectStorage';
+
+import {
+  executeCommand as executeNativeCommand,
+  stopCommand as stopNativeCommand,
+} from '../../modules/gcode-terminal/src/GcodeTerminal';
 
 export default function TerminalScreen({
   project,
@@ -46,7 +47,8 @@ export default function TerminalScreen({
 
   const [output, setOutput] = useState([
     'GCODE Terminal V3',
-    'Tape "help" pour afficher les commandes disponibles.',
+    'Terminal natif Android activé.',
+    'Tape "help" pour tester les commandes disponibles.',
     '',
   ]);
 
@@ -56,6 +58,9 @@ export default function TerminalScreen({
     useState(-1);
 
   const [cwd, setCwd] = useState('');
+
+  const [running, setRunning] =
+    useState(false);
 
   useEffect(() => {
     if (project) {
@@ -119,7 +124,10 @@ export default function TerminalScreen({
 
     setCurrentProject(updatedProject);
 
-    if (typeof onProjectUpdated === 'function') {
+    if (
+      typeof onProjectUpdated ===
+      'function'
+    ) {
       await onProjectUpdated(
         updatedProject
       );
@@ -212,13 +220,28 @@ export default function TerminalScreen({
     );
   };
 
+  const appendOutput = (
+    lines
+  ) => {
+    const normalized =
+      Array.isArray(lines)
+        ? lines
+        : [String(lines)];
+
+    setOutput((currentOutput) => [
+      ...currentOutput,
+      ...normalized,
+      '',
+    ]);
+  };
+
   const executeCommand = async (
     command
   ) => {
     const trimmed =
       command.trim();
 
-    if (!trimmed) {
+    if (!trimmed || running) {
       return;
     }
 
@@ -233,94 +256,134 @@ export default function TerminalScreen({
       await getProject();
 
     if (!activeProject) {
-      setOutput((currentOutput) => [
-        ...currentOutput,
+      appendOutput([
         `> ${trimmed}`,
-        'Aucun projet disponible. Crée d’abord un projet.',
-        '',
+        'Aucun projet disponible.',
+        'Crée d’abord un projet.',
       ]);
 
       return;
     }
 
+    setRunning(true);
+
+    setOutput((currentOutput) => [
+      ...currentOutput,
+      `> ${trimmed}`,
+    ]);
+
     try {
-      const engine =
-        createTerminalEngine({
-          project: activeProject,
-
-          files:
-            activeProject.files || {},
-
-          cwd,
-
-          onCreateFile:
-            handleCreateFile,
-
-          onDeleteFile:
-            handleDeleteFile,
-
-          onWriteFile:
-            handleWriteFile,
-        });
+      /*
+       * Le moteur natif Android exécute
+       * réellement la commande dans le
+       * processus système disponible dans
+       * le sandbox de GCODE.
+       *
+       * Pour le moment, cwd vide signifie
+       * que le moteur utilise son répertoire
+       * de travail applicatif par défaut.
+       *
+       * Nous connecterons ensuite ce chemin
+       * physique au système de fichiers réel
+       * des projets GCODE.
+       */
 
       const result =
-        await engine.execute(
-          trimmed
+        await executeNativeCommand(
+          trimmed,
+          cwd || undefined,
+          {
+            GCODE_PROJECT_ID:
+              String(
+                activeProject.id || ''
+              ),
+
+            GCODE_PROJECT_NAME:
+              String(
+                activeProject.name || ''
+              ),
+          }
         );
 
-      if (
-        result &&
-        result.output === '__CLEAR__'
-      ) {
-        setOutput([
-          'GCODE Terminal V3',
-          '',
-        ]);
+      const stdout =
+        typeof result?.stdout ===
+        'string'
+          ? result.stdout
+          : '';
 
-        setCwd(
-          result.nextCwd || ''
+      const stderr =
+        typeof result?.stderr ===
+        'string'
+          ? result.stderr
+          : '';
+
+      const exitCode =
+        typeof result?.exitCode ===
+        'number'
+          ? result.exitCode
+          : -1;
+
+      const nextCwd =
+        typeof result?.cwd ===
+        'string'
+          ? result.cwd
+          : cwd;
+
+      setCwd(nextCwd);
+
+      if (stdout) {
+        appendOutput(
+          stdout.replace(/\n$/, '')
         );
-
-        return;
       }
 
-      const resultText =
-        result?.output === undefined ||
-        result?.output === null
-          ? ''
-          : String(result.output);
+      if (stderr) {
+        appendOutput(
+          stderr.replace(/\n$/, '')
+        );
+      }
 
-      setCwd(
-        result?.nextCwd || ''
-      );
-
-      setOutput((currentOutput) => [
-        ...currentOutput,
-        `> ${trimmed}`,
-        ...(resultText
-          ? resultText.split('\n')
-          : []),
-        '',
+      appendOutput([
+        `[Process exited with code ${exitCode}]`,
       ]);
+
+      /*
+       * Une commande native réussie peut
+       * modifier ultérieurement les fichiers
+       * physiques du projet. On recharge donc
+       * l'état du projet après exécution.
+       */
+      if (activeProject.id) {
+        await updateProjectState(
+          activeProject.id
+        );
+      }
     } catch (error) {
       console.error(
         'Erreur Terminal GCODE:',
         error
       );
 
-      setOutput((currentOutput) => [
-        ...currentOutput,
-        `> ${trimmed}`,
-        `Erreur: ${
-          error?.message ||
-          'commande impossible'
-        }`,
-        '',
+      appendOutput([
+        'Terminal error:',
+        error?.message ||
+          'Impossible d’exécuter la commande.',
+        '[Process exited with code -1]',
       ]);
+    } finally {
+      setRunning(false);
+
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 50);
     }
   };
 
   const handleSubmit = async () => {
+    if (running) {
+      return;
+    }
+
     const command = input;
 
     setInput('');
@@ -328,6 +391,32 @@ export default function TerminalScreen({
     await executeCommand(
       command
     );
+  };
+
+  const handleStop = async () => {
+    try {
+      const stopped =
+        await stopNativeCommand();
+
+      if (stopped) {
+        appendOutput([
+          '^C',
+          'Processus arrêté.',
+        ]);
+      } else {
+        appendOutput([
+          'Aucun processus actif.',
+        ]);
+      }
+    } catch (error) {
+      appendOutput([
+        'Erreur lors de l’arrêt du processus:',
+        error?.message ||
+          'Impossible d’arrêter le processus.',
+      ]);
+    } finally {
+      setRunning(false);
+    }
   };
 
   const handleHistoryUp = () => {
@@ -352,9 +441,40 @@ export default function TerminalScreen({
     );
   };
 
+  const handleHistoryDown = () => {
+    if (history.length === 0) {
+      return;
+    }
+
+    if (historyIndex < 0) {
+      return;
+    }
+
+    const nextIndex =
+      historyIndex + 1;
+
+    if (
+      nextIndex >=
+      history.length
+    ) {
+      setHistoryIndex(-1);
+      setInput('');
+      return;
+    }
+
+    setHistoryIndex(
+      nextIndex
+    );
+
+    setInput(
+      history[nextIndex] || ''
+    );
+  };
+
   const handleClear = () => {
     setOutput([
       'GCODE Terminal V3',
+      'Terminal natif Android.',
       '',
     ]);
   };
@@ -443,30 +563,57 @@ export default function TerminalScreen({
           </Text>
         </View>
 
-        <Pressable
-          onPress={handleClear}
-          style={[
-            styles.clearButton,
-            {
-              backgroundColor:
-                colors.panel2,
-              borderColor:
-                colors.border,
-            },
-          ]}
-        >
-          <Text
+        {running ? (
+          <Pressable
+            onPress={handleStop}
             style={[
-              styles.clearText,
+              styles.stopButton,
               {
-                color:
-                  colors.text,
+                backgroundColor:
+                  colors.panel2,
+                borderColor:
+                  colors.border,
               },
             ]}
           >
-            Clear
-          </Text>
-        </Pressable>
+            <Text
+              style={[
+                styles.stopText,
+                {
+                  color:
+                    colors.text,
+                },
+              ]}
+            >
+              Stop
+            </Text>
+          </Pressable>
+        ) : (
+          <Pressable
+            onPress={handleClear}
+            style={[
+              styles.clearButton,
+              {
+                backgroundColor:
+                  colors.panel2,
+                borderColor:
+                  colors.border,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.clearText,
+                {
+                  color:
+                    colors.text,
+                },
+              ]}
+            >
+              Clear
+            </Text>
+          </Pressable>
+        )}
       </View>
 
       <ScrollView
@@ -484,22 +631,47 @@ export default function TerminalScreen({
         keyboardShouldPersistTaps="handled"
       >
         {output.map(
-          (line, index) => (
-            <Text
-              key={`${index}-${line}`}
-              style={[
-                styles.outputLine,
-                {
-                  color:
-                    line.startsWith('>')
-                      ? colors.purpleLight
-                      : colors.editorText,
-                },
-              ]}
-            >
-              {line || ' '}
-            </Text>
-          )
+          (line, index) => {
+            const isCommand =
+              line.startsWith('> ');
+
+            const isError =
+              line
+                .toLowerCase()
+                .includes('error') ||
+              line
+                .toLowerCase()
+                .includes('not found') ||
+              line
+                .toLowerCase()
+                .includes('permission denied');
+
+            const isExit =
+              line.startsWith(
+                '[Process exited'
+              );
+
+            return (
+              <Text
+                key={`${index}-${line}`}
+                style={[
+                  styles.outputLine,
+                  {
+                    color:
+                      isCommand
+                        ? colors.purpleLight
+                        : isError
+                        ? colors.danger
+                        : isExit
+                        ? colors.muted
+                        : colors.editorText,
+                  },
+                ]}
+              >
+                {line || ' '}
+              </Text>
+            );
+          }
         )}
       </ScrollView>
 
@@ -519,7 +691,9 @@ export default function TerminalScreen({
             styles.prompt,
             {
               color:
-                colors.purple,
+                running
+                  ? colors.muted
+                  : colors.purple,
             },
           ]}
         >
@@ -536,17 +710,39 @@ export default function TerminalScreen({
             handleSubmit
           }
           onKeyPress={(event) => {
+            const key =
+              event.nativeEvent.key;
+
             if (
-              event.nativeEvent.key ===
+              key ===
               'ArrowUp'
             ) {
               handleHistoryUp();
             }
+
+            if (
+              key ===
+              'ArrowDown'
+            ) {
+              handleHistoryDown();
+            }
+
+            if (
+              key ===
+              'Escape'
+            ) {
+              handleStop();
+            }
           }}
-          placeholder="Entrer une commande..."
+          placeholder={
+            running
+              ? 'Commande en cours...'
+              : 'Entrer une commande...'
+          }
           placeholderTextColor={
             colors.muted
           }
+          editable={!running}
           style={[
             styles.input,
             {
@@ -561,29 +757,52 @@ export default function TerminalScreen({
           blurOnSubmit={false}
         />
 
-        <Pressable
-          onPress={
-            handleSubmit
-          }
-          style={({ pressed }) => [
-            styles.sendButton,
-            {
-              backgroundColor:
-                colors.purple,
-              opacity: pressed
-                ? 0.7
-                : 1,
-            },
-          ]}
-        >
-          <Text
-            style={
-              styles.sendButtonText
+        {running ? (
+          <Pressable
+            onPress={
+              handleStop
             }
+            style={[
+              styles.sendButton,
+              {
+                backgroundColor:
+                  colors.danger,
+              },
+            ]}
           >
-            ›
-          </Text>
-        </Pressable>
+            <Text
+              style={
+                styles.sendButtonText
+              }
+            >
+              ■
+            </Text>
+          </Pressable>
+        ) : (
+          <Pressable
+            onPress={
+              handleSubmit
+            }
+            style={({ pressed }) => [
+              styles.sendButton,
+              {
+                backgroundColor:
+                  colors.purple,
+                opacity: pressed
+                  ? 0.7
+                  : 1,
+              },
+            ]}
+          >
+            <Text
+              style={
+                styles.sendButtonText
+              }
+            >
+              ›
+            </Text>
+          </Pressable>
+        )}
       </View>
     </KeyboardAvoidingView>
   );
@@ -632,9 +851,9 @@ const styles = StyleSheet.create({
   },
 
   clearButton: {
-    minWidth: 56,
+    minWidth: 58,
     height: 36,
-    paddingHorizontal: 9,
+    paddingHorizontal: 10,
     borderRadius: 9,
     borderWidth: 1,
     alignItems: 'center',
@@ -644,6 +863,21 @@ const styles = StyleSheet.create({
   clearText: {
     fontSize: 10,
     fontWeight: '700',
+  },
+
+  stopButton: {
+    minWidth: 58,
+    height: 36,
+    paddingHorizontal: 10,
+    borderRadius: 9,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  stopText: {
+    fontSize: 10,
+    fontWeight: '800',
   },
 
   output: {
@@ -700,7 +934,7 @@ const styles = StyleSheet.create({
 
   sendButtonText: {
     color: '#FFFFFF',
-    fontSize: 24,
-    fontWeight: '800',
+    fontSize: 20,
+    fontWeight: '900',
   },
 });
