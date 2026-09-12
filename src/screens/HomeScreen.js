@@ -1,13 +1,14 @@
 import React, { useMemo, useState } from 'react';
 
 import {
-  Alert,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
+  Alert,
 } from 'react-native';
 
 import { useTheme } from '../theme/ThemeContext';
@@ -26,9 +27,8 @@ function QuickAction({
       disabled={disabled}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityState={{
-        disabled,
-      }}
+      accessibilityLabel={title}
+      accessibilityState={{ disabled }}
       style={({ pressed }) => [
         styles.quickAction,
         {
@@ -98,13 +98,18 @@ function ProjectCard({
   const fileCount =
     Array.isArray(project?.files)
       ? project.files.length
-      : 0;
+      : project?.files &&
+          typeof project.files === 'object'
+        ? Object.keys(project.files).length
+        : 0;
 
   return (
     <Pressable
       onPress={() => onPress(project)}
       accessibilityRole="button"
-      accessibilityLabel={`Ouvrir le projet ${project?.name || 'Sans nom'}`}
+      accessibilityLabel={`Ouvrir le projet ${
+        project?.name || 'Sans nom'
+      }`}
       style={({ pressed }) => [
         styles.projectCard,
         {
@@ -186,6 +191,10 @@ export default function HomeScreen({
   const { colors } = useTheme();
 
   const [search, setSearch] = useState('');
+  const [showCreateModal, setShowCreateModal] =
+    useState(false);
+  const [projectName, setProjectName] =
+    useState('');
 
   const filteredProjects = useMemo(() => {
     const query = search
@@ -203,36 +212,42 @@ export default function HomeScreen({
     );
   }, [projects, search]);
 
-  const handleCreateProject = () => {
+  const openCreateModal = () => {
+    setProjectName('');
+    setShowCreateModal(true);
+  };
+
+  const closeCreateModal = () => {
+    setShowCreateModal(false);
+    setProjectName('');
+  };
+
+  const handleCreateProject = async () => {
+    const name =
+      projectName.trim() ||
+      'Nouveau projet';
+
     if (
       typeof onCreateProject !== 'function'
     ) {
+      closeCreateModal();
       return;
     }
 
-    Alert.prompt(
-      'Nouveau projet',
-      'Entre le nom du projet',
-      [
-        {
-          text: 'Annuler',
-          style: 'cancel',
-        },
-        {
-          text: 'Créer',
-          onPress: (value) => {
-            const name =
-              String(value || '').trim();
+    try {
+      await onCreateProject(name);
+      closeCreateModal();
+    } catch (error) {
+      console.error(
+        'Erreur création projet:',
+        error
+      );
 
-            onCreateProject(
-              name || 'Nouveau projet'
-            );
-          },
-        },
-      ],
-      'plain-text',
-      'Mon projet'
-    );
+      Alert.alert(
+        'Erreur',
+        'Impossible de créer le projet.'
+      );
+    }
   };
 
   const handleOpenProject = (project) => {
@@ -268,11 +283,9 @@ export default function HomeScreen({
 
     const project = projects[0];
 
-    if (!project) {
-      return;
+    if (project) {
+      onOpenPreview(project);
     }
-
-    onOpenPreview(project);
   };
 
   return (
@@ -365,7 +378,9 @@ export default function HomeScreen({
             value={search}
             onChangeText={setSearch}
             placeholder="Rechercher un projet..."
-            placeholderTextColor={colors.muted}
+            placeholderTextColor={
+              colors.muted
+            }
             style={[
               styles.searchInput,
               {
@@ -379,7 +394,7 @@ export default function HomeScreen({
         </View>
 
         <Pressable
-          onPress={handleCreateProject}
+          onPress={openCreateModal}
           accessibilityRole="button"
           accessibilityLabel="Créer un nouveau projet"
           style={({ pressed }) => [
@@ -395,14 +410,7 @@ export default function HomeScreen({
             +
           </Text>
 
-          <Text
-            style={[
-              styles.createText,
-              {
-                color: '#FFFFFF',
-              },
-            ]}
-          >
+          <Text style={styles.createText}>
             Nouveau projet
           </Text>
         </Pressable>
@@ -503,7 +511,7 @@ export default function HomeScreen({
 
             {!search.trim() && (
               <Pressable
-                onPress={handleCreateProject}
+                onPress={openCreateModal}
                 style={({ pressed }) => [
                   styles.emptyButton,
                   {
@@ -667,6 +675,122 @@ export default function HomeScreen({
           GCODE Mobile V3
         </Text>
       </ScrollView>
+
+      <Modal
+        visible={showCreateModal}
+        transparent
+        animationType="fade"
+        onRequestClose={closeCreateModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View
+            style={[
+              styles.modalCard,
+              {
+                backgroundColor:
+                  colors.panel,
+                borderColor:
+                  colors.border,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.modalTitle,
+                {
+                  color: colors.text,
+                },
+              ]}
+            >
+              Nouveau projet
+            </Text>
+
+            <Text
+              style={[
+                styles.modalDescription,
+                {
+                  color: colors.muted,
+                },
+              ]}
+            >
+              Donne un nom à ton nouveau projet.
+            </Text>
+
+            <TextInput
+              value={projectName}
+              onChangeText={setProjectName}
+              placeholder="Ex. Mon site web"
+              placeholderTextColor={
+                colors.muted
+              }
+              autoFocus
+              autoCapitalize="sentences"
+              autoCorrect={false}
+              returnKeyType="done"
+              onSubmitEditing={
+                handleCreateProject
+              }
+              style={[
+                styles.modalInput,
+                {
+                  color: colors.text,
+                  backgroundColor:
+                    colors.background,
+                  borderColor:
+                    colors.border,
+                },
+              ]}
+            />
+
+            <View style={styles.modalActions}>
+              <Pressable
+                onPress={closeCreateModal}
+                style={({ pressed }) => [
+                  styles.modalCancel,
+                  {
+                    borderColor:
+                      colors.border,
+                    opacity: pressed
+                      ? 0.7
+                      : 1,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.modalCancelText,
+                    {
+                      color: colors.text,
+                    },
+                  ]}
+                >
+                  Annuler
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={handleCreateProject}
+                style={({ pressed }) => [
+                  styles.modalCreate,
+                  {
+                    backgroundColor:
+                      colors.purple,
+                    opacity: pressed
+                      ? 0.75
+                      : 1,
+                  },
+                ]}
+              >
+                <Text
+                  style={styles.modalCreateText}
+                >
+                  Créer
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -751,10 +875,10 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '400',
     marginRight: 8,
-    marginTop: -2,
   },
 
   createText: {
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '800',
   },
@@ -961,5 +1085,75 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 10,
     marginTop: 4,
+  },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+
+  modalCard: {
+    width: '100%',
+    maxWidth: 420,
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 20,
+  },
+
+  modalTitle: {
+    fontSize: 21,
+    fontWeight: '900',
+  },
+
+  modalDescription: {
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 7,
+    marginBottom: 16,
+  },
+
+  modalInput: {
+    minHeight: 50,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    fontSize: 14,
+  },
+
+  modalActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 16,
+  },
+
+  modalCancel: {
+    flex: 1,
+    minHeight: 46,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  modalCancelText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+
+  modalCreate: {
+    flex: 1,
+    minHeight: 46,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  modalCreateText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
   },
 });
