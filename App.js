@@ -6,17 +6,12 @@ import React, {
 
 import {
   ActivityIndicator,
+  Pressable,
   SafeAreaView,
   StyleSheet,
+  Text,
   View,
 } from 'react-native';
-
-import { StatusBar } from 'expo-status-bar';
-
-import {
-  ThemeProvider,
-  useTheme,
-} from './src/theme/ThemeContext';
 
 import HomeScreen from './src/screens/HomeScreen';
 import ProjectsScreen from './src/screens/ProjectsScreen';
@@ -34,43 +29,78 @@ import {
   loadProjects,
 } from './src/storage/projectStorage';
 
-function GcodeApp() {
-  const { colors } = useTheme();
+const COLORS = {
+  background: '#070914',
+  surface: '#0d1120',
+  border: '#20283d',
+  text: '#f5f7ff',
+  muted: '#8f98ad',
+  primary: '#7c5cff',
+};
 
-  const [projects, setProjects] = useState([]);
+export default function App() {
   const [screen, setScreen] = useState('home');
-  const [activeProject, setActiveProject] =
-    useState(null);
-  const [loaded, setLoaded] = useState(false);
+  const [projects, setProjects] = useState([]);
+  const [activeProjectId, setActiveProjectId] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const activeProject =
+    projects.find(
+      (project) => project.id === activeProjectId
+    ) || null;
+
+  const refreshProjects = useCallback(async () => {
+    try {
+      const storedProjects = await loadProjects();
+
+      setProjects(storedProjects);
+
+      setActiveProjectId((currentId) => {
+        if (
+          currentId &&
+          storedProjects.some(
+            (project) => project.id === currentId
+          )
+        ) {
+          return currentId;
+        }
+
+        return storedProjects[0]?.id || null;
+      });
+    } catch (error) {
+      console.error(
+        'Erreur lors du chargement des projets :',
+        error
+      );
+    }
+  }, []);
 
   useEffect(() => {
     let mounted = true;
 
-    async function initialize() {
+    const initialize = async () => {
       try {
-        const storedProjects =
-          await loadProjects();
+        const storedProjects = await loadProjects();
 
         if (!mounted) {
           return;
         }
 
         setProjects(storedProjects);
+        setActiveProjectId(
+          storedProjects[0]?.id || null
+        );
       } catch (error) {
         console.error(
-          'Erreur de chargement des projets:',
+          'Erreur initialisation GCODE :',
           error
         );
-
-        if (mounted) {
-          setProjects([]);
-        }
       } finally {
         if (mounted) {
-          setLoaded(true);
+          setLoading(false);
         }
       }
-    }
+    };
 
     initialize();
 
@@ -79,439 +109,358 @@ function GcodeApp() {
     };
   }, []);
 
-  const refreshProjects =
-    useCallback(async () => {
+  const handleCreateProject = useCallback(
+    async (name) => {
       try {
-        const latestProjects =
-          await loadProjects();
+        const project = await createProject(name);
 
-        setProjects(latestProjects);
+        await refreshProjects();
 
-        setActiveProject(
-          (currentActiveProject) => {
-            if (!currentActiveProject) {
-              return null;
-            }
+        if (project?.id) {
+          setActiveProjectId(project.id);
+        }
 
-            const latestActiveProject =
-              latestProjects.find(
-                (item) =>
-                  item.id ===
-                  currentActiveProject.id
-              );
-
-            return (
-              latestActiveProject ||
-              currentActiveProject
-            );
-          }
-        );
+        setScreen('workbench');
       } catch (error) {
         console.error(
-          'Erreur de rafraîchissement des projets:',
+          'Erreur création projet :',
           error
         );
       }
-    }, []);
+    },
+    [refreshProjects]
+  );
 
-  useEffect(() => {
-    if (
-      screen === 'home' ||
-      screen === 'projects'
-    ) {
-      refreshProjects();
-    }
-  }, [screen, refreshProjects]);
+  const handleDeleteProject = useCallback(
+    async (projectId) => {
+      try {
+        await deleteProject(projectId);
 
-  const handleCreateProject = async (
-    projectName = 'Nouveau projet'
-  ) => {
-    try {
-      const newProject =
-        await createProject(projectName);
+        const remainingProjects =
+          await loadProjects();
 
-      if (!newProject) {
-        return null;
+        setProjects(remainingProjects);
+
+        setActiveProjectId((currentId) => {
+          if (currentId !== projectId) {
+            return currentId;
+          }
+
+          return remainingProjects[0]?.id || null;
+        });
+
+        if (remainingProjects.length === 0) {
+          setScreen('home');
+        }
+      } catch (error) {
+        console.error(
+          'Erreur suppression projet :',
+          error
+        );
       }
+    },
+    []
+  );
 
-      setProjects((currentProjects) => [
-        newProject,
-        ...currentProjects,
-      ]);
-
-      setActiveProject(newProject);
-      setScreen('workbench');
-
-      return newProject;
-    } catch (error) {
-      console.error(
-        'Erreur de création du projet:',
-        error
-      );
-
-      return null;
-    }
-  };
-
-  const handleOpenProject = (project) => {
-    if (!project) {
-      return;
-    }
-
-    setActiveProject(project);
-    setScreen('workbench');
-  };
-
-  const handleProjectUpdated =
-    useCallback((updatedProject) => {
-      if (!updatedProject) {
+  const openProject = useCallback(
+    (project) => {
+      if (!project?.id) {
         return;
       }
 
-      setActiveProject(updatedProject);
+      setActiveProjectId(project.id);
+      setScreen('workbench');
+    },
+    []
+  );
 
-      setProjects((currentProjects) =>
-        currentProjects.map((item) =>
-          item.id === updatedProject.id
-            ? updatedProject
-            : item
-        )
-      );
-    }, []);
-
-  const handleDeleteProject = async (
-    projectId
-  ) => {
-    try {
-      const updatedProjects =
-        await deleteProject(projectId);
-
-      setProjects(updatedProjects);
-
-      setActiveProject(
-        (currentActiveProject) => {
-          if (
-            currentActiveProject &&
-            currentActiveProject.id ===
-              projectId
-          ) {
-            return null;
-          }
-
-          return currentActiveProject;
-        }
-      );
-
-      if (
-        activeProject &&
-        activeProject.id === projectId
-      ) {
-        setScreen('projects');
-      }
-    } catch (error) {
-      console.error(
-        'Erreur de suppression du projet:',
-        error
-      );
-    }
-  };
-
-  const handleOpenPreview = (project) => {
-    const projectToPreview =
-      project || activeProject;
-
-    if (!projectToPreview) {
-      return;
-    }
-
-    setActiveProject(projectToPreview);
-    setScreen('preview');
-  };
-
-  const handleOpenCommands = () => {
-    setScreen('commands');
-  };
-
-  const handleOpenTerminal = () => {
-    setScreen('terminal');
-  };
-
-  const handleOpenAI = () => {
-    setScreen('ai');
-  };
-
-  const handleBackToHome = () => {
+  const goHome = useCallback(() => {
     setScreen('home');
-  };
+  }, []);
 
-  const handleChangeScreen = (
-    nextScreen
-  ) => {
-    const allowedScreens = [
-      'home',
-      'projects',
-      'settings',
-      'commands',
-      'terminal',
-      'ai',
-    ];
+  const goProjects = useCallback(() => {
+    setScreen('projects');
+  }, []);
 
-    if (
-      allowedScreens.includes(nextScreen)
-    ) {
-      setScreen(nextScreen);
+  const goWorkbench = useCallback(() => {
+    if (activeProject) {
+      setScreen('workbench');
+    } else {
+      setScreen('projects');
     }
-  };
+  }, [activeProject]);
 
-  if (!loaded) {
+  const goPreview = useCallback(() => {
+    if (activeProject) {
+      setScreen('preview');
+    } else {
+      setScreen('projects');
+    }
+  }, [activeProject]);
+
+  const goSettings = useCallback(() => {
+    setScreen('settings');
+  }, []);
+
+  const goCommands = useCallback(() => {
+    setScreen('commands');
+  }, []);
+
+  const goTerminal = useCallback(() => {
+    setScreen('terminal');
+  }, []);
+
+  const goAI = useCallback(() => {
+    setScreen('ai');
+  }, []);
+
+  const handleProjectUpdated = useCallback(
+    async (updatedProject) => {
+      if (!updatedProject?.id) {
+        return;
+      }
+
+      await refreshProjects();
+
+      setActiveProjectId(updatedProject.id);
+    },
+    [refreshProjects]
+  );
+
+  if (loading) {
     return (
-      <SafeAreaView
-        style={[
-          styles.loadingContainer,
-          {
-            backgroundColor:
-              colors.background,
-          },
-        ]}
-      >
-        <StatusBar
-          style={
-            colors.background === '#070914'
-              ? 'light'
-              : 'dark'
-          }
-        />
-
+      <SafeAreaView style={styles.loadingContainer}>
         <ActivityIndicator
           size="large"
-          color={colors.purple}
+          color={COLORS.primary}
         />
+
+        <Text style={styles.loadingText}>
+          Chargement de GCODE...
+        </Text>
       </SafeAreaView>
     );
   }
 
-  const showBottomNav =
-    screen === 'home' ||
-    screen === 'projects' ||
-    screen === 'settings';
+  let content = null;
+
+  if (screen === 'home') {
+    content = (
+      <HomeScreen
+        projects={projects}
+        onOpenProject={openProject}
+        onCreateProject={handleCreateProject}
+        onDeleteProject={handleDeleteProject}
+        onOpenProjects={goProjects}
+        onOpenSettings={goSettings}
+        onOpenCommands={goCommands}
+        onOpenTerminal={goTerminal}
+        onOpenAI={goAI}
+        onOpenPreview={goPreview}
+      />
+    );
+  }
+
+  if (screen === 'projects') {
+    content = (
+      <ProjectsScreen
+        projects={projects}
+        onOpenProject={openProject}
+        onCreateProject={handleCreateProject}
+        onDeleteProject={handleDeleteProject}
+        onBack={goHome}
+      />
+    );
+  }
+
+  if (screen === 'workbench') {
+    if (!activeProject) {
+      content = (
+        <EmptyState
+          title="Aucun projet ouvert"
+          message="Crée ou sélectionne un projet pour commencer."
+          onPress={goProjects}
+          buttonText="Ouvrir les projets"
+        />
+      );
+    } else {
+      content = (
+        <WorkbenchScreen
+          project={activeProject}
+          projects={projects}
+          onBack={goHome}
+          onOpenProjects={goProjects}
+          onOpenPreview={goPreview}
+          onProjectUpdated={handleProjectUpdated}
+        />
+      );
+    }
+  }
+
+  if (screen === 'preview') {
+    if (!activeProject) {
+      content = (
+        <EmptyState
+          title="Aucun projet à prévisualiser"
+          message="Sélectionne un projet avant d'ouvrir l'aperçu."
+          onPress={goProjects}
+          buttonText="Ouvrir les projets"
+        />
+      );
+    } else {
+      content = (
+        <PreviewScreen
+          project={activeProject}
+          onBack={goWorkbench}
+        />
+      );
+    }
+  }
+
+  if (screen === 'settings') {
+    content = (
+      <SettingsScreen
+        onBack={goHome}
+      />
+    );
+  }
+
+  if (screen === 'commands') {
+    content = (
+      <CommandsScreen
+        onBack={goHome}
+        onOpenTerminal={goTerminal}
+        onOpenWorkbench={goWorkbench}
+        onOpenProjects={goProjects}
+      />
+    );
+  }
+
+  if (screen === 'terminal') {
+    content = (
+      <TerminalScreen
+        project={activeProject}
+        projects={projects}
+        onBack={goHome}
+        onProjectUpdated={handleProjectUpdated}
+      />
+    );
+  }
+
+  if (screen === 'ai') {
+    content = (
+      <SafeAreaView style={styles.aiContainer}>
+        <View style={styles.aiHeader}>
+          <Pressable
+            onPress={goHome}
+            style={styles.backButton}
+          >
+            <Text style={styles.backButtonText}>
+              ‹
+            </Text>
+          </Pressable>
+
+          <View>
+            <Text style={styles.aiTitle}>
+              GCODE AI
+            </Text>
+
+            <Text style={styles.aiSubtitle}>
+              Assistant de développement
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.aiCard}>
+          <Text style={styles.aiIcon}>
+            ✦
+          </Text>
+
+          <Text style={styles.aiCardTitle}>
+            GCODE AI
+          </Text>
+
+          <Text style={styles.aiCardText}>
+            L'espace IA est prêt à être intégré
+            ultérieurement. Les fonctions principales
+            de GCODE restent entièrement utilisables
+            sans API externe.
+          </Text>
+
+          <View style={styles.aiStatus}>
+            <View style={styles.aiStatusDot} />
+
+            <Text style={styles.aiStatusText}>
+              Module prêt
+            </Text>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const showBottomNav = [
+    'home',
+    'projects',
+    'workbench',
+    'settings',
+  ].includes(screen);
 
   return (
-    <SafeAreaView
-      style={[
-        styles.container,
-        {
-          backgroundColor:
-            colors.background,
-        },
-      ]}
-    >
-      <StatusBar
-        style={
-          colors.background === '#070914'
-            ? 'light'
-            : 'dark'
-        }
-      />
-
+    <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        {screen === 'home' && (
-          <HomeScreen
-            projects={projects}
-            onCreateProject={
-              handleCreateProject
-            }
-            onOpenProject={
-              handleOpenProject
-            }
-            onNavigate={
-              handleChangeScreen
-            }
-            onOpenPreview={
-              handleOpenPreview
-            }
-            onOpenCommands={
-              handleOpenCommands
-            }
-            onOpenTerminal={
-              handleOpenTerminal
-            }
-            onOpenAI={handleOpenAI}
-          />
-        )}
-
-        {screen === 'projects' && (
-          <ProjectsScreen
-            projects={projects}
-            onCreateProject={
-              handleCreateProject
-            }
-            onOpenProject={
-              handleOpenProject
-            }
-            onDeleteProject={
-              handleDeleteProject
-            }
-          />
-        )}
-
-        {screen === 'workbench' &&
-          activeProject && (
-            <WorkbenchScreen
-              project={activeProject}
-              onBack={() =>
-                setScreen('projects')
-              }
-              onPreview={() =>
-                handleOpenPreview(
-                  activeProject
-                )
-              }
-              onProjectUpdated={
-                handleProjectUpdated
-              }
-            />
-          )}
-
-        {screen === 'preview' &&
-          activeProject && (
-            <PreviewScreen
-              project={activeProject}
-              onBack={() => {
-                if (activeProject) {
-                  setScreen('workbench');
-                } else {
-                  setScreen('home');
-                }
-              }}
-            />
-          )}
-
-        {screen === 'commands' && (
-          <CommandsScreen
-            onBack={handleBackToHome}
-            onOpenTerminal={
-              handleOpenTerminal
-            }
-            onOpenProject={() => {
-              if (activeProject) {
-                setScreen('workbench');
-              } else if (
-                projects.length > 0
-              ) {
-                setActiveProject(
-                  projects[0]
-                );
-                setScreen('workbench');
-              } else {
-                setScreen('projects');
-              }
-            }}
-          />
-        )}
-
-        {screen === 'terminal' && (
-          <TerminalScreen
-            project={activeProject}
-            projects={projects}
-            onBack={handleBackToHome}
-          />
-        )}
-
-        {screen === 'ai' && (
-          <View
-            style={[
-              styles.aiContainer,
-              {
-                backgroundColor:
-                  colors.background,
-              },
-            ]}
-          >
-            <View
-              style={[
-                styles.aiCard,
-                {
-                  backgroundColor:
-                    colors.panel,
-                  borderColor:
-                    colors.border,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.aiTitle,
-                  {
-                    color: colors.text,
-                  },
-                ]}
-              >
-                GCODE AI
-              </Text>
-
-              <Text
-                style={[
-                  styles.aiText,
-                  {
-                    color: colors.muted,
-                  },
-                ]}
-              >
-                Assistant intelligent GCODE.
-                Le moteur IA sera activé dans
-                une prochaine version.
-              </Text>
-
-              <Pressable
-                onPress={handleBackToHome}
-                style={[
-                  styles.aiButton,
-                  {
-                    backgroundColor:
-                      colors.purple,
-                  },
-                ]}
-              >
-                <Text
-                  style={
-                    styles.aiButtonText
-                  }
-                >
-                  Retour à l'accueil
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        )}
-
-        {screen === 'settings' && (
-          <SettingsScreen />
-        )}
+        {content}
       </View>
 
       {showBottomNav && (
         <BottomNav
-          currentScreen={screen}
-          onNavigate={
-            handleChangeScreen
+          activeTab={
+            screen === 'workbench'
+              ? 'editor'
+              : screen
           }
+          onHome={goHome}
+          onProjects={goProjects}
+          onEditor={goWorkbench}
+          onSettings={goSettings}
         />
       )}
     </SafeAreaView>
   );
 }
 
-export default function App() {
+function EmptyState({
+  title,
+  message,
+  onPress,
+  buttonText,
+}) {
   return (
-    <ThemeProvider>
-      <GcodeApp />
-    </ThemeProvider>
+    <SafeAreaView style={styles.emptyContainer}>
+      <Text style={styles.emptyTitle}>
+        {title}
+      </Text>
+
+      <Text style={styles.emptyMessage}>
+        {message}
+      </Text>
+
+      <Pressable
+        onPress={onPress}
+        style={styles.emptyButton}
+      >
+        <Text style={styles.emptyButtonText}>
+          {buttonText}
+        </Text>
+      </Pressable>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: COLORS.background,
   },
 
   content: {
@@ -522,45 +471,142 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: COLORS.background,
+  },
+
+  loadingText: {
+    marginTop: 14,
+    color: COLORS.muted,
+    fontSize: 14,
+  },
+
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    backgroundColor: COLORS.background,
+  },
+
+  emptyTitle: {
+    color: COLORS.text,
+    fontSize: 22,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+
+  emptyMessage: {
+    color: COLORS.muted,
+    fontSize: 14,
+    lineHeight: 21,
+    textAlign: 'center',
+    marginTop: 10,
+    marginBottom: 24,
+  },
+
+  emptyButton: {
+    minHeight: 48,
+    paddingHorizontal: 22,
+    borderRadius: 12,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  emptyButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '800',
   },
 
   aiContainer: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
+    backgroundColor: COLORS.background,
   },
 
-  aiCard: {
-    width: '100%',
-    maxWidth: 420,
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 24,
+  aiHeader: {
+    minHeight: 76,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    backgroundColor: COLORS.surface,
+  },
+
+  backButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    marginRight: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#151a2c',
+  },
+
+  backButtonText: {
+    color: COLORS.text,
+    fontSize: 30,
+    lineHeight: 32,
   },
 
   aiTitle: {
-    fontSize: 24,
+    color: COLORS.text,
+    fontSize: 18,
     fontWeight: '900',
-    marginBottom: 12,
   },
 
-  aiText: {
+  aiSubtitle: {
+    color: COLORS.muted,
+    fontSize: 12,
+    marginTop: 2,
+  },
+
+  aiCard: {
+    margin: 20,
+    padding: 22,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.surface,
+  },
+
+  aiIcon: {
+    color: COLORS.primary,
+    fontSize: 32,
+    marginBottom: 10,
+  },
+
+  aiCardTitle: {
+    color: COLORS.text,
+    fontSize: 22,
+    fontWeight: '900',
+  },
+
+  aiCardText: {
+    color: COLORS.muted,
     fontSize: 14,
-    lineHeight: 21,
-    marginBottom: 22,
+    lineHeight: 22,
+    marginTop: 12,
   },
 
-  aiButton: {
-    minHeight: 48,
-    borderRadius: 12,
+  aiStatus: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    marginTop: 22,
   },
 
-  aiButtonText: {
-    color: '#FFFFFF',
+  aiStatusDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: '#45d483',
+    marginRight: 8,
+  },
+
+  aiStatusText: {
+    color: '#45d483',
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '700',
   },
 });
