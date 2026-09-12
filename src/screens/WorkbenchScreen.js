@@ -37,6 +37,11 @@ export default function WorkbenchScreen({
   onBack,
   onPreview,
   onProjectUpdated,
+  onOpenProjects,
+  onOpenSettings,
+  onOpenTerminal,
+  onOpenCommands,
+  onOpenAI,
 }) {
   const { colors, spacing, radius } = useTheme();
 
@@ -45,7 +50,6 @@ export default function WorkbenchScreen({
 
   const historyRef = useRef([]);
   const redoRef = useRef([]);
-
   const autoSaveTimerRef = useRef(null);
 
   const [files, setFiles] = useState({});
@@ -100,6 +104,13 @@ export default function WorkbenchScreen({
 
   const [renameFileName, setRenameFileName] =
     useState('');
+
+  /*
+   * Welcome est le premier onglet ouvert
+   * par défaut dans le Workbench.
+   */
+  const [showWelcome, setShowWelcome] =
+    useState(true);
 
   const styles = useMemo(
     () =>
@@ -403,8 +414,7 @@ export default function WorkbenchScreen({
           borderRadius: radius.xs,
           backgroundColor: colors.editor,
           borderWidth: 1,
-          borderColor:
-            colors.borderStrong,
+          borderColor: colors.borderStrong,
           color: colors.text,
           fontSize: 13,
         },
@@ -464,6 +474,202 @@ export default function WorkbenchScreen({
           textAlign: 'center',
         },
 
+        /*
+         * ==========================
+         * WELCOME
+         * ==========================
+         */
+
+        welcomeContainer: {
+          flex: 1,
+          backgroundColor: colors.editor,
+        },
+
+        welcomeScroll: {
+          padding: spacing.lg,
+          paddingBottom: 60,
+        },
+
+        welcomeHeader: {
+          marginBottom: 24,
+        },
+
+        welcomeEyebrow: {
+          color: colors.purpleLight,
+          fontSize: 12,
+          fontWeight: '700',
+          letterSpacing: 1,
+          textTransform: 'uppercase',
+          marginBottom: 8,
+        },
+
+        welcomeTitle: {
+          color: colors.textStrong,
+          fontSize: 30,
+          fontWeight: '800',
+          marginBottom: 8,
+        },
+
+        welcomeSubtitle: {
+          color: colors.muted,
+          fontSize: 14,
+          lineHeight: 21,
+          maxWidth: 650,
+        },
+
+        welcomeSection: {
+          marginBottom: 24,
+        },
+
+        welcomeSectionTitle: {
+          color: colors.textStrong,
+          fontSize: 18,
+          fontWeight: '750',
+          marginBottom: 12,
+        },
+
+        welcomeCard: {
+          backgroundColor: colors.panel,
+          borderWidth: 1,
+          borderColor: colors.border,
+          borderRadius: radius.md,
+          marginBottom: 8,
+          overflow: 'hidden',
+        },
+
+        welcomeAction: {
+          minHeight: 58,
+          paddingHorizontal: 14,
+          paddingVertical: 10,
+          flexDirection: 'row',
+          alignItems: 'center',
+        },
+
+        welcomeActionIcon: {
+          width: 40,
+          height: 40,
+          borderRadius: radius.sm,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: colors.panel2,
+          marginRight: 12,
+        },
+
+        welcomeActionIconText: {
+          color: colors.purpleLight,
+          fontSize: 18,
+          fontWeight: '700',
+        },
+
+        welcomeActionBody: {
+          flex: 1,
+        },
+
+        welcomeActionTitle: {
+          color: colors.textStrong,
+          fontSize: 14,
+          fontWeight: '700',
+          marginBottom: 2,
+        },
+
+        welcomeActionDescription: {
+          color: colors.muted,
+          fontSize: 11,
+          lineHeight: 16,
+        },
+
+        welcomeArrow: {
+          color: colors.muted,
+          fontSize: 18,
+          marginLeft: 8,
+        },
+
+        recentEmpty: {
+          padding: 18,
+          alignItems: 'center',
+        },
+
+        recentFile: {
+          minHeight: 52,
+          paddingHorizontal: 14,
+          flexDirection: 'row',
+          alignItems: 'center',
+          borderBottomWidth: 1,
+          borderBottomColor: colors.border,
+        },
+
+        recentFileIcon: {
+          width: 34,
+          height: 34,
+          borderRadius: radius.xs,
+          backgroundColor: colors.panel2,
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginRight: 10,
+        },
+
+        recentFileIconText: {
+          color: colors.blue,
+          fontSize: 12,
+          fontWeight: '700',
+        },
+
+        recentFileBody: {
+          flex: 1,
+        },
+
+        recentFileName: {
+          color: colors.text,
+          fontSize: 13,
+          fontWeight: '600',
+        },
+
+        recentFilePath: {
+          color: colors.muted2,
+          fontSize: 10,
+          marginTop: 2,
+        },
+
+        tipCard: {
+          backgroundColor: colors.panel,
+          borderWidth: 1,
+          borderColor: colors.border,
+          borderRadius: radius.md,
+          padding: 16,
+          marginBottom: 8,
+        },
+
+        tipNumber: {
+          color: colors.purpleLight,
+          fontSize: 11,
+          fontWeight: '800',
+          marginBottom: 5,
+        },
+
+        tipTitle: {
+          color: colors.textStrong,
+          fontSize: 14,
+          fontWeight: '700',
+          marginBottom: 4,
+        },
+
+        tipText: {
+          color: colors.muted,
+          fontSize: 12,
+          lineHeight: 18,
+        },
+
+        welcomeFooter: {
+          paddingTop: 8,
+          alignItems: 'center',
+        },
+
+        welcomeFooterText: {
+          color: colors.muted2,
+          fontSize: 11,
+          textAlign: 'center',
+        },
+
         modalOverlay: {
           flex: 1,
           backgroundColor: colors.overlay,
@@ -478,8 +684,7 @@ export default function WorkbenchScreen({
           backgroundColor: colors.panel,
           borderRadius: radius.lg,
           borderWidth: 1,
-          borderColor:
-            colors.borderStrong,
+          borderColor: colors.borderStrong,
           padding: spacing.md,
         },
 
@@ -502,8 +707,7 @@ export default function WorkbenchScreen({
           paddingHorizontal: 14,
           borderRadius: radius.sm,
           borderWidth: 1,
-          borderColor:
-            colors.borderStrong,
+          borderColor: colors.borderStrong,
           backgroundColor: colors.editor,
           color: colors.text,
           fontSize: 14,
@@ -569,7 +773,7 @@ export default function WorkbenchScreen({
         }
       } catch (error) {
         console.error(
-          'Erreur de chargement des paramètres éditeur:',
+          'Erreur paramètres éditeur:',
           error
         );
       }
@@ -621,9 +825,10 @@ export default function WorkbenchScreen({
           names[0] ||
           null;
 
-        const initialCode = initialFile
-          ? projectFiles[initialFile] || ''
-          : '';
+        const initialCode =
+          initialFile
+            ? projectFiles[initialFile] || ''
+            : '';
 
         setFiles(projectFiles);
         setActiveFile(initialFile);
@@ -673,16 +878,6 @@ export default function WorkbenchScreen({
       }
     };
   }, []);
-
-  const lineCount = Math.max(
-    code.split('\n').length,
-    1
-  );
-
-  const lineNumbers = Array.from(
-    { length: lineCount },
-    (_, index) => index + 1
-  );
 
   const notifyProjectUpdated = (
     updatedProject
@@ -844,17 +1039,10 @@ export default function WorkbenchScreen({
       selection.end
     );
 
-    const before = code.slice(
-      0,
-      start
-    );
-
-    const after = code.slice(
-      end
-    );
-
     const nextCode =
-      before + text + after;
+      code.slice(0, start) +
+      text +
+      code.slice(end);
 
     pushHistory(code);
 
@@ -886,15 +1074,12 @@ export default function WorkbenchScreen({
   };
 
   const handleUndo = () => {
-    const history =
-      historyRef.current;
-
-    if (!history.length) {
+    if (!historyRef.current.length) {
       return;
     }
 
     const previousCode =
-      history.pop();
+      historyRef.current.pop();
 
     redoRef.current.push(code);
 
@@ -905,12 +1090,9 @@ export default function WorkbenchScreen({
       [activeFile]: previousCode,
     }));
 
-    const cursor =
-      previousCode.length;
-
     setSelection({
-      start: cursor,
-      end: cursor,
+      start: previousCode.length,
+      end: previousCode.length,
     });
 
     setDirty(true);
@@ -922,15 +1104,12 @@ export default function WorkbenchScreen({
   };
 
   const handleRedo = () => {
-    const redo =
-      redoRef.current;
-
-    if (!redo.length) {
+    if (!redoRef.current.length) {
       return;
     }
 
     const nextCode =
-      redo.pop();
+      redoRef.current.pop();
 
     historyRef.current.push(code);
 
@@ -941,12 +1120,9 @@ export default function WorkbenchScreen({
       [activeFile]: nextCode,
     }));
 
-    const cursor =
-      nextCode.length;
-
     setSelection({
-      start: cursor,
-      end: cursor,
+      start: nextCode.length,
+      end: nextCode.length,
     });
 
     setDirty(true);
@@ -1011,6 +1187,8 @@ export default function WorkbenchScreen({
 
     setDirty(false);
 
+    setShowWelcome(false);
+
     requestAnimationFrame(() => {
       editorRef.current?.focus();
     });
@@ -1025,7 +1203,6 @@ export default function WorkbenchScreen({
         'Nom requis',
         'Entre un nom de fichier.'
       );
-
       return;
     }
 
@@ -1039,7 +1216,6 @@ export default function WorkbenchScreen({
         'Fichier existant',
         'Un fichier avec ce nom existe déjà.'
       );
-
       return;
     }
 
@@ -1055,7 +1231,6 @@ export default function WorkbenchScreen({
         'Erreur',
         'Impossible de créer le fichier.'
       );
-
       return;
     }
 
@@ -1077,6 +1252,7 @@ export default function WorkbenchScreen({
     setDirty(false);
     setNewFileName('');
     setShowNewFileModal(false);
+    setShowWelcome(false);
 
     notifyProjectUpdated(
       updatedProject
@@ -1098,7 +1274,6 @@ export default function WorkbenchScreen({
         'Action impossible',
         'Un projet doit conserver au moins un fichier.'
       );
-
       return;
     }
 
@@ -1114,17 +1289,6 @@ export default function WorkbenchScreen({
           text: 'Supprimer',
           style: 'destructive',
           onPress: async () => {
-            if (
-              autoSaveTimerRef.current
-            ) {
-              clearTimeout(
-                autoSaveTimerRef.current
-              );
-
-              autoSaveTimerRef.current =
-                null;
-            }
-
             const updatedProject =
               await deleteProjectFile(
                 project.id,
@@ -1147,8 +1311,7 @@ export default function WorkbenchScreen({
 
             const nextCode =
               nextFile
-                ? updatedFiles[nextFile] ||
-                  ''
+                ? updatedFiles[nextFile] || ''
                 : '';
 
             setFiles(updatedFiles);
@@ -1189,16 +1352,11 @@ export default function WorkbenchScreen({
     const newName =
       renameFileName.trim();
 
-    if (!oldName) {
-      return;
-    }
-
-    if (!newName) {
+    if (!oldName || !newName) {
       Alert.alert(
         'Nom requis',
         'Entre un nouveau nom de fichier.'
       );
-
       return;
     }
 
@@ -1213,18 +1371,7 @@ export default function WorkbenchScreen({
         'Fichier existant',
         'Un fichier avec ce nom existe déjà.'
       );
-
       return;
-    }
-
-    if (
-      autoSaveTimerRef.current
-    ) {
-      clearTimeout(
-        autoSaveTimerRef.current
-      );
-
-      autoSaveTimerRef.current = null;
     }
 
     const updatedProject =
@@ -1239,7 +1386,6 @@ export default function WorkbenchScreen({
         'Erreur',
         'Impossible de renommer le fichier.'
       );
-
       return;
     }
 
@@ -1248,18 +1394,11 @@ export default function WorkbenchScreen({
 
     setFiles(updatedFiles);
 
-    if (
-      activeFile === oldName
-    ) {
+    if (activeFile === oldName) {
       setActiveFile(newName);
       setCode(
         updatedFiles[newName] || ''
       );
-
-      setSelection({
-        start: 0,
-        end: 0,
-      });
     }
 
     setRenameTarget(null);
@@ -1302,7 +1441,6 @@ export default function WorkbenchScreen({
         'Recherche',
         'Aucune occurrence trouvée.'
       );
-
       return;
     }
 
@@ -1333,10 +1471,7 @@ export default function WorkbenchScreen({
       selection.end;
 
     const selectedText =
-      code.slice(
-        start,
-        end
-      );
+      code.slice(start, end);
 
     if (
       selectedText !== searchText
@@ -1380,14 +1515,11 @@ export default function WorkbenchScreen({
       return;
     }
 
-    if (
-      !code.includes(searchText)
-    ) {
+    if (!code.includes(searchText)) {
       Alert.alert(
         'Remplacement',
         'Aucune occurrence trouvée.'
       );
-
       return;
     }
 
@@ -1419,9 +1551,7 @@ export default function WorkbenchScreen({
   };
 
   const handleSave = async () => {
-    if (
-      autoSaveTimerRef.current
-    ) {
+    if (autoSaveTimerRef.current) {
       clearTimeout(
         autoSaveTimerRef.current
       );
@@ -1440,37 +1570,24 @@ export default function WorkbenchScreen({
       return;
     }
 
-    if (
-      autoSaveTimerRef.current
-    ) {
-      clearTimeout(
-        autoSaveTimerRef.current
-      );
-
-      autoSaveTimerRef.current = null;
-    }
-
-    const updatedProject =
-      await performSave(
-        activeFile,
-        code
-      );
+    await performSave(
+      activeFile,
+      code
+    );
 
     if (
       typeof onPreview ===
       'function'
     ) {
-      onPreview(
-        updatedProject || {
-          ...project,
-          files,
-          activeFile,
-        }
-      );
+      onPreview({
+        ...project,
+        files,
+        activeFile,
+      });
     }
   };
 
-  const handleBack = async () => {
+  const handleBack = () => {
     if (!dirty) {
       onBack?.();
       return;
@@ -1487,45 +1604,111 @@ export default function WorkbenchScreen({
         {
           text: 'Quitter',
           style: 'destructive',
-          onPress: () => {
-            if (
-              autoSaveTimerRef.current
-            ) {
-              clearTimeout(
-                autoSaveTimerRef.current
-              );
-
-              autoSaveTimerRef.current =
-                null;
-            }
-
-            onBack?.();
-          },
+          onPress: () => onBack?.(),
         },
         {
           text: 'Enregistrer',
           onPress: async () => {
-            if (
-              autoSaveTimerRef.current
-            ) {
-              clearTimeout(
-                autoSaveTimerRef.current
-              );
-
-              autoSaveTimerRef.current =
-                null;
-            }
-
             await performSave(
               activeFile,
               code
             );
-
             onBack?.();
           },
         },
       ]
     );
+  };
+
+  /*
+   * ==========================
+   * ACTIONS WELCOME
+   * ==========================
+   */
+
+  const openWelcome = () => {
+    setShowWelcome(true);
+  };
+
+  const openNewFileFromWelcome = () => {
+    setShowWelcome(false);
+    setNewFileName('');
+    setShowNewFileModal(true);
+  };
+
+  const openRecentFile = (
+    fileName
+  ) => {
+    if (!fileName) {
+      return;
+    }
+
+    handleSelectFile(fileName);
+  };
+
+  const openProjectsFromWelcome = () => {
+    if (
+      typeof onOpenProjects ===
+      'function'
+    ) {
+      onOpenProjects();
+    } else {
+      Alert.alert(
+        'Projets',
+        'La liste des projets est accessible depuis la navigation principale.'
+      );
+    }
+  };
+
+  const openSettingsFromWelcome = () => {
+    if (
+      typeof onOpenSettings ===
+      'function'
+    ) {
+      onOpenSettings();
+    } else {
+      Alert.alert(
+        'Personnaliser',
+        'Ouvre Paramètres depuis la navigation principale.'
+      );
+    }
+  };
+
+  const openTerminalFromWelcome = () => {
+    if (
+      typeof onOpenTerminal ===
+      'function'
+    ) {
+      onOpenTerminal();
+    } else {
+      Alert.alert(
+        'Terminal',
+        'Le terminal est accessible depuis la navigation principale.'
+      );
+    }
+  };
+
+  const openCommandsFromWelcome = () => {
+    if (
+      typeof onOpenCommands ===
+      'function'
+    ) {
+      onOpenCommands();
+    } else {
+      Alert.alert(
+        'Palette de commandes',
+        'Ouvre Commandes depuis la navigation principale.'
+      );
+    }
+  };
+
+  const openAIFromWelcome = () => {
+    if (
+      typeof onOpenAI ===
+      'function'
+    ) {
+      onOpenAI();
+    }
   };
 
   const getFileIcon = (
@@ -1564,6 +1747,16 @@ export default function WorkbenchScreen({
 
     return '•';
   };
+
+  const lineCount = Math.max(
+    code.split('\n').length,
+    1
+  );
+
+  const lineNumbers = Array.from(
+    { length: lineCount },
+    (_, index) => index + 1
+  );
 
   if (loading) {
     return (
@@ -1635,8 +1828,10 @@ export default function WorkbenchScreen({
             numberOfLines={1}
             style={styles.fileTitle}
           >
-            {activeFile ||
-              'Aucun fichier'}
+            {showWelcome
+              ? 'Welcome'
+              : activeFile ||
+                'Aucun fichier'}
           </Text>
         </View>
 
@@ -1663,517 +1858,1318 @@ export default function WorkbenchScreen({
         </Pressable>
       </View>
 
-      <View style={styles.toolbar}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={
-            false
-          }
-          style={styles.toolbarScroll}
-          contentContainerStyle={{
-            alignItems: 'center',
-          }}
+      {showWelcome ? (
+        /*
+         * =====================================================
+         * WELCOME
+         * =====================================================
+         */
+        <View
+          style={styles.welcomeContainer}
         >
-          <Pressable
-            onPress={() =>
-              setShowExplorer(
-                (value) => !value
-              )
+          <ScrollView
+            showsVerticalScrollIndicator
+            contentContainerStyle={
+              styles.welcomeScroll
             }
-            style={styles.toolbarButton}
           >
-            <Text
-              style={
-                styles.toolbarButtonText
-              }
-            >
-              ☰
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() =>
-              setShowSearch(true)
-            }
-            style={styles.toolbarButton}
-          >
-            <Text
-              style={
-                styles.toolbarButtonText
-              }
-            >
-              🔍
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={handleUndo}
-            style={styles.toolbarButton}
-          >
-            <Text
-              style={
-                styles.toolbarButtonText
-              }
-            >
-              ↶
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={handleRedo}
-            style={styles.toolbarButton}
-          >
-            <Text
-              style={
-                styles.toolbarButtonText
-              }
-            >
-              ↷
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() =>
-              insertTextAtCursor(
-                '  '
-              )
-            }
-            style={styles.toolbarButton}
-          >
-            <Text
-              style={
-                styles.toolbarButtonText
-              }
-            >
-              Tab
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() =>
-              insertTextAtCursor(
-                '// '
-              )
-            }
-            style={styles.toolbarButton}
-          >
-            <Text
-              style={
-                styles.toolbarButtonText
-              }
-            >
-              //
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() =>
-              insertTextAtCursor(
-                'console.log();'
-              )
-            }
-            style={styles.toolbarButton}
-          >
-            <Text
-              style={
-                styles.toolbarButtonText
-              }
-            >
-              log
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() =>
-              insertTextAtCursor(
-                'function name() {\n  \n}'
-              )
-            }
-            style={styles.toolbarButton}
-          >
-            <Text
-              style={
-                styles.toolbarButtonText
-              }
-            >
-              fn
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={handleSave}
-            style={styles.toolbarButton}
-          >
-            <Text
-              style={
-                styles.toolbarButtonText
-              }
-            >
-              💾
-            </Text>
-          </Pressable>
-
-          <Text
-            style={styles.statusText}
-          >
-            {saving
-              ? 'Sauvegarde…'
-              : dirty
-                ? 'Modifié'
-                : 'Enregistré'}
-          </Text>
-        </ScrollView>
-      </View>
-
-      <View style={styles.workspace}>
-        <View style={styles.explorer}>
-          <View
-            style={styles.explorerHeader}
-          >
-            <Text
-              style={styles.explorerTitle}
-            >
-              Explorateur
-            </Text>
-
-            <Pressable
-              onPress={() =>
-                setShowNewFileModal(
-                  true
-                )
-              }
-              style={styles.addButton}
+            <View
+              style={styles.welcomeHeader}
             >
               <Text
                 style={
-                  styles.addButtonText
+                  styles.welcomeEyebrow
                 }
               >
-                +
+                GCODE
               </Text>
-            </Pressable>
-          </View>
 
-          <ScrollView
-            contentContainerStyle={
-              styles.fileList
-            }
-          >
-            {Object.keys(files).map(
-              (fileName) => {
-                const selected =
-                  fileName ===
-                  activeFile;
+              <Text
+                style={styles.welcomeTitle}
+              >
+                Bienvenue
+              </Text>
 
-                return (
-                  <Pressable
-                    key={fileName}
-                    onPress={() =>
-                      handleSelectFile(
-                        fileName
-                      )
+              <Text
+                style={
+                  styles.welcomeSubtitle
+                }
+              >
+                Commence rapidement un projet,
+                ouvre tes fichiers récents,
+                personnalise GCODE et découvre
+                les outils de développement.
+              </Text>
+            </View>
+
+            <View
+              style={styles.welcomeSection}
+            >
+              <Text
+                style={
+                  styles.welcomeSectionTitle
+                }
+              >
+                Start
+              </Text>
+
+              <View
+                style={styles.welcomeCard}
+              >
+                <Pressable
+                  onPress={
+                    openNewFileFromWelcome
+                  }
+                  style={({ pressed }) => [
+                    styles.welcomeAction,
+                    {
+                      opacity: pressed
+                        ? 0.65
+                        : 1,
+                    },
+                  ]}
+                >
+                  <View
+                    style={
+                      styles.welcomeActionIcon
                     }
-                    onLongPress={() =>
-                      openRenameModal(
-                        fileName
-                      )
-                    }
-                    style={[
-                      styles.fileItem,
-                      selected &&
-                        styles.activeFileItem,
-                    ]}
                   >
                     <Text
                       style={
-                        styles.fileIcon
+                        styles.welcomeActionIconText
                       }
                     >
-                      {getFileIcon(
-                        fileName
-                      )}
+                      +
+                    </Text>
+                  </View>
+
+                  <View
+                    style={
+                      styles.welcomeActionBody
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.welcomeActionTitle
+                      }
+                    >
+                      New File…
                     </Text>
 
                     <Text
-                      numberOfLines={1}
-                      style={[
-                        styles.fileName,
-                        selected &&
-                          styles.activeFileName,
-                      ]}
+                      style={
+                        styles.welcomeActionDescription
+                      }
                     >
-                      {fileName}
+                      Créer réellement un nouveau
+                      fichier dans ce projet.
+                    </Text>
+                  </View>
+
+                  <Text
+                    style={styles.welcomeArrow}
+                  >
+                    ›
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={() =>
+                    activeFile
+                      ? openRecentFile(
+                          activeFile
+                        )
+                      : openNewFileFromWelcome()
+                  }
+                  style={({ pressed }) => [
+                    styles.welcomeAction,
+                    {
+                      opacity: pressed
+                        ? 0.65
+                        : 1,
+                    },
+                  ]}
+                >
+                  <View
+                    style={
+                      styles.welcomeActionIcon
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.welcomeActionIconText
+                      }
+                    >
+                      ◇
+                    </Text>
+                  </View>
+
+                  <View
+                    style={
+                      styles.welcomeActionBody
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.welcomeActionTitle
+                      }
+                    >
+                      Open File…
                     </Text>
 
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={`Options ${fileName}`}
-                      onPress={() =>
-                        Alert.alert(
-                          fileName,
-                          'Choisis une action.',
-                          [
-                            {
-                              text: 'Annuler',
-                              style: 'cancel',
-                            },
-                            {
-                              text: 'Renommer',
-                              onPress: () =>
-                                openRenameModal(
-                                  fileName
-                                ),
-                            },
-                            {
-                              text: 'Supprimer',
-                              style: 'destructive',
-                              onPress: () =>
-                                handleDeleteFile(
-                                  fileName
-                                ),
-                            },
-                          ]
-                        )
-                      }
+                    <Text
                       style={
-                        styles.fileMenuButton
+                        styles.welcomeActionDescription
                       }
                     >
-                      <Text
-                        style={
-                          styles.fileMenuText
+                      Ouvrir un fichier présent
+                      dans le projet GCODE.
+                    </Text>
+                  </View>
+
+                  <Text
+                    style={styles.welcomeArrow}
+                  >
+                    ›
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={
+                    openProjectsFromWelcome
+                  }
+                  style={({ pressed }) => [
+                    styles.welcomeAction,
+                    {
+                      opacity: pressed
+                        ? 0.65
+                        : 1,
+                    },
+                  ]}
+                >
+                  <View
+                    style={
+                      styles.welcomeActionIcon
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.welcomeActionIconText
+                      }
+                    >
+                      □
+                    </Text>
+                  </View>
+
+                  <View
+                    style={
+                      styles.welcomeActionBody
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.welcomeActionTitle
+                      }
+                    >
+                      Open Folder…
+                    </Text>
+
+                    <Text
+                      style={
+                        styles.welcomeActionDescription
+                      }
+                    >
+                      Accéder aux vrais projets
+                      et dossiers de travail.
+                    </Text>
+                  </View>
+
+                  <Text
+                    style={styles.welcomeArrow}
+                  >
+                    ›
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={() =>
+                    Alert.alert(
+                      'Clone Git Repository…',
+                      'Le clonage Git nécessite encore le moteur Git natif de GCODE. Cette fonction ne sera pas simulée.'
+                    )
+                  }
+                  style={({ pressed }) => [
+                    styles.welcomeAction,
+                    {
+                      opacity: pressed
+                        ? 0.65
+                        : 1,
+                    },
+                  ]}
+                >
+                  <View
+                    style={
+                      styles.welcomeActionIcon
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.welcomeActionIconText
+                      }
+                    >
+                      ↙
+                    </Text>
+                  </View>
+
+                  <View
+                    style={
+                      styles.welcomeActionBody
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.welcomeActionTitle
+                      }
+                    >
+                      Clone Git Repository…
+                    </Text>
+
+                    <Text
+                      style={
+                        styles.welcomeActionDescription
+                      }
+                    >
+                      Préparé pour le futur moteur
+                      Git natif de GCODE.
+                    </Text>
+                  </View>
+
+                  <Text
+                    style={styles.welcomeArrow}
+                  >
+                    ›
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+
+            <View
+              style={styles.welcomeSection}
+            >
+              <Text
+                style={
+                  styles.welcomeSectionTitle
+                }
+              >
+                Recent
+              </Text>
+
+              <View
+                style={styles.welcomeCard}
+              >
+                {Object.keys(files).length ===
+                0 ? (
+                  <View
+                    style={styles.recentEmpty}
+                  >
+                    <Text
+                      style={{
+                        color: colors.muted,
+                        fontSize: 12,
+                      }}
+                    >
+                      Aucun fichier récent.
+                    </Text>
+                  </View>
+                ) : (
+                  Object.keys(files).map(
+                    (fileName) => (
+                      <Pressable
+                        key={fileName}
+                        onPress={() =>
+                          openRecentFile(
+                            fileName
+                          )
                         }
+                        style={({ pressed }) => [
+                          styles.recentFile,
+                          {
+                            opacity: pressed
+                              ? 0.65
+                              : 1,
+                          },
+                        ]}
                       >
-                        ⋯
-                      </Text>
-                    </Pressable>
-                  </Pressable>
-                );
-              }
-            )}
+                        <View
+                          style={
+                            styles.recentFileIcon
+                          }
+                        >
+                          <Text
+                            style={
+                              styles.recentFileIconText
+                            }
+                          >
+                            {getFileIcon(
+                              fileName
+                            )}
+                          </Text>
+                        </View>
+
+                        <View
+                          style={
+                            styles.recentFileBody
+                          }
+                        >
+                          <Text
+                            numberOfLines={1}
+                            style={
+                              styles.recentFileName
+                            }
+                          >
+                            {fileName}
+                          </Text>
+
+                          <Text
+                            numberOfLines={1}
+                            style={
+                              styles.recentFilePath
+                            }
+                          >
+                            {fileName ===
+                            activeFile
+                              ? 'Fichier actif'
+                              : 'Projet courant'}
+                          </Text>
+                        </View>
+
+                        <Text
+                          style={
+                            styles.welcomeArrow
+                          }
+                        >
+                          ›
+                        </Text>
+                      </Pressable>
+                    )
+                  )
+                )}
+              </View>
+            </View>
+
+            <View
+              style={styles.welcomeSection}
+            >
+              <Text
+                style={
+                  styles.welcomeSectionTitle
+                }
+              >
+                Walkthroughs & Tips
+              </Text>
+
+              <View
+                style={styles.tipCard}
+              >
+                <Text
+                  style={styles.tipNumber}
+                >
+                  01 · PREMIERS PAS
+                </Text>
+
+                <Text
+                  style={styles.tipTitle}
+                >
+                  Créer ton premier fichier
+                </Text>
+
+                <Text
+                  style={styles.tipText}
+                >
+                  Utilise New File… pour créer
+                  index.html, app.js, style.css
+                  ou n'importe quel fichier dont
+                  ton projet a besoin.
+                </Text>
+              </View>
+
+              <View
+                style={styles.tipCard}
+              >
+                <Text
+                  style={styles.tipNumber}
+                >
+                  02 · ÉDITION
+                </Text>
+
+                <Text
+                  style={styles.tipTitle}
+                >
+                  Éditer et sauvegarder
+                </Text>
+
+                <Text
+                  style={styles.tipText}
+                >
+                  GCODE conserve les modifications
+                  localement et prend en charge
+                  l'auto-sauvegarde lorsque celle-ci
+                  est activée.
+                </Text>
+              </View>
+
+              <View
+                style={styles.tipCard}
+              >
+                <Text
+                  style={styles.tipNumber}
+                >
+                  03 · TERMINAL
+                </Text>
+
+                <Text
+                  style={styles.tipTitle}
+                >
+                  Utiliser le terminal réel
+                </Text>
+
+                <Text
+                  style={styles.tipText}
+                >
+                  Le terminal natif exécute réellement
+                  les commandes disponibles dans
+                  l'environnement Android de GCODE.
+                </Text>
+
+                <Pressable
+                  onPress={
+                    openTerminalFromWelcome
+                  }
+                  style={[
+                    styles.toolbarButton,
+                    {
+                      marginTop: 12,
+                      alignSelf: 'flex-start',
+                    },
+                  ]}
+                >
+                  <Text
+                    style={
+                      styles.toolbarButtonText
+                    }
+                  >
+                    Ouvrir Terminal
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+
+            <View
+              style={styles.welcomeSection}
+            >
+              <Text
+                style={
+                  styles.welcomeSectionTitle
+                }
+              >
+                Customize
+              </Text>
+
+              <View
+                style={styles.welcomeCard}
+              >
+                <Pressable
+                  onPress={
+                    openSettingsFromWelcome
+                  }
+                  style={({ pressed }) => [
+                    styles.welcomeAction,
+                    {
+                      opacity: pressed
+                        ? 0.65
+                        : 1,
+                    },
+                  ]}
+                >
+                  <View
+                    style={
+                      styles.welcomeActionIcon
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.welcomeActionIconText
+                      }
+                    >
+                      ◐
+                    </Text>
+                  </View>
+
+                  <View
+                    style={
+                      styles.welcomeActionBody
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.welcomeActionTitle
+                      }
+                    >
+                      Themes
+                    </Text>
+
+                    <Text
+                      style={
+                        styles.welcomeActionDescription
+                      }
+                    >
+                      Changer les paramètres visuels
+                      et le thème de l'éditeur.
+                    </Text>
+                  </View>
+
+                  <Text
+                    style={styles.welcomeArrow}
+                  >
+                    ›
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={
+                    openSettingsFromWelcome
+                  }
+                  style={({ pressed }) => [
+                    styles.welcomeAction,
+                    {
+                      opacity: pressed
+                        ? 0.65
+                        : 1,
+                    },
+                  ]}
+                >
+                  <View
+                    style={
+                      styles.welcomeActionIcon
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.welcomeActionIconText
+                      }
+                    >
+                      A
+                    </Text>
+                  </View>
+
+                  <View
+                    style={
+                      styles.welcomeActionBody
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.welcomeActionTitle
+                      }
+                    >
+                      Tools and languages
+                    </Text>
+
+                    <Text
+                      style={
+                        styles.welcomeActionDescription
+                      }
+                    >
+                      Accéder aux réglages des outils
+                      et du développement.
+                    </Text>
+                  </View>
+
+                  <Text
+                    style={styles.welcomeArrow}
+                  >
+                    ›
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={
+                    openCommandsFromWelcome
+                  }
+                  style={({ pressed }) => [
+                    styles.welcomeAction,
+                    {
+                      opacity: pressed
+                        ? 0.65
+                        : 1,
+                    },
+                  ]}
+                >
+                  <View
+                    style={
+                      styles.welcomeActionIcon
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.welcomeActionIconText
+                      }
+                    >
+                      ⌘
+                    </Text>
+                  </View>
+
+                  <View
+                    style={
+                      styles.welcomeActionBody
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.welcomeActionTitle
+                      }
+                    >
+                      Keyboard Shortcuts
+                    </Text>
+
+                    <Text
+                      style={
+                        styles.welcomeActionDescription
+                      }
+                    >
+                      Accéder à la palette de commandes
+                      et aux actions disponibles.
+                    </Text>
+                  </View>
+
+                  <Text
+                    style={styles.welcomeArrow}
+                  >
+                    ›
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+
+            <View
+              style={styles.welcomeSection}
+            >
+              <Text
+                style={
+                  styles.welcomeSectionTitle
+                }
+              >
+                GCODE
+              </Text>
+
+              <View
+                style={styles.welcomeCard}
+              >
+                <Pressable
+                  onPress={
+                    openAIFromWelcome
+                  }
+                  style={({ pressed }) => [
+                    styles.welcomeAction,
+                    {
+                      opacity: pressed
+                        ? 0.65
+                        : 1,
+                    },
+                  ]}
+                >
+                  <View
+                    style={
+                      styles.welcomeActionIcon
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.welcomeActionIconText
+                      }
+                    >
+                      ✦
+                    </Text>
+                  </View>
+
+                  <View
+                    style={
+                      styles.welcomeActionBody
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.welcomeActionTitle
+                      }
+                    >
+                      GCODE AI
+                    </Text>
+
+                    <Text
+                      style={
+                        styles.welcomeActionDescription
+                      }
+                    >
+                      Module préparé pour une future
+                      intégration IA optionnelle.
+                    </Text>
+                  </View>
+
+                  <Text
+                    style={styles.welcomeArrow}
+                  >
+                    ›
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+
+            <View
+              style={styles.welcomeFooter}
+            >
+              <Text
+                style={styles.welcomeFooterText}
+              >
+                Bienvenue peut être réouvert à tout
+                moment depuis l'interface GCODE.
+              </Text>
+            </View>
           </ScrollView>
         </View>
-
-        <View
-          style={styles.editorArea}
-        >
-          <View
-            style={styles.editorHeader}
-          >
-            <Text
-              style={
-                styles.editorHeaderText
+      ) : (
+        <>
+          <View style={styles.toolbar}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={
+                false
               }
+              style={styles.toolbarScroll}
+              contentContainerStyle={{
+                alignItems: 'center',
+              }}
             >
-              {activeFile ||
-                'Aucun fichier ouvert'}
-            </Text>
+              <Pressable
+                onPress={() =>
+                  setShowExplorer(
+                    (value) => !value
+                  )
+                }
+                style={styles.toolbarButton}
+              >
+                <Text
+                  style={
+                    styles.toolbarButtonText
+                  }
+                >
+                  ☰
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() =>
+                  setShowSearch(true)
+                }
+                style={styles.toolbarButton}
+              >
+                <Text
+                  style={
+                    styles.toolbarButtonText
+                  }
+                >
+                  🔍
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={handleUndo}
+                style={styles.toolbarButton}
+              >
+                <Text
+                  style={
+                    styles.toolbarButtonText
+                  }
+                >
+                  ↶
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={handleRedo}
+                style={styles.toolbarButton}
+              >
+                <Text
+                  style={
+                    styles.toolbarButtonText
+                  }
+                >
+                  ↷
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() =>
+                  insertTextAtCursor('  ')
+                }
+                style={styles.toolbarButton}
+              >
+                <Text
+                  style={
+                    styles.toolbarButtonText
+                  }
+                >
+                  Tab
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() =>
+                  insertTextAtCursor('// ')
+                }
+                style={styles.toolbarButton}
+              >
+                <Text
+                  style={
+                    styles.toolbarButtonText
+                  }
+                >
+                  //
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() =>
+                  insertTextAtCursor(
+                    'console.log();'
+                  )
+                }
+                style={styles.toolbarButton}
+              >
+                <Text
+                  style={
+                    styles.toolbarButtonText
+                  }
+                >
+                  log
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() =>
+                  insertTextAtCursor(
+                    'function name() {\n  \n}'
+                  )
+                }
+                style={styles.toolbarButton}
+              >
+                <Text
+                  style={
+                    styles.toolbarButtonText
+                  }
+                >
+                  fn
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={handleSave}
+                style={styles.toolbarButton}
+              >
+                <Text
+                  style={
+                    styles.toolbarButtonText
+                  }
+                >
+                  💾
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={openWelcome}
+                style={styles.toolbarButton}
+              >
+                <Text
+                  style={
+                    styles.toolbarButtonText
+                  }
+                >
+                  Welcome
+                </Text>
+              </Pressable>
+
+              <Text
+                style={styles.statusText}
+              >
+                {saving
+                  ? 'Sauvegarde…'
+                  : dirty
+                    ? 'Modifié'
+                    : 'Enregistré'}
+              </Text>
+            </ScrollView>
           </View>
 
-          {activeFile ? (
-            <View style={styles.editor}>
-              {editorSettings.lineNumbers && (
-                <ScrollView
-                  ref={lineScrollRef}
-                  style={
-                    styles.lineScroll
+          <View style={styles.workspace}>
+            <View style={styles.explorer}>
+              <View
+                style={styles.explorerHeader}
+              >
+                <Text
+                  style={styles.explorerTitle}
+                >
+                  Explorateur
+                </Text>
+
+                <Pressable
+                  onPress={() =>
+                    setShowNewFileModal(
+                      true
+                    )
                   }
-                  scrollEnabled={false}
-                  showsVerticalScrollIndicator={
-                    false
+                  style={styles.addButton}
+                >
+                  <Text
+                    style={
+                      styles.addButtonText
+                    }
+                  >
+                    +
+                  </Text>
+                </Pressable>
+              </View>
+
+              <ScrollView
+                contentContainerStyle={
+                  styles.fileList
+                }
+              >
+                {Object.keys(files).map(
+                  (fileName) => {
+                    const selected =
+                      fileName ===
+                      activeFile;
+
+                    return (
+                      <Pressable
+                        key={fileName}
+                        onPress={() =>
+                          handleSelectFile(
+                            fileName
+                          )
+                        }
+                        onLongPress={() =>
+                          openRenameModal(
+                            fileName
+                          )
+                        }
+                        style={[
+                          styles.fileItem,
+                          selected &&
+                            styles.activeFileItem,
+                        ]}
+                      >
+                        <Text
+                          style={
+                            styles.fileIcon
+                          }
+                        >
+                          {getFileIcon(
+                            fileName
+                          )}
+                        </Text>
+
+                        <Text
+                          numberOfLines={1}
+                          style={[
+                            styles.fileName,
+                            selected &&
+                              styles.activeFileName,
+                          ]}
+                        >
+                          {fileName}
+                        </Text>
+
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`Options ${fileName}`}
+                          onPress={() =>
+                            Alert.alert(
+                              fileName,
+                              'Choisis une action.',
+                              [
+                                {
+                                  text: 'Annuler',
+                                  style: 'cancel',
+                                },
+                                {
+                                  text: 'Renommer',
+                                  onPress: () =>
+                                    openRenameModal(
+                                      fileName
+                                    ),
+                                },
+                                {
+                                  text: 'Supprimer',
+                                  style: 'destructive',
+                                  onPress: () =>
+                                    handleDeleteFile(
+                                      fileName
+                                    ),
+                                },
+                              ]
+                            )
+                          }
+                          style={
+                            styles.fileMenuButton
+                          }
+                        >
+                          <Text
+                            style={
+                              styles.fileMenuText
+                            }
+                          >
+                            ⋯
+                          </Text>
+                        </Pressable>
+                      </Pressable>
+                    );
+                  }
+                )}
+              </ScrollView>
+            </View>
+
+            <View
+              style={styles.editorArea}
+            >
+              <View
+                style={styles.editorHeader}
+              >
+                <Text
+                  style={
+                    styles.editorHeaderText
+                  }
+                >
+                  {activeFile ||
+                    'Aucun fichier ouvert'}
+                </Text>
+              </View>
+
+              {activeFile ? (
+                <View style={styles.editor}>
+                  {editorSettings.lineNumbers && (
+                    <ScrollView
+                      ref={lineScrollRef}
+                      style={
+                        styles.lineScroll
+                      }
+                      scrollEnabled={false}
+                      showsVerticalScrollIndicator={
+                        false
+                      }
+                    >
+                      <View
+                        style={
+                          styles.lineNumbers
+                        }
+                      >
+                        {lineNumbers.map(
+                          (number) => (
+                            <Text
+                              key={number}
+                              style={
+                                styles.lineNumber
+                              }
+                            >
+                              {number}
+                            </Text>
+                          )
+                        )}
+                      </View>
+                    </ScrollView>
+                  )}
+
+                  <TextInput
+                    ref={editorRef}
+                    value={code}
+                    onChangeText={
+                      handleCodeChange
+                    }
+                    onSelectionChange={
+                      handleSelectionChange
+                    }
+                    onScroll={
+                      handleEditorScroll
+                    }
+                    selection={selection}
+                    multiline
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    spellCheck={false}
+                    textAlignVertical="top"
+                    scrollEnabled
+                    style={
+                      styles.codeInput
+                    }
+                    placeholder="Commence à écrire ton code…"
+                    placeholderTextColor={
+                      colors.muted2
+                    }
+                  />
+                </View>
+              ) : (
+                <View
+                  style={
+                    styles.emptyEditor
+                  }
+                >
+                  <Text
+                    style={
+                      styles.emptyEditorTitle
+                    }
+                  >
+                    Aucun fichier
+                  </Text>
+
+                  <Text
+                    style={
+                      styles.emptyEditorText
+                    }
+                  >
+                    Crée un fichier pour
+                    commencer à coder.
+                  </Text>
+                </View>
+              )}
+
+              {showSearch && (
+                <View
+                  style={
+                    styles.searchPanel
                   }
                 >
                   <View
                     style={
-                      styles.lineNumbers
+                      styles.searchRow
                     }
                   >
-                    {lineNumbers.map(
-                      (number) => (
-                        <Text
-                          key={number}
-                          style={
-                            styles.lineNumber
-                          }
-                        >
-                          {number}
-                        </Text>
-                      )
-                    )}
+                    <TextInput
+                      value={searchText}
+                      onChangeText={(value) => {
+                        setSearchText(value);
+                        setSearchIndex(-1);
+                      }}
+                      placeholder="Rechercher…"
+                      placeholderTextColor={
+                        colors.muted2
+                      }
+                      style={
+                        styles.searchInput
+                      }
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+
+                    <Pressable
+                      onPress={findNext}
+                      style={
+                        styles.searchButton
+                      }
+                    >
+                      <Text
+                        style={
+                          styles.searchButtonText
+                        }
+                      >
+                        Suivant
+                      </Text>
+                    </Pressable>
                   </View>
-                </ScrollView>
+
+                  <View
+                    style={
+                      styles.searchRow
+                    }
+                  >
+                    <TextInput
+                      value={replaceText}
+                      onChangeText={
+                        setReplaceText
+                      }
+                      placeholder="Remplacer par…"
+                      placeholderTextColor={
+                        colors.muted2
+                      }
+                      style={
+                        styles.searchInput
+                      }
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+
+                    <Pressable
+                      onPress={
+                        replaceCurrent
+                      }
+                      style={
+                        styles.searchButton
+                      }
+                    >
+                      <Text
+                        style={
+                          styles.searchButtonText
+                        }
+                      >
+                        Remplacer
+                      </Text>
+                    </Pressable>
+
+                    <Pressable
+                      onPress={replaceAll}
+                      style={
+                        styles.searchButton
+                      }
+                    >
+                      <Text
+                        style={
+                          styles.searchButtonText
+                        }
+                      >
+                        Tout
+                      </Text>
+                    </Pressable>
+
+                    <Pressable
+                      onPress={() => {
+                        setShowSearch(false);
+                        setSearchIndex(-1);
+                      }}
+                      style={
+                        styles.searchClose
+                      }
+                    >
+                      <Text
+                        style={
+                          styles.searchButtonText
+                        }
+                      >
+                        ×
+                      </Text>
+                    </Pressable>
+                  </View>
+
+                  <Text
+                    style={styles.searchInfo}
+                  >
+                    Recherche et remplacement
+                    directement dans le fichier
+                    actuellement ouvert.
+                  </Text>
+                </View>
               )}
-
-              <TextInput
-                ref={editorRef}
-                value={code}
-                onChangeText={
-                  handleCodeChange
-                }
-                onSelectionChange={
-                  handleSelectionChange
-                }
-                onScroll={
-                  handleEditorScroll
-                }
-                selection={selection}
-                multiline
-                autoCapitalize="none"
-                autoCorrect={false}
-                spellCheck={false}
-                textAlignVertical="top"
-                scrollEnabled
-                style={styles.codeInput}
-                placeholder="Commence à écrire ton code…"
-                placeholderTextColor={
-                  colors.muted2
-                }
-              />
             </View>
-          ) : (
-            <View
-              style={styles.emptyEditor}
-            >
-              <Text
-                style={
-                  styles.emptyEditorTitle
-                }
-              >
-                Aucun fichier
-              </Text>
-
-              <Text
-                style={
-                  styles.emptyEditorText
-                }
-              >
-                Crée un fichier pour
-                commencer à coder.
-              </Text>
-            </View>
-          )}
-
-          {showSearch && (
-            <View
-              style={styles.searchPanel}
-            >
-              <View
-                style={styles.searchRow}
-              >
-                <TextInput
-                  value={searchText}
-                  onChangeText={(value) => {
-                    setSearchText(value);
-                    setSearchIndex(-1);
-                  }}
-                  placeholder="Rechercher…"
-                  placeholderTextColor={
-                    colors.muted2
-                  }
-                  style={
-                    styles.searchInput
-                  }
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-
-                <Pressable
-                  onPress={findNext}
-                  style={
-                    styles.searchButton
-                  }
-                >
-                  <Text
-                    style={
-                      styles.searchButtonText
-                    }
-                  >
-                    Suivant
-                  </Text>
-                </Pressable>
-              </View>
-
-              <View
-                style={styles.searchRow}
-              >
-                <TextInput
-                  value={replaceText}
-                  onChangeText={
-                    setReplaceText
-                  }
-                  placeholder="Remplacer par…"
-                  placeholderTextColor={
-                    colors.muted2
-                  }
-                  style={
-                    styles.searchInput
-                  }
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-
-                <Pressable
-                  onPress={
-                    replaceCurrent
-                  }
-                  style={
-                    styles.searchButton
-                  }
-                >
-                  <Text
-                    style={
-                      styles.searchButtonText
-                    }
-                  >
-                    Remplacer
-                  </Text>
-                </Pressable>
-
-                <Pressable
-                  onPress={replaceAll}
-                  style={
-                    styles.searchButton
-                  }
-                >
-                  <Text
-                    style={
-                      styles.searchButtonText
-                    }
-                  >
-                    Tout
-                  </Text>
-                </Pressable>
-
-                <Pressable
-                  onPress={() => {
-                    setShowSearch(false);
-                    setSearchIndex(-1);
-                  }}
-                  style={
-                    styles.searchClose
-                  }
-                >
-                  <Text
-                    style={
-                      styles.searchButtonText
-                    }
-                  >
-                    ×
-                  </Text>
-                </Pressable>
-              </View>
-
-              <Text
-                style={styles.searchInfo}
-              >
-                La recherche fonctionne
-                directement dans le fichier
-                actuellement ouvert.
-              </Text>
-            </View>
-          )}
-        </View>
-      </View>
+          </View>
+        </>
+      )}
 
       <Modal
         visible={showNewFileModal}
