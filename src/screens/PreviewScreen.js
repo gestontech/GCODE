@@ -22,24 +22,40 @@ export default function PreviewScreen({
   project,
   onBack,
 }) {
-  const { colors, radius } = useTheme();
+  const { theme } = useTheme();
+
+  const {
+    colors,
+    radius,
+    spacing,
+  } = theme;
 
   const webViewRef = useRef(null);
 
-  const [device, setDevice] = useState('mobile');
-  const [url, setUrl] = useState('gcode://preview');
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [device, setDevice] =
+    useState('mobile');
+
+  const [url, setUrl] =
+    useState('gcode://preview');
+
+  const [refreshKey, setRefreshKey] =
+    useState(0);
+
+  const [loading, setLoading] =
+    useState(true);
+
   const [consoleMessage, setConsoleMessage] =
     useState('');
 
   const projectName =
     project?.name || 'Nouveau projet';
 
-  const files = project?.files || {};
+  const files =
+    project?.files || {};
 
   const htmlFile = useMemo(() => {
-    const names = Object.keys(files);
+    const names =
+      Object.keys(files);
 
     const preferred = [
       'index.html',
@@ -48,33 +64,46 @@ export default function PreviewScreen({
     ];
 
     for (const name of preferred) {
-      if (Object.prototype.hasOwnProperty.call(files, name)) {
+      if (
+        Object.prototype.hasOwnProperty.call(
+          files,
+          name
+        )
+      ) {
         return name;
       }
     }
 
     return (
       names.find((name) =>
-        name.toLowerCase().endsWith('.html')
+        name
+          .toLowerCase()
+          .endsWith('.html')
       ) || null
     );
   }, [files]);
 
   const cssFiles = useMemo(() => {
-    return Object.keys(files).filter((name) =>
-      name.toLowerCase().endsWith('.css')
+    return Object.keys(files).filter(
+      (name) =>
+        name
+          .toLowerCase()
+          .endsWith('.css')
     );
   }, [files]);
 
   const jsFiles = useMemo(() => {
-    return Object.keys(files).filter((name) => {
-      const lower = name.toLowerCase();
+    return Object.keys(files).filter(
+      (name) => {
+        const lower =
+          name.toLowerCase();
 
-      return (
-        lower.endsWith('.js') ||
-        lower.endsWith('.mjs')
-      );
-    });
+        return (
+          lower.endsWith('.js') ||
+          lower.endsWith('.mjs')
+        );
+      }
+    );
   }, [files]);
 
   const escapeHtml = (value = '') => {
@@ -84,30 +113,114 @@ export default function PreviewScreen({
       .replace(/>/g, '&gt;');
   };
 
+  const injectGcodeBridge = (html) => {
+    const bridge = `
+<script>
+(function () {
+  try {
+    const originalLog =
+      console.log;
+
+    console.log = function () {
+      try {
+        if (
+          window.ReactNativeWebView
+        ) {
+          const args =
+            Array.from(arguments)
+              .map(function (item) {
+                try {
+                  return typeof item === 'string'
+                    ? item
+                    : JSON.stringify(item);
+                } catch (error) {
+                  return String(item);
+                }
+              });
+
+          window.ReactNativeWebView.postMessage(
+            JSON.stringify({
+              type: 'console',
+              level: 'log',
+              message: args.join(' ')
+            })
+          );
+        }
+      } catch (error) {}
+
+      originalLog.apply(
+        console,
+        arguments
+      );
+    };
+
+    window.addEventListener(
+      'error',
+      function (event) {
+        try {
+          if (
+            window.ReactNativeWebView
+          ) {
+            window.ReactNativeWebView.postMessage(
+              JSON.stringify({
+                type: 'error',
+                message:
+                  event.message ||
+                  'Erreur JavaScript'
+              })
+            );
+          }
+        } catch (error) {}
+      }
+    );
+  } catch (error) {}
+})();
+</script>
+`;
+
+    if (/<\/body\s*>/i.test(html)) {
+      return html.replace(
+        /<\/body\s*>/i,
+        `${bridge}
+</body>`
+      );
+    }
+
+    return `${html}
+${bridge}`;
+  };
+
   const buildPreviewHtml = () => {
-    let baseHtml = htmlFile
-      ? files[htmlFile] || ''
-      : '';
+    let baseHtml =
+      htmlFile
+        ? files[htmlFile] || ''
+        : '';
 
     /*
-     * Si le projet possède déjà un index.html,
-     * on l'utilise directement comme base.
+     * Projet avec fichier HTML.
      */
     if (baseHtml.trim()) {
       let html = baseHtml;
 
-      const css = cssFiles
-        .map((fileName) => {
-          return files[fileName] || '';
-        })
-        .join('\n\n');
+      const css =
+        cssFiles
+          .map(
+            (fileName) =>
+              files[fileName] || ''
+          )
+          .join('\n\n');
 
-      const js = jsFiles
-        .filter((fileName) => fileName !== htmlFile)
-        .map((fileName) => {
-          return files[fileName] || '';
-        })
-        .join('\n\n');
+      const js =
+        jsFiles
+          .filter(
+            (fileName) =>
+              fileName !== htmlFile
+          )
+          .map(
+            (fileName) =>
+              files[fileName] || ''
+          )
+          .join('\n\n');
 
       if (css.trim()) {
         const styleTag = `
@@ -116,10 +229,13 @@ ${css}
 </style>
 `;
 
-        if (/<\/head\s*>/i.test(html)) {
+        if (
+          /<\/head\s*>/i.test(html)
+        ) {
           html = html.replace(
             /<\/head\s*>/i,
-            `${styleTag}\n</head>`
+            `${styleTag}
+</head>`
           );
         } else {
           html = `
@@ -136,35 +252,44 @@ ${js}
 </script>
 `;
 
-        if (/<\/body\s*>/i.test(html)) {
+        if (
+          /<\/body\s*>/i.test(html)
+        ) {
           html = html.replace(
             /<\/body\s*>/i,
-            `${scriptTag}\n</body>`
+            `${scriptTag}
+</body>`
           );
         } else {
           html += scriptTag;
         }
       }
 
-      return injectGcodeBridge(html);
+      return injectGcodeBridge(
+        html
+      );
     }
 
     /*
-     * Aucun index.html :
-     * GCODE fabrique automatiquement une page HTML
-     * à partir des fichiers CSS / JS disponibles.
+     * Aucun HTML :
+     * GCODE génère une page
+     * de démonstration locale.
      */
-    const css = cssFiles
-      .map((fileName) => {
-        return files[fileName] || '';
-      })
-      .join('\n\n');
+    const css =
+      cssFiles
+        .map(
+          (fileName) =>
+            files[fileName] || ''
+        )
+        .join('\n\n');
 
-    const js = jsFiles
-      .map((fileName) => {
-        return files[fileName] || '';
-      })
-      .join('\n\n');
+    const js =
+      jsFiles
+        .map(
+          (fileName) =>
+            files[fileName] || ''
+        )
+        .join('\n\n');
 
     const escapedProjectName =
       escapeHtml(projectName);
@@ -177,6 +302,7 @@ ${js}
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
+
   <meta
     name="viewport"
     content="width=device-width, initial-scale=1.0"
@@ -256,8 +382,13 @@ ${js}
     }
 
     .card {
-      background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(255,255,255,0.1);
+      background:
+        rgba(255,255,255,0.06);
+
+      border:
+        1px solid
+        rgba(255,255,255,0.1);
+
       border-radius: 18px;
       padding: 22px;
       margin-bottom: 18px;
@@ -317,6 +448,7 @@ ${css}
     </div>
 
     <section class="card">
+
       <div class="card-title">
         Projet prêt
       </div>
@@ -325,11 +457,15 @@ ${css}
         ${
           hasFiles
             ? Object.keys(files)
-                .map((name) => `• ${name}`)
+                .map(
+                  (name) =>
+                    '• ' + name
+                )
                 .join('\n')
             : 'Aucun fichier dans ce projet.'
         }
       </div>
+
     </section>
 
     <a
@@ -385,81 +521,6 @@ ${js}
 `);
   };
 
-  const injectGcodeBridge = (html) => {
-    const bridge = `
-<script>
-(function () {
-  try {
-    const originalLog =
-      console.log;
-
-    console.log = function () {
-      try {
-        if (
-          window.ReactNativeWebView
-        ) {
-          const args =
-            Array.from(arguments)
-              .map(function (item) {
-                try {
-                  return typeof item === 'string'
-                    ? item
-                    : JSON.stringify(item);
-                } catch (error) {
-                  return String(item);
-                }
-              });
-
-          window.ReactNativeWebView.postMessage(
-            JSON.stringify({
-              type: 'console',
-              level: 'log',
-              message: args.join(' ')
-            })
-          );
-        }
-      } catch (error) {}
-
-      originalLog.apply(
-        console,
-        arguments
-      );
-    };
-
-    window.addEventListener(
-      'error',
-      function (event) {
-        try {
-          if (
-            window.ReactNativeWebView
-          ) {
-            window.ReactNativeWebView.postMessage(
-              JSON.stringify({
-                type: 'error',
-                message:
-                  event.message ||
-                  'Erreur JavaScript'
-              })
-            );
-          }
-        } catch (error) {}
-      }
-    );
-  } catch (error) {}
-})();
-</script>
-`;
-
-    if (/<\/body\s*>/i.test(html)) {
-      return html.replace(
-        /<\/body\s*>/i,
-        `${bridge}\n</body>`
-      );
-    }
-
-    return `${html}\n${bridge}`;
-  };
-
   const previewHtml = useMemo(
     () => buildPreviewHtml(),
     [
@@ -475,7 +536,10 @@ ${js}
   const handleRefresh = () => {
     setLoading(true);
     setConsoleMessage('');
-    setRefreshKey((value) => value + 1);
+
+    setRefreshKey(
+      (value) => value + 1
+    );
   };
 
   const handleOpen = () => {
@@ -483,19 +547,27 @@ ${js}
     handleRefresh();
   };
 
-  const handleWebViewMessage = (event) => {
+  const handleWebViewMessage = (
+    event
+  ) => {
     try {
-      const data = JSON.parse(
-        event.nativeEvent.data
-      );
+      const data =
+        JSON.parse(
+          event.nativeEvent.data
+        );
 
-      if (data?.type === 'console') {
+      if (
+        data?.type === 'console'
+      ) {
         setConsoleMessage(
-          data.message || 'Console'
+          data.message ||
+            'Console'
         );
       }
 
-      if (data?.type === 'error') {
+      if (
+        data?.type === 'error'
+      ) {
         setConsoleMessage(
           `Erreur : ${
             data.message ||
@@ -505,7 +577,8 @@ ${js}
       }
     } catch (error) {
       setConsoleMessage(
-        event.nativeEvent.data || ''
+        event.nativeEvent.data ||
+          ''
       );
     }
   };
@@ -528,12 +601,14 @@ ${js}
       ]}
     >
       {/* HEADER */}
+
       <View
         style={[
           styles.header,
           {
             backgroundColor:
-              colors.panel,
+              colors.glass,
+
             borderBottomColor:
               colors.border,
           },
@@ -546,8 +621,24 @@ ${js}
           style={({ pressed }) => [
             styles.backButton,
             {
+              backgroundColor:
+                colors.glassSoft,
+
+              borderColor:
+                colors.border,
+
+              borderRadius:
+                radius.pill,
+
               opacity:
-                pressed ? 0.55 : 1,
+                pressed ? 0.6 : 1,
+
+              transform: [
+                {
+                  scale:
+                    pressed ? 0.92 : 1,
+                },
+              ],
             },
           ]}
         >
@@ -555,7 +646,8 @@ ${js}
             style={[
               styles.backIcon,
               {
-                color: colors.text,
+                color:
+                  colors.text,
               },
             ]}
           >
@@ -564,18 +656,47 @@ ${js}
         </Pressable>
 
         <View
-          style={styles.headerTitle}
+          style={
+            styles.headerTitle
+          }
         >
-          <Text
+          <View
             style={[
-              styles.eyebrow,
+              styles.previewBadge,
               {
-                color: colors.muted,
+                backgroundColor:
+                  colors.glassStrong,
+
+                borderColor:
+                  colors.border,
+
+                borderRadius:
+                  radius.pill,
               },
             ]}
           >
-            PREVIEW LOCAL
-          </Text>
+            <View
+              style={[
+                styles.badgeDot,
+                {
+                  backgroundColor:
+                    colors.success,
+                },
+              ]}
+            />
+
+            <Text
+              style={[
+                styles.eyebrow,
+                {
+                  color:
+                    colors.textSecondary,
+                },
+              ]}
+            >
+              PREVIEW LOCAL
+            </Text>
+          </View>
 
           <Text
             numberOfLines={1}
@@ -583,7 +704,7 @@ ${js}
               styles.title,
               {
                 color:
-                  colors.textStrong,
+                  colors.text,
               },
             ]}
           >
@@ -599,11 +720,23 @@ ${js}
             styles.refreshButton,
             {
               backgroundColor:
-                colors.panel2,
+                colors.glassStrong,
+
               borderColor:
                 colors.border,
+
+              borderRadius:
+                radius.pill,
+
               opacity:
                 pressed ? 0.6 : 1,
+
+              transform: [
+                {
+                  scale:
+                    pressed ? 0.92 : 1,
+                },
+              ],
             },
           ]}
         >
@@ -611,7 +744,8 @@ ${js}
             style={[
               styles.refreshIcon,
               {
-                color: colors.text,
+                color:
+                  colors.primary,
               },
             ]}
           >
@@ -621,12 +755,14 @@ ${js}
       </View>
 
       {/* TOOLBAR */}
+
       <View
         style={[
           styles.toolbar,
           {
             backgroundColor:
-              colors.panel2,
+              colors.glassSoft,
+
             borderBottomColor:
               colors.border,
           },
@@ -637,24 +773,25 @@ ${js}
             styles.urlBox,
             {
               backgroundColor:
-                colors.panel,
+                colors.glass,
+
               borderColor:
                 colors.border,
+
               borderRadius:
-                radius.sm,
+                radius.pill,
             },
           ]}
         >
-          <Text
+          <View
             style={[
-              styles.lock,
+              styles.secureDot,
               {
-                color: colors.green,
+                backgroundColor:
+                  colors.success,
               },
             ]}
-          >
-            ●
-          </Text>
+          />
 
           <TextInput
             value={url}
@@ -665,7 +802,8 @@ ${js}
             style={[
               styles.urlInput,
               {
-                color: colors.muted,
+                color:
+                  colors.textSecondary,
               },
             ]}
           />
@@ -673,122 +811,294 @@ ${js}
 
         <Pressable
           onPress={handleOpen}
+          accessibilityRole="button"
+          accessibilityLabel="Actualiser le projet"
           style={({ pressed }) => [
             styles.openButton,
             {
               backgroundColor:
-                colors.purple,
+                colors.primarySoft,
+
+              borderColor:
+                colors.primary,
+
               borderRadius:
-                radius.sm,
+                radius.pill,
+
               opacity:
-                pressed ? 0.75 : 1,
+                pressed ? 0.7 : 1,
+
+              transform: [
+                {
+                  scale:
+                    pressed ? 0.96 : 1,
+                },
+              ],
             },
           ]}
         >
-          <Text style={styles.openText}>
+          <Text
+            style={[
+              styles.openText,
+              {
+                color:
+                  colors.primary,
+              },
+            ]}
+          >
             Actualiser
           </Text>
         </Pressable>
       </View>
 
       {/* DEVICE SELECTOR */}
-      <View style={styles.deviceBar}>
+
+      <View
+        style={[
+          styles.deviceBar,
+          {
+            backgroundColor:
+              colors.glassSoft,
+          },
+        ]}
+      >
         <DeviceButton
           label="Mobile"
           icon="▯"
-          active={device === 'mobile'}
+          active={
+            device === 'mobile'
+          }
           onPress={() =>
             setDevice('mobile')
           }
           colors={colors}
+          radius={radius}
         />
 
         <DeviceButton
           label="Tablette"
           icon="▭"
-          active={device === 'tablet'}
+          active={
+            device === 'tablet'
+          }
           onPress={() =>
             setDevice('tablet')
           }
           colors={colors}
+          radius={radius}
         />
 
         <DeviceButton
           label="Desktop"
           icon="▣"
-          active={device === 'desktop'}
+          active={
+            device === 'desktop'
+          }
           onPress={() =>
             setDevice('desktop')
           }
           colors={colors}
+          radius={radius}
         />
       </View>
 
       {/* PREVIEW */}
+
       <ScrollView
-        contentContainerStyle={
-          styles.previewArea
-        }
+        contentContainerStyle={[
+          styles.previewArea,
+          {
+            paddingBottom:
+              spacing.lg,
+          },
+        ]}
         showsVerticalScrollIndicator={
           false
-      }
+        }
       >
         <View
           style={[
             styles.deviceFrame,
             frameStyle,
             {
+              backgroundColor:
+                colors.glass,
+
               borderColor:
                 colors.borderStrong,
+
+              borderRadius:
+                radius.xl,
+
+              shadowColor:
+                colors.shadow,
             },
           ]}
         >
           {/* BROWSER BAR */}
+
           <View
-            style={styles.browserTop}
+            style={[
+              styles.browserTop,
+              {
+                backgroundColor:
+                  colors.glassStrong,
+
+                borderBottomColor:
+                  colors.border,
+              },
+            ]}
           >
             <View
-              style={styles.browserDots}
+              style={
+                styles.browserDots
+              }
             >
               <View
-                style={styles.browserDot}
+                style={[
+                  styles.browserDot,
+                  {
+                    backgroundColor:
+                      colors.danger,
+                  },
+                ]}
               />
+
               <View
-                style={styles.browserDot}
+                style={[
+                  styles.browserDot,
+                  {
+                    backgroundColor:
+                      colors.warning,
+                  },
+                ]}
               />
+
               <View
-                style={styles.browserDot}
+                style={[
+                  styles.browserDot,
+                  {
+                    backgroundColor:
+                      colors.success,
+                  },
+                ]}
               />
             </View>
 
-            <Text
-              numberOfLines={1}
-              style={styles.browserTitle}
+            <View
+              style={[
+                styles.browserAddress,
+                {
+                  backgroundColor:
+                    colors.glassSoft,
+
+                  borderColor:
+                    colors.border,
+
+                  borderRadius:
+                    radius.pill,
+                },
+              ]}
             >
-              {projectName}
-            </Text>
+              <Text
+                numberOfLines={1}
+                style={[
+                  styles.browserTitle,
+                  {
+                    color:
+                      colors.textSecondary,
+                  },
+                ]}
+              >
+                {projectName}
+              </Text>
+            </View>
           </View>
 
           {/* WEBVIEW */}
+
           <View
-            style={styles.webViewContainer}
+            style={[
+              styles.webViewContainer,
+              {
+                backgroundColor:
+                  colors.background,
+              },
+            ]}
           >
             {loading && (
               <View
-                style={styles.loadingOverlay}
+                style={[
+                  styles.loadingOverlay,
+                  {
+                    backgroundColor:
+                      colors.background,
+                  },
+                ]}
               >
-                <ActivityIndicator
-                  size="small"
-                  color="#713CFF"
-                />
+                <View
+                  style={[
+                    styles.loadingCard,
+                    {
+                      backgroundColor:
+                        colors.glassStrong,
 
-                <Text
-                  style={
-                    styles.loadingText
-                  }
+                      borderColor:
+                        colors.border,
+
+                      borderRadius:
+                        radius.xl,
+                    },
+                  ]}
                 >
-                  Chargement du projet…
-                </Text>
+                  <View
+                    style={[
+                      styles.loadingIcon,
+                      {
+                        backgroundColor:
+                          colors.primarySoft,
+
+                        borderColor:
+                          colors.border,
+
+                        borderRadius:
+                          radius.pill,
+                      },
+                    ]}
+                  >
+                    <ActivityIndicator
+                      size="small"
+                      color={
+                        colors.primary
+                      }
+                    />
+                  </View>
+
+                  <Text
+                    style={[
+                      styles.loadingText,
+                      {
+                        color:
+                          colors.text,
+                      },
+                    ]}
+                  >
+                    Chargement du projet…
+                  </Text>
+
+                  <Text
+                    style={[
+                      styles.loadingSubtext,
+                      {
+                        color:
+                          colors.textMuted,
+                      },
+                    ]}
+                  >
+                    GCODE prépare
+                    l’aperçu local
+                  </Text>
+                </View>
               </View>
             )}
 
@@ -796,7 +1106,9 @@ ${js}
               key={refreshKey}
               ref={webViewRef}
               source={{
-                html: previewHtml,
+                html:
+                  previewHtml,
+
                 baseUrl:
                   'https://gcode.local/',
               }}
@@ -819,35 +1131,58 @@ ${js}
               onMessage={
                 handleWebViewMessage
               }
-              style={styles.webView}
+              style={
+                styles.webView
+              }
             />
           </View>
         </View>
 
         {/* CONSOLE */}
+
         {consoleMessage ? (
           <View
             style={[
               styles.consoleBox,
               {
                 backgroundColor:
-                  colors.panel,
+                  colors.glassStrong,
+
                 borderColor:
                   colors.border,
+
+                borderRadius:
+                  radius.xl,
               },
             ]}
           >
-            <Text
-              style={[
-                styles.consoleLabel,
-                {
-                  color:
-                    colors.muted,
-                },
-              ]}
+            <View
+              style={
+                styles.consoleHeader
+              }
             >
-              CONSOLE
-            </Text>
+              <View
+                style={[
+                  styles.consoleDot,
+                  {
+                    backgroundColor:
+                      colors.warning,
+                  },
+                ]}
+              />
+
+              <Text
+                style={[
+                  styles.consoleLabel,
+                  {
+                    color:
+                      colors.textSecondary,
+                  },
+                ]}
+              >
+                CONSOLE
+              </Text>
+            </View>
 
             <Text
               style={[
@@ -865,26 +1200,30 @@ ${js}
       </ScrollView>
 
       {/* STATUS */}
+
       <View
         style={[
           styles.statusBar,
           {
             backgroundColor:
-              colors.panel,
+              colors.glass,
+
             borderTopColor:
               colors.border,
           },
         ]}
       >
         <View
-          style={styles.statusLeft}
+          style={
+            styles.statusLeft
+          }
         >
           <View
             style={[
               styles.statusDot,
               {
                 backgroundColor:
-                  colors.green,
+                  colors.success,
               },
             ]}
           />
@@ -894,7 +1233,7 @@ ${js}
               styles.statusText,
               {
                 color:
-                  colors.muted,
+                  colors.textSecondary,
               },
             ]}
           >
@@ -902,21 +1241,37 @@ ${js}
           </Text>
         </View>
 
-        <Text
+        <View
           style={[
-            styles.statusText,
+            styles.resolutionPill,
             {
-              color:
-                colors.muted2,
+              backgroundColor:
+                colors.glassSoft,
+
+              borderColor:
+                colors.border,
+
+              borderRadius:
+                radius.pill,
             },
           ]}
         >
-          {device === 'mobile'
-            ? '390 × 844'
-            : device === 'tablet'
-              ? '768 × 1024'
-              : '1280 × 800'}
-        </Text>
+          <Text
+            style={[
+              styles.statusText,
+              {
+                color:
+                  colors.textMuted,
+              },
+            ]}
+          >
+            {device === 'mobile'
+              ? '390 × 844'
+              : device === 'tablet'
+                ? '768 × 1024'
+                : '1280 × 800'}
+          </Text>
+        </View>
       </View>
     </View>
   );
@@ -928,6 +1283,7 @@ function DeviceButton({
   active,
   onPress,
   colors,
+  radius,
 }) {
   return (
     <Pressable
@@ -942,39 +1298,71 @@ function DeviceButton({
         {
           backgroundColor:
             active
-              ? colors.purple
-              : colors.panel,
+              ? colors.primarySoft
+              : colors.glass,
 
           borderColor:
             active
-              ? colors.purple
+              ? colors.primary
               : colors.border,
+
+          borderRadius:
+            radius.pill,
 
           opacity:
             pressed ? 0.7 : 1,
+
+          transform: [
+            {
+              scale:
+                pressed
+                  ? 0.96
+                  : 1,
+            },
+          ],
         },
       ]}
     >
-      <Text
+      <View
         style={[
-          styles.deviceIcon,
+          styles.deviceIconContainer,
           {
-            color: active
-              ? '#FFFFFF'
-              : colors.muted,
+            backgroundColor:
+              active
+                ? colors.glassStrong
+                : colors.glassSoft,
+
+            borderColor:
+              colors.border,
+
+            borderRadius:
+              radius.pill,
           },
         ]}
       >
-        {icon}
-      </Text>
+        <Text
+          style={[
+            styles.deviceIcon,
+            {
+              color:
+                active
+                  ? colors.primary
+                  : colors.textSecondary,
+            },
+          ]}
+        >
+          {icon}
+        </Text>
+      </View>
 
       <Text
         style={[
           styles.deviceText,
           {
-            color: active
-              ? '#FFFFFF'
-              : colors.muted,
+            color:
+              active
+                ? colors.primary
+                : colors.textSecondary,
           },
         ]}
       >
@@ -990,18 +1378,22 @@ const styles = StyleSheet.create({
   },
 
   header: {
-    height: 64,
+    minHeight: 72,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 10,
-    borderBottomWidth: 1,
+    paddingVertical: 8,
+    borderBottomWidth:
+      StyleSheet.hairlineWidth,
   },
 
   backButton: {
-    width: 40,
+    width: 42,
     height: 42,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth:
+      StyleSheet.hairlineWidth,
   },
 
   backIcon: {
@@ -1012,55 +1404,78 @@ const styles = StyleSheet.create({
 
   headerTitle: {
     flex: 1,
-    marginHorizontal: 5,
+    marginHorizontal: 8,
     minWidth: 0,
+  },
+
+  previewBadge: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderWidth:
+      StyleSheet.hairlineWidth,
+  },
+
+  badgeDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 5,
+    marginRight: 5,
   },
 
   eyebrow: {
     fontSize: 8,
     fontWeight: '800',
-    letterSpacing: 1.4,
-    marginBottom: 3,
+    letterSpacing: 1.2,
   },
 
   title: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
+    marginTop: 4,
   },
 
   refreshButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 11,
-    borderWidth: 1,
+    width: 42,
+    height: 42,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth:
+      StyleSheet.hairlineWidth,
   },
 
   refreshIcon: {
     fontSize: 21,
+    fontWeight: '700',
   },
 
   toolbar: {
-    minHeight: 54,
+    minHeight: 58,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 10,
+    paddingVertical: 8,
     gap: 8,
-    borderBottomWidth: 1,
+    borderBottomWidth:
+      StyleSheet.hairlineWidth,
   },
 
   urlBox: {
     flex: 1,
-    height: 38,
+    height: 40,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    borderWidth: 1,
+    paddingHorizontal: 11,
+    borderWidth:
+      StyleSheet.hairlineWidth,
   },
 
-  lock: {
-    fontSize: 8,
+  secureDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 6,
     marginRight: 8,
   },
 
@@ -1070,20 +1485,21 @@ const styles = StyleSheet.create({
   },
 
   openButton: {
-    height: 38,
-    paddingHorizontal: 14,
+    height: 40,
+    paddingHorizontal: 15,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth:
+      StyleSheet.hairlineWidth,
   },
 
   openText: {
-    color: '#FFFFFF',
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '800',
   },
 
   deviceBar: {
-    minHeight: 50,
+    minHeight: 58,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1092,28 +1508,38 @@ const styles = StyleSheet.create({
   },
 
   deviceButton: {
-    height: 34,
+    minHeight: 38,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 11,
-    borderRadius: 9,
-    borderWidth: 1,
+    paddingHorizontal: 8,
+    borderWidth:
+      StyleSheet.hairlineWidth,
+  },
+
+  deviceIconContainer: {
+    width: 27,
+    height: 27,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth:
+      StyleSheet.hairlineWidth,
+    marginRight: 6,
   },
 
   deviceIcon: {
-    fontSize: 12,
-    marginRight: 6,
+    fontSize: 11,
+    fontWeight: '700',
   },
 
   deviceText: {
     fontSize: 10,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 
   previewArea: {
     flexGrow: 1,
     alignItems: 'center',
-    padding: 18,
+    padding: 14,
   },
 
   deviceFrame: {
@@ -1121,9 +1547,7 @@ const styles = StyleSheet.create({
     maxWidth: 900,
     overflow: 'hidden',
     borderWidth: 1,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
-    elevation: 8,
+    elevation: 10,
   },
 
   mobileFrame: {
@@ -1142,45 +1566,51 @@ const styles = StyleSheet.create({
   },
 
   browserTop: {
-    height: 35,
-    backgroundColor: '#F1F2F5',
+    height: 40,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#DDDFE5',
+    borderBottomWidth:
+      StyleSheet.hairlineWidth,
   },
 
   browserDots: {
     position: 'absolute',
     left: 10,
     flexDirection: 'row',
-    gap: 4,
+    gap: 5,
   },
 
   browserDot: {
     width: 7,
     height: 7,
-    borderRadius: 4,
-    backgroundColor: '#C2C5CE',
+    borderRadius: 7,
+  },
+
+  browserAddress: {
+    minWidth: 110,
+    maxWidth: '60%',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderWidth:
+      StyleSheet.hairlineWidth,
   },
 
   browserTitle: {
-    color: '#737783',
     fontSize: 9,
     fontWeight: '600',
-    maxWidth: '60%',
+    textAlign: 'center',
   },
 
   webViewContainer: {
     flex: 1,
     position: 'relative',
-    backgroundColor: '#FFFFFF',
   },
 
   webView: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor:
+      '#FFFFFF',
   },
 
   loadingOverlay: {
@@ -1192,43 +1622,79 @@ const styles = StyleSheet.create({
     bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+  },
+
+  loadingCard: {
+    minWidth: 180,
+    paddingHorizontal: 22,
+    paddingVertical: 18,
+    alignItems: 'center',
+    borderWidth:
+      StyleSheet.hairlineWidth,
+  },
+
+  loadingIcon: {
+    width: 42,
+    height: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth:
+      StyleSheet.hairlineWidth,
+    marginBottom: 10,
   },
 
   loadingText: {
-    marginTop: 10,
-    color: '#737783',
     fontSize: 11,
+    fontWeight: '800',
+  },
+
+  loadingSubtext: {
+    fontSize: 9,
+    marginTop: 4,
   },
 
   consoleBox: {
     width: '100%',
     maxWidth: 900,
     marginTop: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderRadius: 10,
+    padding: 13,
+    borderWidth:
+      StyleSheet.hairlineWidth,
+  },
+
+  consoleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 7,
+  },
+
+  consoleDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 6,
+    marginRight: 6,
   },
 
   consoleLabel: {
     fontSize: 8,
-    fontWeight: '800',
+    fontWeight: '900',
     letterSpacing: 1,
-    marginBottom: 5,
   },
 
   consoleText: {
     fontSize: 11,
     fontFamily: 'monospace',
+    lineHeight: 17,
   },
 
   statusBar: {
-    height: 31,
+    minHeight: 38,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    borderTopWidth: 1,
+    paddingHorizontal: 10,
+    borderTopWidth:
+      StyleSheet.hairlineWidth,
   },
 
   statusLeft: {
@@ -1239,12 +1705,19 @@ const styles = StyleSheet.create({
   statusDot: {
     width: 6,
     height: 6,
-    borderRadius: 3,
+    borderRadius: 6,
     marginRight: 6,
   },
 
   statusText: {
     fontSize: 9,
     fontWeight: '600',
+  },
+
+  resolutionPill: {
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderWidth:
+      StyleSheet.hairlineWidth,
   },
 });
