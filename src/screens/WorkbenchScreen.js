@@ -29,14 +29,14 @@ import {
   saveProjectFile,
 } from '../storage/projectStorage';
 
-import {
-  loadEditorSettings,
-} from '../storage/editorSettings';
+import { loadEditorSettings } from '../storage/editorSettings';
 
 import {
   pickFile,
   sanitizeFileName,
 } from '../storage/filePicker';
+
+import FileExplorer from '../components/FileExplorer';
 
 export default function WorkbenchScreen({
   project,
@@ -83,19 +83,12 @@ export default function WorkbenchScreen({
   const [replaceText, setReplaceText] = useState('');
   const [searchIndex, setSearchIndex] = useState(-1);
 
-  const [showNewFileModal, setShowNewFileModal] =
-    useState(false);
-
+  const [showNewFileModal, setShowNewFileModal] = useState(false);
   const [newFileName, setNewFileName] = useState('');
 
-  const [showRenameModal, setShowRenameModal] =
-    useState(false);
-
-  const [renameTarget, setRenameTarget] =
-    useState(null);
-
-  const [renameFileName, setRenameFileName] =
-    useState('');
+  const [showRenameModal, setShowRenameModal] = useState(false);
+  const [renameTarget, setRenameTarget] = useState(null);
+  const [renameFileName, setRenameFileName] = useState('');
 
   const [showWelcome, setShowWelcome] = useState(true);
 
@@ -108,24 +101,32 @@ export default function WorkbenchScreen({
         },
 
         header: {
-          minHeight: 62,
+          minHeight: 64,
           paddingHorizontal: spacing.md,
           paddingTop: Platform.OS === 'ios' ? 8 : 4,
           paddingBottom: 8,
           flexDirection: 'row',
           alignItems: 'center',
+          backgroundColor: colors.glassStrong,
           borderBottomWidth: 1,
           borderBottomColor: colors.border,
-          backgroundColor: colors.backgroundElevated,
+          shadowColor: colors.shadow,
+          shadowOpacity: 0.18,
+          shadowRadius: 12,
+          shadowOffset: {
+            width: 0,
+            height: 5,
+          },
+          elevation: 6,
         },
 
         headerButton: {
           width: 40,
           height: 40,
-          borderRadius: radius.sm,
+          borderRadius: radius.md,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: colors.panel2,
+          backgroundColor: colors.glass,
           borderWidth: 1,
           borderColor: colors.border,
         },
@@ -133,7 +134,7 @@ export default function WorkbenchScreen({
         headerButtonText: {
           color: colors.text,
           fontSize: 20,
-          fontWeight: '600',
+          fontWeight: '700',
         },
 
         headerCenter: {
@@ -142,241 +143,98 @@ export default function WorkbenchScreen({
         },
 
         projectTitle: {
-          color: colors.textStrong,
+          color: colors.text,
           fontSize: 16,
-          fontWeight: '700',
+          fontWeight: '800',
         },
 
         fileTitle: {
           marginTop: 2,
-          color: colors.muted,
+          color: colors.textSecondary,
           fontSize: 12,
         },
 
-        previewButton: {
-          minWidth: 76,
-          height: 40,
-          paddingHorizontal: 12,
-          borderRadius: radius.sm,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: colors.purple,
-        },
-
-        previewButtonText: {
-          color: '#FFFFFF',
-          fontSize: 12,
+        dirtyText: {
+          color: colors.warning,
           fontWeight: '700',
         },
 
-        toolbar: {
-          minHeight: 48,
-          paddingHorizontal: spacing.sm,
-          flexDirection: 'row',
+        previewButton: {
+          minWidth: 82,
+          height: 40,
+          paddingHorizontal: spacing.md,
+          borderRadius: radius.pill,
           alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: colors.primary,
+          borderWidth: 1,
+          borderColor: colors.borderStrong,
+          shadowColor: colors.shadow,
+          shadowOpacity: 0.22,
+          shadowRadius: 8,
+          shadowOffset: {
+            width: 0,
+            height: 4,
+          },
+          elevation: 5,
+        },
+
+        previewButtonText: {
+          color: colors.textInverse,
+          fontSize: 12,
+          fontWeight: '800',
+        },
+
+        toolbar: {
+          minHeight: 52,
+          paddingHorizontal: spacing.sm,
+          backgroundColor: colors.glass,
           borderBottomWidth: 1,
           borderBottomColor: colors.border,
-          backgroundColor: colors.panel,
         },
 
         toolbarScroll: {
           flex: 1,
         },
 
+        toolbarContent: {
+          alignItems: 'center',
+          paddingVertical: 7,
+        },
+
         toolbarButton: {
-          minWidth: 38,
-          height: 36,
+          minWidth: 40,
+          height: 38,
           marginRight: 6,
-          paddingHorizontal: 9,
-          borderRadius: radius.xs,
+          paddingHorizontal: 10,
+          borderRadius: radius.md,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: colors.panel2,
+          backgroundColor: colors.glassSoft,
           borderWidth: 1,
           borderColor: colors.border,
         },
 
+        toolbarButtonActive: {
+          backgroundColor: colors.primarySoft,
+          borderColor: colors.borderStrong,
+        },
+
         toolbarButtonText: {
           color: colors.text,
-          fontSize: 13,
-          fontWeight: '600',
-        },
-
-        statusText: {
-          marginLeft: 6,
-          color: dirty ? colors.yellow : colors.green,
-          fontSize: 11,
-          fontWeight: '600',
-        },
-
-        workspace: {
-          flex: 1,
-          flexDirection: 'row',
-        },
-
-        explorer: {
-          width: showExplorer ? 190 : 0,
-          overflow: 'hidden',
-          backgroundColor: colors.panel,
-          borderRightWidth: showExplorer ? 1 : 0,
-          borderRightColor: colors.border,
-        },
-
-        explorerHeader: {
-          height: 48,
-          paddingHorizontal: spacing.sm,
-          flexDirection: 'row',
-          alignItems: 'center',
-          borderBottomWidth: 1,
-          borderBottomColor: colors.border,
-        },
-
-        explorerTitle: {
-          flex: 1,
-          color: colors.textStrong,
-          fontSize: 12,
-          fontWeight: '700',
-          textTransform: 'uppercase',
-          letterSpacing: 0.7,
-        },
-
-        addButton: {
-          width: 32,
-          height: 32,
-          borderRadius: radius.xs,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: colors.panel2,
-        },
-
-        addButtonText: {
-          color: colors.purpleLight,
-          fontSize: 20,
-          fontWeight: '500',
-        },
-
-        fileList: {
-          padding: spacing.xs,
-        },
-
-        fileItem: {
-          minHeight: 42,
-          paddingHorizontal: 10,
-          marginBottom: 4,
-          borderRadius: radius.xs,
-          flexDirection: 'row',
-          alignItems: 'center',
-        },
-
-        activeFileItem: {
-          backgroundColor: colors.editorSelection,
-          borderWidth: 1,
-          borderColor: colors.purpleDark,
-        },
-
-        fileIcon: {
-          width: 24,
-          color: colors.blue,
           fontSize: 12,
           fontWeight: '700',
         },
 
-        fileName: {
-          flex: 1,
-          color: colors.text,
-          fontSize: 12,
-        },
-
-        activeFileName: {
-          color: colors.textStrong,
-          fontWeight: '700',
-        },
-
-        fileMenuButton: {
-          width: 28,
-          height: 28,
-          alignItems: 'center',
-          justifyContent: 'center',
-        },
-
-        fileMenuText: {
-          color: colors.muted,
-          fontSize: 16,
-          fontWeight: '700',
-        },
-
-        editorArea: {
-          flex: 1,
-          backgroundColor: colors.editor,
-        },
-
-        editorHeader: {
-          minHeight: 36,
-          paddingHorizontal: spacing.sm,
-          flexDirection: 'row',
-          alignItems: 'center',
-          backgroundColor: colors.editorActiveLine,
-          borderBottomWidth: 1,
-          borderBottomColor: colors.editorLine,
-        },
-
-        editorHeaderText: {
-          color: colors.muted,
-          fontSize: 11,
-        },
-
-        editor: {
-          flex: 1,
-          flexDirection: 'row',
-        },
-
-        lineScroll: {
-          width: 48,
-          backgroundColor: colors.editor,
-          borderRightWidth: 1,
-          borderRightColor: colors.editorLine,
-        },
-
-        lineNumbers: {
-          paddingTop: 12,
-          paddingRight: 8,
-          paddingBottom: 40,
-        },
-
-        lineNumber: {
-          height: 22,
-          color: colors.muted2,
-          fontSize: 12,
-          lineHeight: 22,
-          textAlign: 'right',
-          fontFamily:
-            Platform.OS === 'ios'
-              ? 'Menlo'
-              : 'monospace',
-        },
-
-        codeInput: {
-          flex: 1,
-          minHeight: '100%',
-          paddingHorizontal: 12,
-          paddingTop: 12,
-          paddingBottom: 40,
-          color: colors.editorText,
-          backgroundColor: colors.editor,
-          fontSize: 13,
-          lineHeight: 22,
-          fontFamily:
-            Platform.OS === 'ios'
-              ? 'Menlo'
-              : 'monospace',
-          textAlignVertical: 'top',
+        toolbarButtonDisabled: {
+          opacity: 0.35,
         },
 
         searchPanel: {
           padding: spacing.sm,
-          backgroundColor: colors.panel,
-          borderTopWidth: 1,
-          borderTopColor: colors.border,
+          backgroundColor: colors.glassStrong,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.border,
         },
 
         searchRow: {
@@ -387,292 +245,288 @@ export default function WorkbenchScreen({
 
         searchInput: {
           flex: 1,
-          height: 40,
-          paddingHorizontal: 12,
-          borderRadius: radius.xs,
-          backgroundColor: colors.editor,
+          minHeight: 40,
+          paddingHorizontal: spacing.sm,
+          borderRadius: radius.md,
+          backgroundColor: colors.glassSoft,
           borderWidth: 1,
-          borderColor: colors.borderStrong,
+          borderColor: colors.border,
           color: colors.text,
           fontSize: 13,
         },
 
-        searchButton: {
+        searchInputSecondary: {
+          marginLeft: 7,
+        },
+
+        searchAction: {
+          width: 40,
           height: 40,
-          minWidth: 42,
-          marginLeft: 6,
-          paddingHorizontal: 10,
-          borderRadius: radius.xs,
+          marginLeft: 7,
+          borderRadius: radius.md,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: colors.panel2,
+          backgroundColor: colors.primarySoft,
           borderWidth: 1,
           borderColor: colors.border,
         },
 
-        searchButtonText: {
+        searchActionText: {
+          color: colors.text,
+          fontSize: 15,
+          fontWeight: '800',
+        },
+
+        searchInfo: {
+          color: colors.textMuted,
+          fontSize: 11,
+        },
+
+        workspace: {
+          flex: 1,
+          flexDirection: 'row',
+        },
+
+        explorerContainer: {
+          width: 250,
+          maxWidth: '72%',
+          backgroundColor: colors.glassStrong,
+          borderRightWidth: 1,
+          borderRightColor: colors.border,
+        },
+
+        editorContainer: {
+          flex: 1,
+          backgroundColor: colors.editorBackground,
+        },
+
+        editorHeader: {
+          minHeight: 42,
+          paddingHorizontal: spacing.sm,
+          flexDirection: 'row',
+          alignItems: 'center',
+          backgroundColor: colors.editorSurface,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.editorLine,
+        },
+
+        editorHeaderTitle: {
+          flex: 1,
           color: colors.text,
           fontSize: 12,
           fontWeight: '700',
         },
 
-        searchClose: {
-          height: 40,
-          width: 40,
-          marginLeft: 6,
-          borderRadius: radius.xs,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: colors.panel2,
+        editorStatus: {
+          color: colors.textMuted,
+          fontSize: 10,
         },
 
-        searchInfo: {
-          color: colors.muted,
-          fontSize: 11,
-          marginTop: 2,
-        },
-
-        emptyEditor: {
+        editorBody: {
           flex: 1,
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: spacing.xl,
+          flexDirection: 'row',
         },
 
-        emptyEditorTitle: {
-          color: colors.textStrong,
-          fontSize: 18,
-          fontWeight: '700',
-          marginBottom: 8,
+        lineNumbersContainer: {
+          width: 48,
+          backgroundColor: colors.editorSurface,
+          borderRightWidth: 1,
+          borderRightColor: colors.editorLine,
         },
 
-        emptyEditorText: {
-          color: colors.muted,
+        lineNumbersScroll: {
+          flex: 1,
+        },
+
+        lineNumbersContent: {
+          paddingTop: 12,
+          paddingBottom: 30,
+        },
+
+        lineNumber: {
+          height: 21,
+          paddingRight: 9,
+          textAlign: 'right',
+          color: colors.lineNumber,
+          fontSize: 12,
+          fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+          lineHeight: 21,
+        },
+
+        codeInput: {
+          flex: 1,
+          minHeight: '100%',
+          paddingTop: 12,
+          paddingHorizontal: 12,
+          paddingBottom: 30,
+          color: colors.editorText,
+          backgroundColor: colors.editorBackground,
           fontSize: 13,
-          textAlign: 'center',
+          lineHeight: 21,
+          fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+          textAlignVertical: 'top',
         },
 
-        welcomeContainer: {
+        welcome: {
           flex: 1,
-          backgroundColor: colors.editor,
+          backgroundColor: colors.background,
         },
 
         welcomeScroll: {
+          flex: 1,
+        },
+
+        welcomeContent: {
           padding: spacing.lg,
           paddingBottom: 60,
         },
 
-        welcomeHeader: {
-          marginBottom: 24,
+        welcomeHero: {
+          padding: spacing.lg,
+          borderRadius: radius.xl,
+          backgroundColor: colors.glassStrong,
+          borderWidth: 1,
+          borderColor: colors.borderStrong,
+          shadowColor: colors.shadow,
+          shadowOpacity: 0.22,
+          shadowRadius: 18,
+          shadowOffset: {
+            width: 0,
+            height: 8,
+          },
+          elevation: 8,
         },
 
-        welcomeEyebrow: {
-          color: colors.purpleLight,
-          fontSize: 12,
-          fontWeight: '700',
+        welcomeBadge: {
+          alignSelf: 'flex-start',
+          paddingHorizontal: 10,
+          paddingVertical: 5,
+          borderRadius: radius.pill,
+          backgroundColor: colors.primarySoft,
+          borderWidth: 1,
+          borderColor: colors.border,
+        },
+
+        welcomeBadgeText: {
+          color: colors.primary,
+          fontSize: 10,
+          fontWeight: '800',
           letterSpacing: 1,
-          textTransform: 'uppercase',
-          marginBottom: 8,
         },
 
         welcomeTitle: {
-          color: colors.textStrong,
-          fontSize: 30,
-          fontWeight: '800',
-          marginBottom: 8,
+          marginTop: spacing.md,
+          color: colors.text,
+          fontSize: 27,
+          fontWeight: '900',
         },
 
         welcomeSubtitle: {
-          color: colors.muted,
+          marginTop: spacing.sm,
+          color: colors.textSecondary,
           fontSize: 14,
           lineHeight: 21,
         },
 
-        welcomeSection: {
-          marginBottom: 24,
-        },
-
-        welcomeSectionTitle: {
-          color: colors.textStrong,
-          fontSize: 18,
-          fontWeight: '700',
-          marginBottom: 12,
-        },
-
-        welcomeCard: {
-          backgroundColor: colors.panel,
-          borderWidth: 1,
-          borderColor: colors.border,
-          borderRadius: radius.md,
-          marginBottom: 8,
-          overflow: 'hidden',
+        welcomeGrid: {
+          marginTop: spacing.lg,
+          flexDirection: 'row',
+          flexWrap: 'wrap',
         },
 
         welcomeAction: {
-          minHeight: 58,
-          paddingHorizontal: 14,
-          paddingVertical: 10,
-          flexDirection: 'row',
-          alignItems: 'center',
-        },
-
-        welcomeActionIcon: {
-          width: 40,
-          height: 40,
-          borderRadius: radius.sm,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: colors.panel2,
-          marginRight: 12,
-        },
-
-        welcomeActionIconText: {
-          color: colors.purpleLight,
-          fontSize: 18,
-          fontWeight: '700',
-        },
-
-        welcomeActionBody: {
-          flex: 1,
+          width: '48%',
+          marginBottom: spacing.sm,
+          marginRight: '2%',
+          minHeight: 86,
+          padding: spacing.sm,
+          borderRadius: radius.lg,
+          backgroundColor: colors.glass,
+          borderWidth: 1,
+          borderColor: colors.border,
         },
 
         welcomeActionTitle: {
-          color: colors.textStrong,
-          fontSize: 14,
-          fontWeight: '700',
-          marginBottom: 2,
+          color: colors.text,
+          fontSize: 13,
+          fontWeight: '800',
         },
 
-        welcomeActionDescription: {
-          color: colors.muted,
+        welcomeActionText: {
+          marginTop: 5,
+          color: colors.textMuted,
           fontSize: 11,
           lineHeight: 16,
         },
 
-        welcomeArrow: {
-          color: colors.muted,
-          fontSize: 18,
-          marginLeft: 8,
-        },
-
-        recentEmpty: {
-          padding: 18,
-          alignItems: 'center',
-        },
-
-        recentFile: {
-          minHeight: 52,
-          paddingHorizontal: 14,
-          flexDirection: 'row',
-          alignItems: 'center',
-          borderBottomWidth: 1,
-          borderBottomColor: colors.border,
-        },
-
-        recentFileIcon: {
-          width: 34,
-          height: 34,
-          borderRadius: radius.xs,
-          backgroundColor: colors.panel2,
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginRight: 10,
-        },
-
-        recentFileIconText: {
-          color: colors.blue,
-          fontSize: 12,
-          fontWeight: '700',
-        },
-
-        recentFileBody: {
-          flex: 1,
-        },
-
-        recentFileName: {
-          color: colors.text,
-          fontSize: 13,
-          fontWeight: '600',
-        },
-
-        recentFilePath: {
-          color: colors.muted2,
-          fontSize: 10,
-          marginTop: 2,
-        },
-
-        tipCard: {
-          backgroundColor: colors.panel,
+        infoCard: {
+          marginTop: spacing.md,
+          padding: spacing.md,
+          borderRadius: radius.lg,
+          backgroundColor: colors.glassSoft,
           borderWidth: 1,
           borderColor: colors.border,
-          borderRadius: radius.md,
-          padding: 16,
-          marginBottom: 8,
         },
 
-        tipNumber: {
-          color: colors.purpleLight,
-          fontSize: 11,
+        infoTitle: {
+          color: colors.text,
+          fontSize: 13,
           fontWeight: '800',
-          marginBottom: 5,
         },
 
-        tipTitle: {
-          color: colors.textStrong,
-          fontSize: 14,
-          fontWeight: '700',
-          marginBottom: 4,
-        },
-
-        tipText: {
-          color: colors.muted,
+        infoText: {
+          marginTop: 5,
+          color: colors.textSecondary,
           fontSize: 12,
           lineHeight: 18,
         },
 
-        welcomeFooter: {
-          paddingTop: 8,
-          alignItems: 'center',
-        },
-
-        welcomeFooterText: {
-          color: colors.muted2,
-          fontSize: 11,
-          textAlign: 'center',
-        },
-
         modalOverlay: {
           flex: 1,
-          backgroundColor: 'rgba(0,0,0,0.65)',
+          padding: spacing.lg,
           alignItems: 'center',
           justifyContent: 'center',
-          padding: 24,
+          backgroundColor: colors.overlay,
         },
 
         modalCard: {
           width: '100%',
-          maxWidth: 430,
-          padding: 20,
-          borderRadius: radius.lg,
-          backgroundColor: colors.panel,
+          maxWidth: 480,
+          padding: spacing.lg,
+          borderRadius: radius.xl,
+          backgroundColor: colors.glassStrong,
           borderWidth: 1,
-          borderColor: colors.border,
+          borderColor: colors.borderStrong,
+          shadowColor: colors.shadow,
+          shadowOpacity: 0.35,
+          shadowRadius: 25,
+          shadowOffset: {
+            width: 0,
+            height: 12,
+          },
+          elevation: 12,
         },
 
         modalTitle: {
-          color: colors.textStrong,
-          fontSize: 18,
-          fontWeight: '700',
-          marginBottom: 14,
+          color: colors.text,
+          fontSize: 19,
+          fontWeight: '900',
+        },
+
+        modalSubtitle: {
+          marginTop: 5,
+          marginBottom: spacing.md,
+          color: colors.textSecondary,
+          fontSize: 12,
         },
 
         modalInput: {
-          height: 46,
-          paddingHorizontal: 12,
-          borderRadius: radius.sm,
-          backgroundColor: colors.editor,
+          minHeight: 46,
+          paddingHorizontal: spacing.md,
+          borderRadius: radius.md,
+          backgroundColor: colors.glassSoft,
           borderWidth: 1,
-          borderColor: colors.borderStrong,
+          borderColor: colors.border,
           color: colors.text,
           fontSize: 14,
         },
@@ -680,52 +534,86 @@ export default function WorkbenchScreen({
         modalActions: {
           flexDirection: 'row',
           justifyContent: 'flex-end',
-          marginTop: 16,
+          marginTop: spacing.md,
         },
 
         modalButton: {
-          minWidth: 90,
-          height: 42,
-          paddingHorizontal: 14,
-          borderRadius: radius.sm,
+          minWidth: 92,
+          minHeight: 42,
+          marginLeft: 8,
+          paddingHorizontal: spacing.md,
+          borderRadius: radius.pill,
           alignItems: 'center',
           justifyContent: 'center',
-          marginLeft: 8,
-          backgroundColor: colors.panel2,
+          backgroundColor: colors.glass,
           borderWidth: 1,
           borderColor: colors.border,
         },
 
-        modalPrimary: {
-          backgroundColor: colors.purple,
-          borderColor: colors.purple,
+        modalButtonPrimary: {
+          backgroundColor: colors.primary,
+          borderColor: colors.borderStrong,
+        },
+
+        modalButtonDanger: {
+          backgroundColor: colors.dangerSoft,
+          borderColor: colors.danger,
         },
 
         modalButtonText: {
           color: colors.text,
+          fontSize: 12,
+          fontWeight: '800',
+        },
+
+        modalButtonPrimaryText: {
+          color: colors.textInverse,
+        },
+
+        modalButtonDangerText: {
+          color: colors.danger,
+        },
+
+        loading: {
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: colors.background,
+        },
+
+        loadingCard: {
+          paddingHorizontal: spacing.lg,
+          paddingVertical: spacing.md,
+          borderRadius: radius.xl,
+          backgroundColor: colors.glassStrong,
+          borderWidth: 1,
+          borderColor: colors.border,
+        },
+
+        loadingText: {
+          color: colors.textSecondary,
           fontSize: 13,
           fontWeight: '700',
         },
-
-        modalPrimaryText: {
-          color: '#FFFFFF',
-        },
       }),
-    [colors, spacing, radius, dirty, showExplorer]
+    [colors, spacing, radius]
   );
 
-  const projectId = project?.id;
+  const projectId = useMemo(
+    () => project?.id || project?._id || project?.projectId,
+    [project]
+  );
 
-  const lineCount = Math.max(
-    1,
-    String(code || '').split('\n').length
+  const lineCount = useMemo(
+    () => Math.max(1, String(code || '').split('\n').length),
+    [code]
   );
 
   const lineNumbers = useMemo(
     () =>
       Array.from(
         { length: lineCount },
-        (_, index) => index + 1
+        (_, index) => String(index + 1)
       ),
     [lineCount]
   );
@@ -735,77 +623,136 @@ export default function WorkbenchScreen({
     [files]
   );
 
-  const currentProjectName =
-    project?.name || 'Projet GCODE';
+  const currentProjectName = useMemo(
+    () =>
+      project?.name ||
+      project?.title ||
+      'Projet sans nom',
+    [project]
+  );
 
   const getFileIcon = useCallback((name) => {
-    const extension =
-      String(name)
-        .split('.')
-        .pop()
-        .toLowerCase();
+    const lower = String(name || '').toLowerCase();
 
-    const icons = {
-      html: 'H',
-      htm: 'H',
-      css: '#',
-      js: 'JS',
-      jsx: 'JS',
-      ts: 'TS',
-      tsx: 'TS',
-      json: '{}',
-      md: 'M',
-      txt: 'T',
-      xml: 'X',
-      svg: 'S',
-      php: 'P',
-      py: 'PY',
-      java: 'J',
-      kt: 'K',
-      kts: 'K',
-      c: 'C',
-      cpp: 'C',
-      h: 'H',
-      hpp: 'H',
-      cs: 'C#',
-      swift: 'SW',
-      dart: 'D',
-      go: 'GO',
-      rs: 'RS',
-      sql: 'SQL',
-      sh: '$',
-      yaml: 'Y',
-      yml: 'Y',
-      gcode: 'G',
-      nc: 'NC',
-      ngc: 'G',
-    };
+    if (lower.endsWith('.html') || lower.endsWith('.htm')) {
+      return '◇';
+    }
 
-    return icons[extension] || '•';
+    if (lower.endsWith('.css')) {
+      return '#';
+    }
+
+    if (
+      lower.endsWith('.js') ||
+      lower.endsWith('.jsx')
+    ) {
+      return 'JS';
+    }
+
+    if (
+      lower.endsWith('.ts') ||
+      lower.endsWith('.tsx')
+    ) {
+      return 'TS';
+    }
+
+    if (lower.endsWith('.json')) {
+      return '{}';
+    }
+
+    if (lower.endsWith('.md')) {
+      return 'M';
+    }
+
+    if (lower.endsWith('.txt')) {
+      return 'T';
+    }
+
+    if (
+      lower.endsWith('.xml') ||
+      lower.endsWith('.svg')
+    ) {
+      return '◇';
+    }
+
+    if (lower.endsWith('.php')) {
+      return 'PHP';
+    }
+
+    if (lower.endsWith('.py')) {
+      return 'PY';
+    }
+
+    if (
+      lower.endsWith('.java') ||
+      lower.endsWith('.kt') ||
+      lower.endsWith('.kts')
+    ) {
+      return 'JVM';
+    }
+
+    if (
+      lower.endsWith('.c') ||
+      lower.endsWith('.cpp') ||
+      lower.endsWith('.h') ||
+      lower.endsWith('.hpp')
+    ) {
+      return 'C';
+    }
+
+    if (lower.endsWith('.cs')) {
+      return 'C#';
+    }
+
+    if (lower.endsWith('.swift')) {
+      return 'SW';
+    }
+
+    if (lower.endsWith('.dart')) {
+      return 'D';
+    }
+
+    if (lower.endsWith('.go')) {
+      return 'GO';
+    }
+
+    if (lower.endsWith('.rs')) {
+      return 'RS';
+    }
+
+    if (lower.endsWith('.sql')) {
+      return 'SQL';
+    }
+
+    if (lower.endsWith('.sh')) {
+      return 'SH';
+    }
+
+    if (
+      lower.endsWith('.yaml') ||
+      lower.endsWith('.yml')
+    ) {
+      return 'YML';
+    }
+
+    if (
+      lower.endsWith('.gcode') ||
+      lower.endsWith('.nc') ||
+      lower.endsWith('.ngc')
+    ) {
+      return 'G';
+    }
+
+    return '•';
   }, []);
 
   const notifyProjectUpdated = useCallback(
-    async (fallbackProject = null) => {
-      if (typeof onProjectUpdated !== 'function') {
-        return;
-      }
-
-      try {
-        const updated =
-          projectId
-            ? await getProject(projectId)
-            : null;
-
-        onProjectUpdated(
-          updated || fallbackProject || project
-        );
-      } catch {
-        onProjectUpdated(
-          fallbackProject || project
-        );
+    (updatedProject) => {
+      if (typeof onProjectUpdated === 'function') {
+        onProjectUpdated(updatedProject);
       }
     },
-    [onProjectUpdated, projectId, project]
+    [onProjectUpdated]
   );
 
   const loadProject = useCallback(async () => {
@@ -820,32 +767,30 @@ export default function WorkbenchScreen({
     setLoading(true);
 
     try {
-      const loaded = await getProject(projectId);
+      const current = await getProject(projectId);
 
       const loadedFiles =
-        loaded?.files &&
-        typeof loaded.files === 'object'
-          ? loaded.files
+        current?.files &&
+        typeof current.files === 'object'
+          ? current.files
           : {};
+
+      setFiles(loadedFiles);
 
       const names = Object.keys(loadedFiles);
 
-      const selected =
-        loaded?.activeFile &&
-        Object.prototype.hasOwnProperty.call(
-          loadedFiles,
-          loaded.activeFile
-        )
-          ? loaded.activeFile
-          : names[0] || null;
+      if (names.length > 0) {
+        const preferred =
+          names.includes('index.html')
+            ? 'index.html'
+            : names[0];
 
-      setFiles(loadedFiles);
-      setActiveFile(selected);
-      setCode(
-        selected
-          ? String(loadedFiles[selected] ?? '')
-          : ''
-      );
+        setActiveFile(preferred);
+        setCode(String(loadedFiles[preferred] || ''));
+      } else {
+        setActiveFile(null);
+        setCode('');
+      }
 
       historyRef.current = [];
       redoRef.current = [];
@@ -853,8 +798,7 @@ export default function WorkbenchScreen({
     } catch (error) {
       Alert.alert(
         'Erreur',
-        error?.message ||
-          'Impossible de charger le projet.'
+        'Impossible de charger le projet.'
       );
     } finally {
       setLoading(false);
@@ -864,10 +808,9 @@ export default function WorkbenchScreen({
   useEffect(() => {
     let mounted = true;
 
-    const initialize = async () => {
+    async function initialize() {
       try {
-        const settings =
-          await loadEditorSettings();
+        const settings = await loadEditorSettings();
 
         if (mounted && settings) {
           setEditorSettings({
@@ -877,14 +820,14 @@ export default function WorkbenchScreen({
               settings.lineNumbers !== false,
           });
         }
-      } catch {
-        // Les valeurs par défaut restent actives.
+      } catch (error) {
+        // Valeurs par défaut conservées.
       }
 
       if (mounted) {
         await loadProject();
       }
-    };
+    }
 
     initialize();
 
@@ -892,9 +835,7 @@ export default function WorkbenchScreen({
       mounted = false;
 
       if (autoSaveTimerRef.current) {
-        clearTimeout(
-          autoSaveTimerRef.current
-        );
+        clearTimeout(autoSaveTimerRef.current);
       }
     };
   }, [loadProject]);
@@ -925,15 +866,19 @@ export default function WorkbenchScreen({
 
         setDirty(false);
 
-        await notifyProjectUpdated();
+        const updatedProject =
+          await getProject(projectId);
+
+        if (updatedProject) {
+          notifyProjectUpdated(updatedProject);
+        }
 
         return true;
       } catch (error) {
         if (!silent) {
           Alert.alert(
-            'Erreur de sauvegarde',
-            error?.message ||
-              'Impossible de sauvegarder le fichier.'
+            'Erreur',
+            'Impossible de sauvegarder le fichier.'
           );
         }
 
@@ -950,99 +895,183 @@ export default function WorkbenchScreen({
     ]
   );
 
-  const scheduleAutoSave = useCallback(() => {
-    if (
-      !editorSettings.autoSave ||
-      !projectId ||
-      !activeFile
-    ) {
-      return;
-    }
-
-    if (autoSaveTimerRef.current) {
-      clearTimeout(
-        autoSaveTimerRef.current
-      );
-    }
-
-    autoSaveTimerRef.current = setTimeout(
-      () => {
-        saveCurrentFile(true);
-      },
-      1200
-    );
-  }, [
-    editorSettings.autoSave,
-    projectId,
-    activeFile,
-    saveCurrentFile,
-  ]);
-
-  const updateCode = useCallback(
-    (nextValue) => {
-      const previous = code;
-
-      if (previous !== nextValue) {
-        historyRef.current = [
-          ...historyRef.current.slice(-49),
-          previous,
-        ];
-
-        redoRef.current = [];
+  const scheduleAutoSave = useCallback(
+    (nextCode) => {
+      if (
+        !editorSettings.autoSave ||
+        !projectId ||
+        !activeFile
+      ) {
+        return;
       }
 
-      setCode(nextValue);
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+
+      autoSaveTimerRef.current = setTimeout(
+        async () => {
+          try {
+            await saveProjectFile(
+              projectId,
+              activeFile,
+              nextCode
+            );
+
+            setFiles((previous) => ({
+              ...previous,
+              [activeFile]: nextCode,
+            }));
+
+            setDirty(false);
+          } catch (error) {
+            // L'utilisateur peut sauvegarder manuellement.
+          }
+        },
+        1200
+      );
+    },
+    [
+      editorSettings.autoSave,
+      projectId,
+      activeFile,
+    ]
+  );
+
+  const updateCode = useCallback(
+    (nextCode) => {
+      if (nextCode === code) {
+        return;
+      }
+
+      historyRef.current = [
+        ...historyRef.current.slice(-49),
+        code,
+      ];
+
+      redoRef.current = [];
+
+      setCode(nextCode);
       setDirty(true);
-      scheduleAutoSave();
+
+      scheduleAutoSave(nextCode);
     },
     [code, scheduleAutoSave]
   );
 
   const openFile = useCallback(
-    async (name) => {
-      if (!Object.prototype.hasOwnProperty.call(files, name)) {
+    async (filename) => {
+      if (!filename || filename === activeFile) {
+        if (filename) {
+          setShowWelcome(false);
+        }
         return;
       }
 
-      if (dirty && activeFile) {
-        const shouldSave = await new Promise(
-          (resolve) => {
-            Alert.alert(
-              'Modifications non sauvegardées',
-              `"${activeFile}" contient des modifications.`,
-              [
-                {
-                  text: 'Continuer sans sauvegarder',
-                  style: 'destructive',
-                  onPress: () =>
-                    resolve(false),
-                },
-                {
-                  text: 'Annuler',
-                  style: 'cancel',
-                  onPress: () =>
-                    resolve(null),
-                },
-                {
-                  text: 'Sauvegarder',
-                  onPress: async () => {
-                    const saved =
-                      await saveCurrentFile();
-                    resolve(saved);
-                  },
-                },
-              ]
-            );
-          }
+      const continueOpening = async () => {
+        const nextCode = String(
+          files?.[filename] || ''
         );
 
-        if (shouldSave === null) {
-          return;
-        }
+        setActiveFile(filename);
+        setCode(nextCode);
+        setSelection({
+          start: 0,
+          end: 0,
+        });
+
+        historyRef.current = [];
+        redoRef.current = [];
+        setDirty(false);
+        setShowWelcome(false);
+      };
+
+      if (!dirty) {
+        await continueOpening();
+        return;
       }
 
-      setActiveFile(name);
-      setCode(String(files[name] ?? ''));
+      Alert.alert(
+        'Modifications non sauvegardées',
+        'Le fichier actuel contient des modifications.',
+        [
+          {
+            text: 'Annuler',
+            style: 'cancel',
+          },
+          {
+            text: 'Continuer',
+            style: 'destructive',
+            onPress: continueOpening,
+          },
+          {
+            text: 'Sauvegarder',
+            onPress: async () => {
+              const saved =
+                await saveCurrentFile(false);
+
+              if (saved) {
+                await continueOpening();
+              }
+            },
+          },
+        ]
+      );
+    },
+    [
+      activeFile,
+      dirty,
+      files,
+      saveCurrentFile,
+    ]
+  );
+
+  const createFile = useCallback(async () => {
+    const cleanName = sanitizeFileName(
+      newFileName.trim()
+    );
+
+    if (!cleanName) {
+      Alert.alert(
+        'Nom invalide',
+        'Entre un nom de fichier valide.'
+      );
+      return;
+    }
+
+    if (!projectId) {
+      return;
+    }
+
+    if (
+      Object.prototype.hasOwnProperty.call(
+        files,
+        cleanName
+      )
+    ) {
+      Alert.alert(
+        'Fichier existant',
+        'Un fichier portant ce nom existe déjà.'
+      );
+      return;
+    }
+
+    try {
+      await addProjectFile(
+        projectId,
+        cleanName,
+        ''
+      );
+
+      const updatedProject =
+        await getProject(projectId);
+
+      const updatedFiles =
+        updatedProject?.files || {};
+
+      setFiles(updatedFiles);
+      setActiveFile(cleanName);
+      setCode('');
       setDirty(false);
       setSelection({
         start: 0,
@@ -1052,178 +1081,121 @@ export default function WorkbenchScreen({
       historyRef.current = [];
       redoRef.current = [];
 
+      setNewFileName('');
+      setShowNewFileModal(false);
       setShowWelcome(false);
-    },
-    [
-      files,
-      dirty,
-      activeFile,
-      saveCurrentFile,
-    ]
-  );
 
-  const createFile = useCallback(
-    async () => {
-      const cleanName =
-        sanitizeFileName(newFileName);
-
-      if (!cleanName) {
-        Alert.alert(
-          'Nom requis',
-          'Donne un nom au fichier.'
-        );
-        return;
-      }
-
-      if (
-        Object.prototype.hasOwnProperty.call(
-          files,
-          cleanName
-        )
-      ) {
-        Alert.alert(
-          'Fichier déjà présent',
-          `Le fichier "${cleanName}" existe déjà.`
-        );
-        return;
-      }
-
-      try {
-        await addProjectFile(
-          projectId,
-          cleanName,
-          ''
-        );
-
-        setFiles((previous) => ({
-          ...previous,
-          [cleanName]: '',
-        }));
-
-        setNewFileName('');
-        setShowNewFileModal(false);
-
-        setActiveFile(cleanName);
-        setCode('');
-        setDirty(false);
-        setShowWelcome(false);
-
-        historyRef.current = [];
-        redoRef.current = [];
-
-        await notifyProjectUpdated();
-      } catch (error) {
-        Alert.alert(
-          'Erreur',
-          error?.message ||
-            'Impossible de créer le fichier.'
-        );
-      }
-    },
-    [
-      newFileName,
-      files,
-      projectId,
-      notifyProjectUpdated,
-    ]
-  );
+      notifyProjectUpdated(updatedProject);
+    } catch (error) {
+      Alert.alert(
+        'Erreur',
+        'Impossible de créer le fichier.'
+      );
+    }
+  }, [
+    newFileName,
+    projectId,
+    files,
+    notifyProjectUpdated,
+  ]);
 
   const importFile = useCallback(async () => {
-    try {
-      const result = await pickFile();
+    if (!projectId) {
+      return;
+    }
 
-      if (!result || result.canceled) {
+    try {
+      const imported = await pickFile();
+
+      if (!imported) {
         return;
       }
 
-      const name = sanitizeFileName(
-        result.name || 'untitled.txt'
-      );
+      const originalName =
+        sanitizeFileName(
+          imported.name ||
+            imported.fileName ||
+            'imported-file.txt'
+        );
 
-      const content =
-        typeof result.content === 'string'
-          ? result.content
-          : '';
+      let finalName = originalName;
+      let counter = 2;
 
-      let finalName = name;
-
-      if (
+      while (
         Object.prototype.hasOwnProperty.call(
           files,
           finalName
         )
       ) {
         const dot =
-          finalName.lastIndexOf('.');
+          originalName.lastIndexOf('.');
 
-        const base =
-          dot > 0
-            ? finalName.slice(0, dot)
-            : finalName;
-
-        const extension =
-          dot > 0
-            ? finalName.slice(dot)
-            : '';
-
-        let counter = 2;
-
-        while (
-          Object.prototype.hasOwnProperty.call(
-            files,
-            `${base}-${counter}${extension}`
-          )
-        ) {
-          counter += 1;
+        if (dot > 0) {
+          finalName =
+            `${originalName.slice(
+              0,
+              dot
+            )}-${counter}${originalName.slice(dot)}`;
+        } else {
+          finalName =
+            `${originalName}-${counter}`;
         }
 
-        finalName =
-          `${base}-${counter}${extension}`;
+        counter += 1;
       }
+
+      const importedContent =
+        typeof imported.content === 'string'
+          ? imported.content
+          : '';
 
       await addProjectFile(
         projectId,
         finalName,
-        content
+        importedContent
       );
 
-      setFiles((previous) => ({
-        ...previous,
-        [finalName]: content,
-      }));
+      const updatedProject =
+        await getProject(projectId);
 
+      const updatedFiles =
+        updatedProject?.files || {};
+
+      setFiles(updatedFiles);
       setActiveFile(finalName);
-      setCode(content);
-      setDirty(false);
-      setShowWelcome(false);
+      setCode(importedContent);
+      setSelection({
+        start: 0,
+        end: 0,
+      });
 
       historyRef.current = [];
       redoRef.current = [];
+      setDirty(false);
+      setShowWelcome(false);
 
-      await notifyProjectUpdated();
-
-      Alert.alert(
-        'Fichier ouvert',
-        `"${finalName}" a été importé dans le projet.`
-      );
+      notifyProjectUpdated(updatedProject);
     } catch (error) {
       Alert.alert(
-        'Impossible d’ouvrir le fichier',
-        error?.message ||
-          'Le fichier ne peut pas être lu.'
+        'Import impossible',
+        'Le fichier n’a pas pu être importé.'
       );
     }
   }, [
-    files,
     projectId,
+    files,
     notifyProjectUpdated,
   ]);
 
   const requestDeleteFile = useCallback(
-    (name) => {
+    (filename) => {
+      if (!projectId || !filename) {
+        return;
+      }
+
       Alert.alert(
         'Supprimer le fichier',
-        `Supprimer définitivement "${name}" ?`,
+        `Supprimer « ${filename} » ?`,
         [
           {
             text: 'Annuler',
@@ -1236,44 +1208,53 @@ export default function WorkbenchScreen({
               try {
                 await deleteProjectFile(
                   projectId,
-                  name
+                  filename
                 );
 
-                const nextFiles = {
-                  ...files,
-                };
+                const updatedProject =
+                  await getProject(projectId);
 
-                delete nextFiles[name];
+                const updatedFiles =
+                  updatedProject?.files || {};
 
-                const remaining =
-                  Object.keys(nextFiles);
+                setFiles(updatedFiles);
 
-                setFiles(nextFiles);
+                if (filename === activeFile) {
+                  const remaining =
+                    Object.keys(updatedFiles);
 
-                if (activeFile === name) {
-                  const nextActive =
-                    remaining[0] || null;
+                  const nextFile =
+                    remaining.length > 0
+                      ? remaining.includes(
+                          'index.html'
+                        )
+                        ? 'index.html'
+                        : remaining[0]
+                      : null;
 
-                  setActiveFile(nextActive);
+                  setActiveFile(nextFile);
 
                   setCode(
-                    nextActive
+                    nextFile
                       ? String(
-                          nextFiles[nextActive] ??
-                            ''
+                          updatedFiles[nextFile] || ''
                         )
                       : ''
                   );
 
+                  setShowWelcome(!nextFile);
                   setDirty(false);
+                  historyRef.current = [];
+                  redoRef.current = [];
                 }
 
-                await notifyProjectUpdated();
+                notifyProjectUpdated(
+                  updatedProject
+                );
               } catch (error) {
                 Alert.alert(
                   'Erreur',
-                  error?.message ||
-                    'Impossible de supprimer le fichier.'
+                  'Impossible de supprimer le fichier.'
                 );
               }
             },
@@ -1283,40 +1264,54 @@ export default function WorkbenchScreen({
     },
     [
       projectId,
-      files,
       activeFile,
       notifyProjectUpdated,
     ]
   );
 
   const requestRenameFile = useCallback(
-    (name) => {
-      setRenameTarget(name);
-      setRenameFileName(name);
+    (filename) => {
+      if (!filename) {
+        return;
+      }
+
+      setRenameTarget(filename);
+      setRenameFileName(filename);
       setShowRenameModal(true);
     },
     []
   );
 
   const renameFile = useCallback(async () => {
-    const oldName = renameTarget;
-    const newName =
-      sanitizeFileName(renameFileName);
+    if (
+      !projectId ||
+      !renameTarget
+    ) {
+      return;
+    }
 
-    if (!oldName || !newName) {
+    const cleanName = sanitizeFileName(
+      renameFileName.trim()
+    );
+
+    if (!cleanName) {
+      Alert.alert(
+        'Nom invalide',
+        'Entre un nom de fichier valide.'
+      );
       return;
     }
 
     if (
-      newName !== oldName &&
+      cleanName !== renameTarget &&
       Object.prototype.hasOwnProperty.call(
         files,
-        newName
+        cleanName
       )
     ) {
       Alert.alert(
-        'Nom déjà utilisé',
-        `Le fichier "${newName}" existe déjà.`
+        'Fichier existant',
+        'Ce nom est déjà utilisé.'
       );
       return;
     }
@@ -1324,42 +1319,44 @@ export default function WorkbenchScreen({
     try {
       await renameProjectFile(
         projectId,
-        oldName,
-        newName
+        renameTarget,
+        cleanName
       );
 
-      const nextFiles = {
-        ...files,
-      };
+      const updatedProject =
+        await getProject(projectId);
 
-      nextFiles[newName] =
-        nextFiles[oldName];
+      const updatedFiles =
+        updatedProject?.files || {};
 
-      delete nextFiles[oldName];
+      setFiles(updatedFiles);
 
-      setFiles(nextFiles);
-
-      if (activeFile === oldName) {
-        setActiveFile(newName);
+      if (activeFile === renameTarget) {
+        setActiveFile(cleanName);
+        setCode(
+          String(
+            updatedFiles[cleanName] || ''
+          )
+        );
       }
 
       setRenameTarget(null);
       setRenameFileName('');
       setShowRenameModal(false);
+      setDirty(false);
 
-      await notifyProjectUpdated();
+      notifyProjectUpdated(updatedProject);
     } catch (error) {
       Alert.alert(
         'Erreur',
-        error?.message ||
-          'Impossible de renommer le fichier.'
+        'Impossible de renommer le fichier.'
       );
     }
   }, [
+    projectId,
     renameTarget,
     renameFileName,
     files,
-    projectId,
     activeFile,
     notifyProjectUpdated,
   ]);
@@ -1371,7 +1368,7 @@ export default function WorkbenchScreen({
       return;
     }
 
-    const previous =
+    const previousCode =
       history[history.length - 1];
 
     historyRef.current =
@@ -1382,20 +1379,18 @@ export default function WorkbenchScreen({
       code,
     ];
 
-    setCode(previous);
+    setCode(previousCode);
     setDirty(true);
-    scheduleAutoSave();
-  }, [code, scheduleAutoSave]);
+  }, [code]);
 
   const redo = useCallback(() => {
-    const redoHistory =
-      redoRef.current;
+    const redoHistory = redoRef.current;
 
     if (!redoHistory.length) {
       return;
     }
 
-    const next =
+    const nextCode =
       redoHistory[redoHistory.length - 1];
 
     redoRef.current =
@@ -1406,77 +1401,110 @@ export default function WorkbenchScreen({
       code,
     ];
 
-    setCode(next);
+    setCode(nextCode);
     setDirty(true);
-    scheduleAutoSave();
-  }, [code, scheduleAutoSave]);
+  }, [code]);
 
   const findNext = useCallback(() => {
-    const query = searchText;
-
-    if (!query) {
-      setSearchIndex(-1);
+    if (!searchText) {
       return;
     }
 
-    const start =
-      searchIndex < 0
-        ? 0
-        : searchIndex + 1;
+    const source = String(code || '');
 
-    const first =
-      code.indexOf(query, start);
+    const startFrom =
+      searchIndex >= 0
+        ? searchIndex + searchText.length
+        : 0;
 
-    const index =
-      first === -1
-        ? code.indexOf(query)
-        : first;
+    let index =
+      source.indexOf(
+        searchText,
+        startFrom
+      );
+
+    if (index === -1) {
+      index = source.indexOf(
+        searchText,
+        0
+      );
+    }
+
+    if (index === -1) {
+      Alert.alert(
+        'Recherche',
+        'Aucune occurrence trouvée.'
+      );
+      return;
+    }
 
     setSearchIndex(index);
 
-    if (index >= 0) {
-      setSelection({
-        start: index,
-        end: index + query.length,
-      });
-    }
-  }, [code, searchText, searchIndex]);
+    const nextSelection = {
+      start: index,
+      end: index + searchText.length,
+    };
+
+    setSelection(nextSelection);
+
+    requestAnimationFrame(() => {
+      editorRef.current?.focus();
+    });
+  }, [
+    searchText,
+    code,
+    searchIndex,
+  ]);
 
   const replaceCurrent = useCallback(() => {
     if (!searchText) {
       return;
     }
 
-    const index =
-      searchIndex >= 0
-        ? searchIndex
-        : code.indexOf(searchText);
+    const start =
+      selection?.start ?? -1;
 
-    if (index < 0) {
+    const end =
+      selection?.end ?? -1;
+
+    if (
+      start < 0 ||
+      end < start ||
+      String(code || '').slice(
+        start,
+        end
+      ) !== searchText
+    ) {
+      findNext();
       return;
     }
 
     const nextCode =
-      code.slice(0, index) +
+      String(code || '').slice(0, start) +
       replaceText +
-      code.slice(
-        index + searchText.length
-      );
+      String(code || '').slice(end);
 
     updateCode(nextCode);
 
-    setSearchIndex(index);
+    const nextPosition =
+      start + replaceText.length;
 
     setSelection({
-      start: index,
-      end:
-        index + replaceText.length,
+      start: nextPosition,
+      end: nextPosition,
+    });
+
+    setSearchIndex(start);
+
+    requestAnimationFrame(() => {
+      editorRef.current?.focus();
     });
   }, [
-    code,
     searchText,
     replaceText,
-    searchIndex,
+    selection,
+    code,
+    findNext,
     updateCode,
   ]);
 
@@ -1485,59 +1513,69 @@ export default function WorkbenchScreen({
       return;
     }
 
-    if (!code.includes(searchText)) {
+    const source = String(code || '');
+
+    if (!source.includes(searchText)) {
+      Alert.alert(
+        'Remplacement',
+        'Aucune occurrence trouvée.'
+      );
       return;
     }
 
+    const escapedSearch =
+      searchText.replace(
+        /[.*+?^${}()|[\]\\]/g,
+        '\\$&'
+      );
+
     const nextCode =
-      code.split(searchText).join(replaceText);
+      source.replace(
+        new RegExp(
+          escapedSearch,
+          'g'
+        ),
+        replaceText
+      );
 
     updateCode(nextCode);
+
     setSearchIndex(-1);
+
     setSelection({
       start: 0,
       end: 0,
     });
   }, [
-    code,
     searchText,
     replaceText,
+    code,
     updateCode,
   ]);
 
   const goPreview = useCallback(() => {
-    if (dirty) {
-      saveCurrentFile(true);
-    }
-
     if (typeof onPreview === 'function') {
-      onPreview();
-      return;
+      onPreview(project);
     }
-
-    Alert.alert(
-      'Preview',
-      'Le Preview n’est pas disponible dans cette navigation.'
-    );
-  }, [dirty, saveCurrentFile, onPreview]);
+  }, [onPreview, project]);
 
   const handleWelcomeAction = useCallback(
-    async (action) => {
+    (action) => {
       switch (action) {
         case 'new':
+          setNewFileName('');
           setShowNewFileModal(true);
           break;
 
         case 'open':
-          await importFile();
+          importFile();
           break;
 
         case 'folder':
           setShowWelcome(false);
 
           if (
-            typeof onOpenProjects ===
-            'function'
+            typeof onOpenProjects === 'function'
           ) {
             onOpenProjects();
           }
@@ -1545,8 +1583,8 @@ export default function WorkbenchScreen({
 
         case 'clone':
           Alert.alert(
-            'Git',
-            'Le clonage Git distant nécessite encore l’intégration du moteur Git natif. Cette fonction n’est volontairement pas simulée.'
+            'Cloner un dépôt',
+            'Le clonage Git distant nécessite une intégration Git native. GCODE ne simule pas cette fonction.'
           );
           break;
 
@@ -1554,8 +1592,7 @@ export default function WorkbenchScreen({
         case 'tools':
         case 'shortcuts':
           if (
-            typeof onOpenSettings ===
-            'function'
+            typeof onOpenSettings === 'function'
           ) {
             onOpenSettings();
           }
@@ -1563,17 +1600,15 @@ export default function WorkbenchScreen({
 
         case 'terminal':
           if (
-            typeof onOpenTerminal ===
-            'function'
+            typeof onOpenTerminal === 'function'
           ) {
-            onOpenTerminal();
+            onOpenTerminal(project);
           }
           break;
 
         case 'commands':
           if (
-            typeof onOpenCommands ===
-            'function'
+            typeof onOpenCommands === 'function'
           ) {
             onOpenCommands();
           }
@@ -1581,8 +1616,7 @@ export default function WorkbenchScreen({
 
         case 'ai':
           if (
-            typeof onOpenAI ===
-            'function'
+            typeof onOpenAI === 'function'
           ) {
             onOpenAI();
           }
@@ -1599,342 +1633,271 @@ export default function WorkbenchScreen({
       onOpenTerminal,
       onOpenCommands,
       onOpenAI,
+      project,
     ]
   );
 
-  const renderWelcomeAction = (
-    icon,
-    title,
-    description,
-    action
-  ) => (
-    <Pressable
-      key={title}
-      style={styles.welcomeCard}
-      onPress={() =>
-        handleWelcomeAction(action)
-      }
-    >
-      <View style={styles.welcomeAction}>
-        <View style={styles.welcomeActionIcon}>
-          <Text
-            style={
-              styles.welcomeActionIconText
-            }
-          >
-            {icon}
-          </Text>
-        </View>
-
-        <View style={styles.welcomeActionBody}>
-          <Text
-            style={styles.welcomeActionTitle}
-          >
-            {title}
-          </Text>
-
-          <Text
-            style={
-              styles.welcomeActionDescription
-            }
-          >
-            {description}
-          </Text>
-        </View>
-
-        <Text style={styles.welcomeArrow}>
-          ›
-        </Text>
-      </View>
-    </Pressable>
-  );
-
-  const renderWelcome = () => {
-    const recentFiles = fileNames.slice(0, 8);
-
-    return (
-      <View style={styles.welcomeContainer}>
-        <ScrollView
-          style={styles.welcomeScroll}
-          contentContainerStyle={{
-            paddingBottom: 80,
-          }}
-        >
-          <View style={styles.welcomeHeader}>
-            <Text
-              style={styles.welcomeEyebrow}
-            >
+  const renderWelcome = () => (
+    <View style={styles.welcome}>
+      <ScrollView
+        style={styles.welcomeScroll}
+        contentContainerStyle={
+          styles.welcomeContent
+        }
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.welcomeHero}>
+          <View style={styles.welcomeBadge}>
+            <Text style={styles.welcomeBadgeText}>
               GCODE MOBILE V3
             </Text>
-
-            <Text style={styles.welcomeTitle}>
-              Welcome
-            </Text>
-
-            <Text
-              style={styles.welcomeSubtitle}
-            >
-              Un environnement de développement
-              mobile pour créer, modifier,
-              organiser et prévisualiser tes
-              projets directement sur Android.
-            </Text>
           </View>
 
-          <View style={styles.welcomeSection}>
-            <Text
-              style={styles.welcomeSectionTitle}
+          <Text style={styles.welcomeTitle}>
+            {currentProjectName}
+          </Text>
+
+          <Text style={styles.welcomeSubtitle}>
+            Ton espace de développement mobile.
+            Crée, ouvre, modifie et prévisualise
+            réellement tes fichiers directement
+            dans GCODE.
+          </Text>
+
+          <View style={styles.welcomeGrid}>
+            <Pressable
+              onPress={() =>
+                handleWelcomeAction('new')
+              }
+              style={({ pressed }) => [
+                styles.welcomeAction,
+                pressed && {
+                  opacity: 0.82,
+                  transform: [
+                    { scale: 0.97 },
+                  ],
+                },
+              ]}
             >
-              Start
-            </Text>
+              <Text style={styles.welcomeActionTitle}>
+                ＋ Nouveau fichier
+              </Text>
 
-            {renderWelcomeAction(
-              '+',
-              'New File…',
-              'Créer un nouveau fichier dans le projet.',
-              'new'
-            )}
+              <Text style={styles.welcomeActionText}>
+                Créer un fichier dans le projet.
+              </Text>
+            </Pressable>
 
-            {renderWelcomeAction(
-              '↗',
-              'Open File…',
-              'Importer un fichier réel depuis le stockage de l’appareil.',
-              'open'
-            )}
-
-            {renderWelcomeAction(
-              '▣',
-              'Open Folder…',
-              'Ouvrir un autre projet GCODE.',
-              'folder'
-            )}
-
-            {renderWelcomeAction(
-              'G',
-              'Clone Git Repository…',
-              'Préparation de l’intégration Git native.',
-              'clone'
-            )}
-          </View>
-
-          <View style={styles.welcomeSection}>
-            <Text
-              style={styles.welcomeSectionTitle}
+            <Pressable
+              onPress={() =>
+                handleWelcomeAction('open')
+              }
+              style={({ pressed }) => [
+                styles.welcomeAction,
+                pressed && {
+                  opacity: 0.82,
+                  transform: [
+                    { scale: 0.97 },
+                  ],
+                },
+              ]}
             >
-              Recent
-            </Text>
+              <Text style={styles.welcomeActionTitle}>
+                ↥ Importer
+              </Text>
 
-            <View style={styles.welcomeCard}>
-              {recentFiles.length === 0 ? (
-                <View
-                  style={styles.recentEmpty}
-                >
-                  <Text
-                    style={
-                      styles.emptyEditorText
-                    }
-                  >
-                    Aucun fichier récent.
-                  </Text>
-                </View>
-              ) : (
-                recentFiles.map((name) => (
-                  <Pressable
-                    key={name}
-                    style={styles.recentFile}
-                    onPress={() =>
-                      openFile(name)
-                    }
-                  >
-                    <View
-                      style={
-                        styles.recentFileIcon
-                      }
-                    >
-                      <Text
-                        style={
-                          styles.recentFileIconText
-                        }
-                      >
-                        {getFileIcon(name)}
-                      </Text>
-                    </View>
+              <Text style={styles.welcomeActionText}>
+                Importer un fichier existant.
+              </Text>
+            </Pressable>
 
-                    <View
-                      style={
-                        styles.recentFileBody
-                      }
-                    >
-                      <Text
-                        style={
-                          styles.recentFileName
-                        }
-                      >
-                        {name}
-                      </Text>
-
-                      <Text
-                        style={
-                          styles.recentFilePath
-                        }
-                      >
-                        {currentProjectName}
-                      </Text>
-                    </View>
-                  </Pressable>
-                ))
-              )}
-            </View>
-          </View>
-
-          <View style={styles.welcomeSection}>
-            <Text
-              style={styles.welcomeSectionTitle}
+            <Pressable
+              onPress={() =>
+                handleWelcomeAction('folder')
+              }
+              style={({ pressed }) => [
+                styles.welcomeAction,
+                pressed && {
+                  opacity: 0.82,
+                  transform: [
+                    { scale: 0.97 },
+                  ],
+                },
+              ]}
             >
-              Walkthroughs & Tips
-            </Text>
-
-            <View style={styles.tipCard}>
-              <Text style={styles.tipNumber}>
-                01
+              <Text style={styles.welcomeActionTitle}>
+                ◫ Projets
               </Text>
 
-              <Text style={styles.tipTitle}>
-                Édition
+              <Text style={styles.welcomeActionText}>
+                Retourner à ton espace projets.
               </Text>
+            </Pressable>
 
-              <Text style={styles.tipText}>
-                Utilise la barre d’outils pour
-                rechercher, remplacer, annuler
-                et rétablir tes modifications.
-              </Text>
-            </View>
-
-            <View style={styles.tipCard}>
-              <Text style={styles.tipNumber}>
-                02
-              </Text>
-
-              <Text style={styles.tipTitle}>
-                Auto-save
-              </Text>
-
-              <Text style={styles.tipText}>
-                Lorsque l’auto-sauvegarde est
-                activée dans Settings, GCODE
-                sauvegarde automatiquement les
-                modifications.
-              </Text>
-            </View>
-
-            <View style={styles.tipCard}>
-              <Text style={styles.tipNumber}>
-                03
-              </Text>
-
-              <Text style={styles.tipTitle}>
-                Preview
-              </Text>
-
-              <Text style={styles.tipText}>
-                Pour les projets web, utilise
-                Preview afin de vérifier le
-                résultat de ton HTML/CSS/JS.
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.welcomeSection}>
-            <Text
-              style={styles.welcomeSectionTitle}
+            <Pressable
+              onPress={goPreview}
+              style={({ pressed }) => [
+                styles.welcomeAction,
+                pressed && {
+                  opacity: 0.82,
+                  transform: [
+                    { scale: 0.97 },
+                  ],
+                },
+              ]}
             >
-              Customize
-            </Text>
+              <Text style={styles.welcomeActionTitle}>
+                ▶ Preview
+              </Text>
 
-            {renderWelcomeAction(
-              'T',
-              'Themes',
-              'Personnaliser l’apparence de GCODE.',
-              'themes'
-            )}
+              <Text style={styles.welcomeActionText}>
+                Prévisualiser réellement le projet.
+              </Text>
+            </Pressable>
 
-            {renderWelcomeAction(
-              '{}',
-              'Tools and languages',
-              'Configurer les outils disponibles.',
-              'tools'
-            )}
-
-            {renderWelcomeAction(
-              '⌨',
-              'Keyboard Shortcuts',
-              'Consulter les options de configuration de l’éditeur.',
-              'shortcuts'
-            )}
-          </View>
-
-          <View style={styles.welcomeFooter}>
-            <Text
-              style={styles.welcomeFooterText}
+            <Pressable
+              onPress={() =>
+                handleWelcomeAction('terminal')
+              }
+              style={({ pressed }) => [
+                styles.welcomeAction,
+                pressed && {
+                  opacity: 0.82,
+                  transform: [
+                    { scale: 0.97 },
+                  ],
+                },
+              ]}
             >
-              GCODE Mobile V3 • Édition locale
-            </Text>
+              <Text style={styles.welcomeActionTitle}>
+                › Terminal
+              </Text>
+
+              <Text style={styles.welcomeActionText}>
+                Ouvrir le terminal du projet.
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() =>
+                handleWelcomeAction('commands')
+              }
+              style={({ pressed }) => [
+                styles.welcomeAction,
+                pressed && {
+                  opacity: 0.82,
+                  transform: [
+                    { scale: 0.97 },
+                  ],
+                },
+              ]}
+            >
+              <Text style={styles.welcomeActionTitle}>
+                ⌘ Commandes
+              </Text>
+
+              <Text style={styles.welcomeActionText}>
+                Consulter les commandes disponibles.
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() =>
+                handleWelcomeAction('themes')
+              }
+              style={({ pressed }) => [
+                styles.welcomeAction,
+                pressed && {
+                  opacity: 0.82,
+                  transform: [
+                    { scale: 0.97 },
+                  ],
+                },
+              ]}
+            >
+              <Text style={styles.welcomeActionTitle}>
+                ◐ Apparence
+              </Text>
+
+              <Text style={styles.welcomeActionText}>
+                Personnaliser le thème et l'éditeur.
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() =>
+                handleWelcomeAction('ai')
+              }
+              style={({ pressed }) => [
+                styles.welcomeAction,
+                pressed && {
+                  opacity: 0.82,
+                  transform: [
+                    { scale: 0.97 },
+                  ],
+                },
+              ]}
+            >
+              <Text style={styles.welcomeActionTitle}>
+                ✦ GCODE AI
+              </Text>
+
+              <Text style={styles.welcomeActionText}>
+                Ouvrir l'espace AI de GCODE.
+              </Text>
+            </Pressable>
           </View>
-        </ScrollView>
+        </View>
+
+        <View style={styles.infoCard}>
+          <Text style={styles.infoTitle}>
+            Projet local
+          </Text>
+
+          <Text style={styles.infoText}>
+            {fileNames.length} fichier
+            {fileNames.length !== 1 ? 's' : ''}{' '}
+            disponible
+            {fileNames.length !== 1 ? 's' : ''}.
+            Sélectionne un fichier dans
+            l'explorateur pour commencer.
+          </Text>
+        </View>
+      </ScrollView>
+    </View>
+  );
+
+  const renderEditor = () => (
+    <View style={styles.editorContainer}>
+      <View style={styles.editorHeader}>
+        <Text
+          style={styles.editorHeaderTitle}
+          numberOfLines={1}
+        >
+          {getFileIcon(activeFile)}{' '}
+          {activeFile || 'Aucun fichier'}
+        </Text>
+
+        <Text style={styles.editorStatus}>
+          {saving
+            ? 'Sauvegarde…'
+            : dirty
+              ? 'Modifié'
+              : 'Synchronisé'}
+        </Text>
       </View>
-    );
-  };
 
-  const renderEditor = () => {
-    if (!activeFile) {
-      return (
-        <View style={styles.emptyEditor}>
-          <Text
-            style={styles.emptyEditorTitle}
-          >
-            Aucun fichier ouvert
-          </Text>
-
-          <Text
-            style={styles.emptyEditorText}
-          >
-            Crée ou importe un fichier pour
-            commencer à coder.
-          </Text>
-        </View>
-      );
-    }
-
-    return (
-      <View style={styles.editorArea}>
-        <View style={styles.editorHeader}>
-          <Text
-            style={styles.editorHeaderText}
-          >
-            {activeFile}
-          </Text>
-
-          <Text style={styles.statusText}>
-            {saving
-              ? 'Sauvegarde…'
-              : dirty
-                ? 'Modifié'
-                : 'Enregistré'}
-          </Text>
-        </View>
-
-        <View style={styles.editor}>
-          {editorSettings.lineNumbers && (
+      <View style={styles.editorBody}>
+        {editorSettings.lineNumbers && (
+          <View style={styles.lineNumbersContainer}>
             <ScrollView
               ref={lineScrollRef}
-              style={styles.lineScroll}
+              style={styles.lineNumbersScroll}
               scrollEnabled={false}
-              showsVerticalScrollIndicator={
-                false
-              }
+              showsVerticalScrollIndicator={false}
             >
               <View
-                style={styles.lineNumbers}
+                style={styles.lineNumbersContent}
               >
                 {lineNumbers.map((number) => (
                   <Text
@@ -1946,170 +1909,93 @@ export default function WorkbenchScreen({
                 ))}
               </View>
             </ScrollView>
-          )}
+          </View>
+        )}
 
-          <TextInput
-            ref={editorRef}
-            value={code}
-            onChangeText={updateCode}
-            onSelectionChange={(event) =>
-              setSelection(
-                event.nativeEvent.selection
-              )
-            }
-            multiline
-            autoCapitalize="none"
-            autoCorrect={false}
-            spellCheck={false}
-            scrollEnabled
-            textAlignVertical="top"
-            style={styles.codeInput}
-            selection={selection}
-            onScroll={(event) => {
-              const y =
-                event.nativeEvent.contentOffset
-                  ?.y || 0;
+        <TextInput
+          ref={editorRef}
+          value={code}
+          onChangeText={updateCode}
+          onSelectionChange={(event) =>
+            setSelection(
+              event.nativeEvent.selection
+            )
+          }
+          selection={selection}
+          style={styles.codeInput}
+          multiline
+          autoCorrect={false}
+          autoCapitalize="none"
+          spellCheck={false}
+          keyboardType="default"
+          textAlignVertical="top"
+          scrollEnabled
+          editable={Boolean(activeFile)}
+          placeholder={
+            activeFile
+              ? 'Commence à écrire ton code…'
+              : 'Sélectionne un fichier'
+          }
+          placeholderTextColor={
+            colors.textMuted
+          }
+          onScroll={(event) => {
+            const y =
+              event.nativeEvent.contentOffset.y;
 
-              if (
-                lineScrollRef.current &&
-                editorSettings.lineNumbers
-              ) {
-                lineScrollRef.current.scrollTo({
-                  y,
-                  animated: false,
-                });
-              }
-            }}
-          />
-        </View>
+            lineScrollRef.current?.scrollTo({
+              y,
+              animated: false,
+            });
+          }}
+        />
       </View>
-    );
-  };
+    </View>
+  );
 
   const renderExplorer = () => (
-    <View style={styles.explorer}>
-      <View style={styles.explorerHeader}>
-        <Text style={styles.explorerTitle}>
-          Explorer
-        </Text>
-
-        <Pressable
-          style={styles.addButton}
-          onPress={() =>
-            setShowNewFileModal(true)
-          }
-        >
-          <Text
-            style={styles.addButtonText}
-          >
-            +
-          </Text>
-        </Pressable>
-      </View>
-
-      <ScrollView
-        contentContainerStyle={
-          styles.fileList
-        }
-      >
-        {fileNames.map((name) => {
-          const active =
-            name === activeFile;
-
-          return (
-            <View
-              key={name}
-              style={[
-                styles.fileItem,
-                active &&
-                  styles.activeFileItem,
-              ]}
-            >
-              <Pressable
-                style={{
-                  flex: 1,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                }}
-                onPress={() =>
-                  openFile(name)
-                }
-              >
-                <Text style={styles.fileIcon}>
-                  {getFileIcon(name)}
-                </Text>
-
-                <Text
-                  numberOfLines={1}
-                  style={[
-                    styles.fileName,
-                    active &&
-                      styles.activeFileName,
-                  ]}
-                >
-                  {name}
-                </Text>
-              </Pressable>
-
-              <Pressable
-                style={
-                  styles.fileMenuButton
-                }
-                onPress={() => {
-                  Alert.alert(
-                    name,
-                    'Action sur le fichier',
-                    [
-                      {
-                        text: 'Annuler',
-                        style: 'cancel',
-                      },
-                      {
-                        text: 'Renommer',
-                        onPress: () =>
-                          requestRenameFile(
-                            name
-                          ),
-                      },
-                      {
-                        text: 'Supprimer',
-                        style: 'destructive',
-                        onPress: () =>
-                          requestDeleteFile(
-                            name
-                          ),
-                      },
-                    ]
-                  );
-                }}
-              >
-                <Text
-                  style={styles.fileMenuText}
-                >
-                  ⋯
-                </Text>
-              </Pressable>
-            </View>
+    <View style={styles.explorerContainer}>
+      <FileExplorer
+        project={{
+          ...project,
+          files,
+        }}
+        activeFile={activeFile}
+        onOpenFile={openFile}
+        onCreateFile={() => {
+          setNewFileName('');
+          setShowNewFileModal(true);
+        }}
+        onCreateFolder={() => {
+          Alert.alert(
+            'Dossiers',
+            'La création de dossiers physiques est gérée par la synchronisation du projet.'
           );
-        })}
-      </ScrollView>
+        }}
+        onRenameFile={requestRenameFile}
+        onDeleteFile={requestDeleteFile}
+        onRenameFolder={() => {
+          Alert.alert(
+            'Dossiers',
+            'Le renommage des dossiers est disponible lorsque la structure de dossiers est persistée.'
+          );
+        }}
+        onDeleteFolder={() => {
+          Alert.alert(
+            'Dossiers',
+            'La suppression des dossiers est disponible lorsque la structure de dossiers est persistée.'
+          );
+        }}
+      />
     </View>
   );
 
   if (loading) {
     return (
-      <View style={styles.container}>
-        <View style={styles.emptyEditor}>
-          <Text
-            style={styles.emptyEditorTitle}
-          >
-            Chargement de GCODE…
-          </Text>
-
-          <Text
-            style={styles.emptyEditorText}
-          >
-            Ouverture du projet.
+      <View style={styles.loading}>
+        <View style={styles.loadingCard}>
+          <Text style={styles.loadingText}>
+            Chargement du projet…
           </Text>
         </View>
       </View>
@@ -2127,75 +2013,59 @@ export default function WorkbenchScreen({
     >
       <View style={styles.header}>
         <Pressable
-          style={styles.headerButton}
-          onPress={() => {
-            if (dirty) {
-              Alert.alert(
-                'Modifications non sauvegardées',
-                'Veux-tu sauvegarder avant de quitter ?',
-                [
-                  {
-                    text: 'Annuler',
-                    style: 'cancel',
-                  },
-                  {
-                    text: 'Quitter',
-                    style: 'destructive',
-                    onPress: onBack,
-                  },
-                  {
-                    text: 'Sauvegarder',
-                    onPress: async () => {
-                      const saved =
-                        await saveCurrentFile();
-
-                      if (saved) {
-                        onBack?.();
-                      }
-                    },
-                  },
-                ]
-              );
-
-              return;
-            }
-
-            onBack?.();
-          }}
+          onPress={onBack}
+          style={({ pressed }) => [
+            styles.headerButton,
+            pressed && {
+              opacity: 0.78,
+              transform: [
+                { scale: 0.94 },
+              ],
+            },
+          ]}
         >
-          <Text
-            style={styles.headerButtonText}
-          >
+          <Text style={styles.headerButtonText}>
             ‹
           </Text>
         </Pressable>
 
         <View style={styles.headerCenter}>
           <Text
-            numberOfLines={1}
             style={styles.projectTitle}
+            numberOfLines={1}
           >
             {currentProjectName}
           </Text>
 
           <Text
-            numberOfLines={1}
             style={styles.fileTitle}
+            numberOfLines={1}
           >
             {showWelcome
-              ? 'Welcome'
+              ? 'Workbench'
               : activeFile || 'Aucun fichier'}
+            {dirty ? (
+              <Text style={styles.dirtyText}>
+                {' '}•
+              </Text>
+            ) : null}
           </Text>
         </View>
 
         <Pressable
-          style={styles.previewButton}
           onPress={goPreview}
+          style={({ pressed }) => [
+            styles.previewButton,
+            pressed && {
+              opacity: 0.82,
+              transform: [
+                { scale: 0.95 },
+              ],
+            },
+          ]}
         >
-          <Text
-            style={styles.previewButtonText}
-          >
-            Preview
+          <Text style={styles.previewButtonText}>
+            ▶ Preview
           </Text>
         </Pressable>
       </View>
@@ -2203,151 +2073,219 @@ export default function WorkbenchScreen({
       <View style={styles.toolbar}>
         <ScrollView
           horizontal
-          showsHorizontalScrollIndicator={
-            false
-          }
           style={styles.toolbarScroll}
+          contentContainerStyle={
+            styles.toolbarContent
+          }
+          showsHorizontalScrollIndicator={false}
         >
           <Pressable
-            style={styles.toolbarButton}
             onPress={() =>
               setShowExplorer(
                 (value) => !value
               )
             }
+            style={({ pressed }) => [
+              styles.toolbarButton,
+              showExplorer &&
+                styles.toolbarButtonActive,
+              pressed && {
+                opacity: 0.78,
+                transform: [
+                  { scale: 0.94 },
+                ],
+              },
+            ]}
           >
-            <Text
-              style={styles.toolbarButtonText}
-            >
-              ☰
+            <Text style={styles.toolbarButtonText}>
+              ☰ Explorer
             </Text>
           </Pressable>
 
           <Pressable
-            style={styles.toolbarButton}
-            onPress={() =>
-              setShowWelcome(true)
-            }
+            onPress={() => setShowWelcome(true)}
+            style={({ pressed }) => [
+              styles.toolbarButton,
+              pressed && {
+                opacity: 0.78,
+                transform: [
+                  { scale: 0.94 },
+                ],
+              },
+            ]}
           >
-            <Text
-              style={styles.toolbarButtonText}
-            >
-              Home
+            <Text style={styles.toolbarButtonText}>
+              ⌂
             </Text>
           </Pressable>
 
           <Pressable
-            style={styles.toolbarButton}
-            onPress={() =>
-              setShowNewFileModal(true)
-            }
+            onPress={() => {
+              setNewFileName('');
+              setShowNewFileModal(true);
+            }}
+            style={({ pressed }) => [
+              styles.toolbarButton,
+              pressed && {
+                opacity: 0.78,
+                transform: [
+                  { scale: 0.94 },
+                ],
+              },
+            ]}
           >
-            <Text
-              style={styles.toolbarButtonText}
-            >
-              New
+            <Text style={styles.toolbarButtonText}>
+              ＋ New
             </Text>
           </Pressable>
 
           <Pressable
-            style={styles.toolbarButton}
             onPress={importFile}
+            style={({ pressed }) => [
+              styles.toolbarButton,
+              pressed && {
+                opacity: 0.78,
+                transform: [
+                  { scale: 0.94 },
+                ],
+              },
+            ]}
           >
-            <Text
-              style={styles.toolbarButtonText}
-            >
-              Open
+            <Text style={styles.toolbarButtonText}>
+              ↥ Open
             </Text>
           </Pressable>
 
           <Pressable
-            style={styles.toolbarButton}
-            onPress={() =>
-              saveCurrentFile(false)
-            }
+            onPress={() => saveCurrentFile(false)}
+            disabled={!activeFile || saving}
+            style={({ pressed }) => [
+              styles.toolbarButton,
+              (!activeFile || saving) &&
+                styles.toolbarButtonDisabled,
+              pressed && {
+                opacity: 0.78,
+                transform: [
+                  { scale: 0.94 },
+                ],
+              },
+            ]}
           >
-            <Text
-              style={styles.toolbarButtonText}
-            >
-              Save
+            <Text style={styles.toolbarButtonText}>
+              {saving ? '…' : 'Save'}
             </Text>
           </Pressable>
 
           <Pressable
-            style={styles.toolbarButton}
             onPress={undo}
+            disabled={!historyRef.current.length}
+            style={({ pressed }) => [
+              styles.toolbarButton,
+              !historyRef.current.length &&
+                styles.toolbarButtonDisabled,
+              pressed && {
+                opacity: 0.78,
+                transform: [
+                  { scale: 0.94 },
+                ],
+              },
+            ]}
           >
-            <Text
-              style={styles.toolbarButtonText}
-            >
+            <Text style={styles.toolbarButtonText}>
               ↶
             </Text>
           </Pressable>
 
           <Pressable
-            style={styles.toolbarButton}
             onPress={redo}
+            disabled={!redoRef.current.length}
+            style={({ pressed }) => [
+              styles.toolbarButton,
+              !redoRef.current.length &&
+                styles.toolbarButtonDisabled,
+              pressed && {
+                opacity: 0.78,
+                transform: [
+                  { scale: 0.94 },
+                ],
+              },
+            ]}
           >
-            <Text
-              style={styles.toolbarButtonText}
-            >
+            <Text style={styles.toolbarButtonText}>
               ↷
             </Text>
           </Pressable>
 
           <Pressable
-            style={styles.toolbarButton}
-            onPress={() => {
-              setShowSearch(true);
-              setSearchIndex(-1);
-            }}
+            onPress={() =>
+              setShowSearch(
+                (value) => !value
+              )
+            }
+            style={({ pressed }) => [
+              styles.toolbarButton,
+              showSearch &&
+                styles.toolbarButtonActive,
+              pressed && {
+                opacity: 0.78,
+                transform: [
+                  { scale: 0.94 },
+                ],
+              },
+            ]}
           >
-            <Text
-              style={styles.toolbarButtonText}
-            >
-              Find
+            <Text style={styles.toolbarButtonText}>
+              ⌕ Find
             </Text>
           </Pressable>
 
           <Pressable
-            style={styles.toolbarButton}
-            onPress={() => {
-              if (
-                typeof onOpenTerminal ===
-                'function'
-              ) {
-                onOpenTerminal();
-              }
-            }}
+            onPress={() =>
+              typeof onOpenTerminal ===
+              'function'
+                ? onOpenTerminal(project)
+                : null
+            }
+            style={({ pressed }) => [
+              styles.toolbarButton,
+              pressed && {
+                opacity: 0.78,
+                transform: [
+                  { scale: 0.94 },
+                ],
+              },
+            ]}
           >
-            <Text
-              style={styles.toolbarButtonText}
-            >
-              Terminal
+            <Text style={styles.toolbarButtonText}>
+              › Terminal
             </Text>
           </Pressable>
 
           <Pressable
-            style={styles.toolbarButton}
-            onPress={() => {
-              if (
-                typeof onOpenCommands ===
-                'function'
-              ) {
-                onOpenCommands();
-              }
-            }}
+            onPress={() =>
+              typeof onOpenCommands ===
+              'function'
+                ? onOpenCommands()
+                : null
+            }
+            style={({ pressed }) => [
+              styles.toolbarButton,
+              pressed && {
+                opacity: 0.78,
+                transform: [
+                  { scale: 0.94 },
+                ],
+              },
+            ]}
           >
-            <Text
-              style={styles.toolbarButtonText}
-            >
-              Commands
+            <Text style={styles.toolbarButtonText}>
+              ⌘ Commands
             </Text>
           </Pressable>
         </ScrollView>
       </View>
 
-      {showSearch && !showWelcome && (
+      {showSearch && (
         <View style={styles.searchPanel}>
           <View style={styles.searchRow}>
             <TextInput
@@ -2358,39 +2296,29 @@ export default function WorkbenchScreen({
               }}
               placeholder="Rechercher…"
               placeholderTextColor={
-                colors.muted2
+                colors.textMuted
               }
               style={styles.searchInput}
-              autoCapitalize="none"
               autoCorrect={false}
+              autoCapitalize="none"
+              returnKeyType="search"
+              onSubmitEditing={findNext}
             />
 
             <Pressable
-              style={styles.searchButton}
               onPress={findNext}
+              style={({ pressed }) => [
+                styles.searchAction,
+                pressed && {
+                  opacity: 0.78,
+                  transform: [
+                    { scale: 0.94 },
+                  ],
+                },
+              ]}
             >
-              <Text
-                style={
-                  styles.searchButtonText
-                }
-              >
-                Suivant
-              </Text>
-            </Pressable>
-
-            <Pressable
-              style={styles.searchClose}
-              onPress={() => {
-                setShowSearch(false);
-                setSearchIndex(-1);
-              }}
-            >
-              <Text
-                style={
-                  styles.searchButtonText
-                }
-              >
-                ×
+              <Text style={styles.searchActionText}>
+                ↓
               </Text>
             </Pressable>
           </View>
@@ -2401,60 +2329,64 @@ export default function WorkbenchScreen({
               onChangeText={setReplaceText}
               placeholder="Remplacer par…"
               placeholderTextColor={
-                colors.muted2
+                colors.textMuted
               }
-              style={styles.searchInput}
-              autoCapitalize="none"
+              style={[
+                styles.searchInput,
+                styles.searchInputSecondary,
+              ]}
               autoCorrect={false}
+              autoCapitalize="none"
             />
 
             <Pressable
-              style={styles.searchButton}
               onPress={replaceCurrent}
+              style={({ pressed }) => [
+                styles.searchAction,
+                pressed && {
+                  opacity: 0.78,
+                  transform: [
+                    { scale: 0.94 },
+                  ],
+                },
+              ]}
             >
-              <Text
-                style={
-                  styles.searchButtonText
-                }
-              >
-                Remplacer
+              <Text style={styles.searchActionText}>
+                ↔
               </Text>
             </Pressable>
 
             <Pressable
-              style={styles.searchButton}
               onPress={replaceAll}
+              style={({ pressed }) => [
+                styles.searchAction,
+                pressed && {
+                  opacity: 0.78,
+                  transform: [
+                    { scale: 0.94 },
+                  ],
+                },
+              ]}
             >
-              <Text
-                style={
-                  styles.searchButtonText
-                }
-              >
-                Tout
+              <Text style={styles.searchActionText}>
+                ↕
               </Text>
             </Pressable>
           </View>
 
           <Text style={styles.searchInfo}>
-            {searchText
-              ? searchIndex >= 0
-                ? `Position : ${searchIndex}`
-                : 'Recherche prête'
-              : 'Saisis un texte à rechercher'}
+            Recherche dans le fichier actuellement
+            ouvert.
           </Text>
         </View>
       )}
 
       <View style={styles.workspace}>
-        {showExplorer &&
-          !showWelcome &&
-          renderExplorer()}
+        {showExplorer && renderExplorer()}
 
-        <View style={{ flex: 1 }}>
-          {showWelcome
-            ? renderWelcome()
-            : renderEditor()}
-        </View>
+        {showWelcome
+          ? renderWelcome()
+          : renderEditor()}
       </View>
 
       <Modal
@@ -2471,45 +2403,64 @@ export default function WorkbenchScreen({
               Nouveau fichier
             </Text>
 
+            <Text style={styles.modalSubtitle}>
+              Exemple : index.html, app.js,
+              styles.css
+            </Text>
+
             <TextInput
               value={newFileName}
               onChangeText={setNewFileName}
-              placeholder="ex: app.js"
+              placeholder="Nom du fichier"
               placeholderTextColor={
-                colors.muted2
+                colors.textMuted
               }
               style={styles.modalInput}
-              autoCapitalize="none"
               autoCorrect={false}
+              autoCapitalize="none"
               autoFocus
+              returnKeyType="done"
+              onSubmitEditing={createFile}
             />
 
             <View style={styles.modalActions}>
               <Pressable
-                style={styles.modalButton}
                 onPress={() => {
                   setNewFileName('');
                   setShowNewFileModal(false);
                 }}
+                style={({ pressed }) => [
+                  styles.modalButton,
+                  pressed && {
+                    opacity: 0.78,
+                    transform: [
+                      { scale: 0.96 },
+                    ],
+                  },
+                ]}
               >
-                <Text
-                  style={styles.modalButtonText}
-                >
+                <Text style={styles.modalButtonText}>
                   Annuler
                 </Text>
               </Pressable>
 
               <Pressable
-                style={[
-                  styles.modalButton,
-                  styles.modalPrimary,
-                ]}
                 onPress={createFile}
+                style={({ pressed }) => [
+                  styles.modalButton,
+                  styles.modalButtonPrimary,
+                  pressed && {
+                    opacity: 0.82,
+                    transform: [
+                      { scale: 0.96 },
+                    ],
+                  },
+                ]}
               >
                 <Text
                   style={[
                     styles.modalButtonText,
-                    styles.modalPrimaryText,
+                    styles.modalButtonPrimaryText,
                   ]}
                 >
                   Créer
@@ -2534,46 +2485,64 @@ export default function WorkbenchScreen({
               Renommer le fichier
             </Text>
 
+            <Text style={styles.modalSubtitle}>
+              Le contenu du fichier sera conservé.
+            </Text>
+
             <TextInput
               value={renameFileName}
               onChangeText={setRenameFileName}
               placeholder="Nouveau nom"
               placeholderTextColor={
-                colors.muted2
+                colors.textMuted
               }
               style={styles.modalInput}
-              autoCapitalize="none"
               autoCorrect={false}
+              autoCapitalize="none"
               autoFocus
+              returnKeyType="done"
+              onSubmitEditing={renameFile}
             />
 
             <View style={styles.modalActions}>
               <Pressable
-                style={styles.modalButton}
                 onPress={() => {
                   setRenameTarget(null);
                   setRenameFileName('');
                   setShowRenameModal(false);
                 }}
+                style={({ pressed }) => [
+                  styles.modalButton,
+                  pressed && {
+                    opacity: 0.78,
+                    transform: [
+                      { scale: 0.96 },
+                    ],
+                  },
+                ]}
               >
-                <Text
-                  style={styles.modalButtonText}
-                >
+                <Text style={styles.modalButtonText}>
                   Annuler
                 </Text>
               </Pressable>
 
               <Pressable
-                style={[
-                  styles.modalButton,
-                  styles.modalPrimary,
-                ]}
                 onPress={renameFile}
+                style={({ pressed }) => [
+                  styles.modalButton,
+                  styles.modalButtonPrimary,
+                  pressed && {
+                    opacity: 0.82,
+                    transform: [
+                      { scale: 0.96 },
+                    ],
+                  },
+                ]}
               >
                 <Text
                   style={[
                     styles.modalButtonText,
-                    styles.modalPrimaryText,
+                    styles.modalButtonPrimaryText,
                   ]}
                 >
                   Renommer
