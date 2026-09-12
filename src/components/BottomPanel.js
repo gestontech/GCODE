@@ -18,7 +18,8 @@ export default function BottomPanel({
   onChange,
   project,
 }) {
-  const { colors, radius } = useTheme();
+  const { theme } = useTheme();
+  const { colors, radius, spacing } = theme;
 
   const [command, setCommand] = useState('');
   const [history, setHistory] = useState([
@@ -55,7 +56,7 @@ export default function BottomPanel({
   function findFile(fileName) {
     const normalized = fileName
       .trim()
-      .replace(/^["']|["']$/g, '');
+      .replace(/^[\"']|[\"']$/g, '');
 
     return files.find(
       (file) =>
@@ -75,6 +76,7 @@ export default function BottomPanel({
 
     const parts = value.split(/\s+/);
     const commandName = parts[0].toLowerCase();
+
     const argument = value
       .slice(parts[0].length)
       .trim();
@@ -210,12 +212,11 @@ export default function BottomPanel({
       style={[
         styles.container,
         {
-          backgroundColor: colors.panel,
+          backgroundColor: colors.glass,
           borderTopColor: colors.border,
         },
       ]}
     >
-      {/* TABS */}
       <View
         style={[
           styles.tabs,
@@ -230,17 +231,30 @@ export default function BottomPanel({
           return (
             <Pressable
               key={tab.id}
+              accessibilityRole="button"
+              accessibilityLabel={tab.label}
+              accessibilityState={{
+                selected,
+              }}
               onPress={() => onChange?.(tab.id)}
+              hitSlop={4}
               style={({ pressed }) => [
                 styles.tab,
                 {
                   backgroundColor: selected
-                    ? colors.panel2
-                    : 'transparent',
-                  borderBottomColor: selected
-                    ? colors.purple
-                    : 'transparent',
-                  opacity: pressed ? 0.65 : 1,
+                    ? colors.primarySoft
+                    : colors.glassSoft,
+                  borderColor: selected
+                    ? colors.primary
+                    : colors.border,
+                  borderRadius: radius.md,
+                  marginHorizontal: spacing.xs,
+                  opacity: pressed ? 0.68 : 1,
+                  transform: [
+                    {
+                      scale: pressed ? 0.97 : 1,
+                    },
+                  ],
                 },
               ]}
             >
@@ -249,8 +263,8 @@ export default function BottomPanel({
                   styles.tabText,
                   {
                     color: selected
-                      ? colors.text
-                      : colors.muted,
+                      ? colors.primary
+                      : colors.textMuted,
                   },
                 ]}
               >
@@ -261,7 +275,6 @@ export default function BottomPanel({
         })}
       </View>
 
-      {/* CONTENT */}
       {active === 'terminal' ? (
         <KeyboardAvoidingView
           style={styles.content}
@@ -271,7 +284,6 @@ export default function BottomPanel({
               : undefined
           }
         >
-          {/* TERMINAL OUTPUT */}
           <ScrollView
             style={styles.output}
             contentContainerStyle={styles.outputContent}
@@ -281,15 +293,15 @@ export default function BottomPanel({
               let textColor = colors.editorText;
 
               if (item.type === 'command') {
-                textColor = colors.blue;
+                textColor = colors.primary;
               }
 
               if (item.type === 'error') {
-                textColor = colors.red;
+                textColor = colors.danger;
               }
 
               if (item.type === 'system') {
-                textColor = colors.muted;
+                textColor = colors.textMuted;
               }
 
               if (item.type === 'output') {
@@ -313,13 +325,15 @@ export default function BottomPanel({
             })}
           </ScrollView>
 
-          {/* COMMAND INPUT */}
           <View
             style={[
               styles.commandBar,
               {
-                backgroundColor: colors.panel2,
+                backgroundColor: colors.glassStrong,
                 borderTopColor: colors.border,
+                borderRadius: radius.lg,
+                marginHorizontal: spacing.xs,
+                marginBottom: spacing.xs,
               },
             ]}
           >
@@ -327,7 +341,7 @@ export default function BottomPanel({
               style={[
                 styles.prompt,
                 {
-                  color: colors.green,
+                  color: colors.success,
                 },
               ]}
             >
@@ -339,7 +353,7 @@ export default function BottomPanel({
               onChangeText={setCommand}
               onSubmitEditing={submitCommand}
               placeholder="Entrer une commande..."
-              placeholderTextColor={colors.muted}
+              placeholderTextColor={colors.textMuted}
               autoCapitalize="none"
               autoCorrect={false}
               returnKeyType="send"
@@ -352,17 +366,41 @@ export default function BottomPanel({
             />
 
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Exécuter la commande"
               onPress={submitCommand}
+              disabled={!command.trim()}
+              hitSlop={5}
               style={({ pressed }) => [
                 styles.sendButton,
                 {
-                  backgroundColor: colors.purple,
-                  borderRadius: radius.sm,
-                  opacity: pressed ? 0.65 : 1,
+                  backgroundColor: colors.primarySoft,
+                  borderColor: colors.primary,
+                  borderRadius: radius.md,
+                  opacity: !command.trim()
+                    ? 0.35
+                    : pressed
+                      ? 0.68
+                      : 1,
+                  transform: [
+                    {
+                      scale:
+                        pressed && command.trim()
+                          ? 0.94
+                          : 1,
+                    },
+                  ],
                 },
               ]}
             >
-              <Text style={styles.sendText}>
+              <Text
+                style={[
+                  styles.sendText,
+                  {
+                    color: colors.primary,
+                  },
+                ]}
+              >
                 ↵
               </Text>
             </Pressable>
@@ -370,9 +408,18 @@ export default function BottomPanel({
         </KeyboardAvoidingView>
       ) : null}
 
-      {/* PROBLEMS */}
       {active === 'problems' ? (
-        <View style={styles.placeholder}>
+        <View
+          style={[
+            styles.placeholder,
+            {
+              backgroundColor: colors.glassSoft,
+              borderColor: colors.border,
+              borderRadius: radius.lg,
+              margin: spacing.xs,
+            },
+          ]}
+        >
           <Text
             style={[
               styles.placeholderTitle,
@@ -388,7 +435,7 @@ export default function BottomPanel({
             style={[
               styles.placeholderText,
               {
-                color: colors.muted,
+                color: colors.textMuted,
               },
             ]}
           >
@@ -397,9 +444,18 @@ export default function BottomPanel({
         </View>
       ) : null}
 
-      {/* OUTPUT */}
       {active === 'output' ? (
-        <View style={styles.placeholder}>
+        <View
+          style={[
+            styles.placeholder,
+            {
+              backgroundColor: colors.glassSoft,
+              borderColor: colors.border,
+              borderRadius: radius.lg,
+              margin: spacing.xs,
+            },
+          ]}
+        >
           <Text
             style={[
               styles.placeholderTitle,
@@ -415,7 +471,7 @@ export default function BottomPanel({
             style={[
               styles.placeholderText,
               {
-                color: colors.muted,
+                color: colors.textMuted,
               },
             ]}
           >
@@ -424,9 +480,18 @@ export default function BottomPanel({
         </View>
       ) : null}
 
-      {/* DEBUG */}
       {active === 'debug' ? (
-        <View style={styles.placeholder}>
+        <View
+          style={[
+            styles.placeholder,
+            {
+              backgroundColor: colors.glassSoft,
+              borderColor: colors.border,
+              borderRadius: radius.lg,
+              margin: spacing.xs,
+            },
+          ]}
+        >
           <Text
             style={[
               styles.placeholderTitle,
@@ -442,7 +507,7 @@ export default function BottomPanel({
             style={[
               styles.placeholderText,
               {
-                color: colors.muted,
+                color: colors.textMuted,
               },
             ]}
           >
@@ -462,18 +527,20 @@ const styles = StyleSheet.create({
   },
 
   tabs: {
-    height: 38,
+    height: 46,
     flexDirection: 'row',
-    alignItems: 'stretch',
-    borderBottomWidth: 1,
+    alignItems: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 4,
   },
 
   tab: {
-    minWidth: 78,
-    paddingHorizontal: 10,
+    flex: 1,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    borderBottomWidth: 2,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 6,
   },
 
   tabText: {
@@ -504,7 +571,7 @@ const styles = StyleSheet.create({
 
   commandBar: {
     minHeight: 44,
-    borderTopWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 10,
@@ -526,16 +593,16 @@ const styles = StyleSheet.create({
   },
 
   sendButton: {
-    width: 34,
-    height: 34,
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
     marginLeft: 6,
   },
 
   sendText: {
-    color: '#ffffff',
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: '900',
   },
 
@@ -544,6 +611,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 20,
+    borderWidth: StyleSheet.hairlineWidth,
   },
 
   placeholderTitle: {
