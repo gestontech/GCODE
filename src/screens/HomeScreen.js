@@ -13,25 +13,55 @@ import {
 
 import { useTheme } from '../theme/ThemeContext';
 
+function GlassPressable({
+  children,
+  onPress,
+  accessibilityLabel,
+  style,
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      hitSlop={5}
+      style={({ pressed }) => [
+        style,
+        {
+          opacity: pressed ? 0.72 : 1,
+          transform: [
+            {
+              scale: pressed ? 0.975 : 1,
+            },
+          ],
+        },
+      ]}
+    >
+      {children}
+    </Pressable>
+  );
+}
+
 function QuickAction({
   icon,
   title,
   description,
   onPress,
 }) {
-  const { colors } = useTheme();
+  const { theme } = useTheme();
+  const { colors, radius, spacing } = theme;
 
   return (
-    <Pressable
+    <GlassPressable
       onPress={onPress}
-      accessibilityRole="button"
       accessibilityLabel={title}
-      style={({ pressed }) => [
+      style={[
         styles.quickAction,
         {
-          backgroundColor: colors.panel,
+          backgroundColor: colors.glass,
           borderColor: colors.border,
-          opacity: pressed ? 0.7 : 1,
+          borderRadius: radius.lg,
+          paddingHorizontal: spacing.sm,
         },
       ]}
     >
@@ -39,7 +69,9 @@ function QuickAction({
         style={[
           styles.quickIcon,
           {
-            backgroundColor: colors.panel2,
+            backgroundColor: colors.glassSoft,
+            borderColor: colors.border,
+            borderRadius: radius.md,
           },
         ]}
       >
@@ -47,7 +79,7 @@ function QuickAction({
           style={[
             styles.quickIconText,
             {
-              color: colors.purple,
+              color: colors.primary,
             },
           ]}
         >
@@ -71,7 +103,7 @@ function QuickAction({
           style={[
             styles.quickDescription,
             {
-              color: colors.muted,
+              color: colors.textSecondary,
             },
           ]}
         >
@@ -83,13 +115,13 @@ function QuickAction({
         style={[
           styles.quickArrow,
           {
-            color: colors.muted,
+            color: colors.textMuted,
           },
         ]}
       >
         ›
       </Text>
-    </Pressable>
+    </GlassPressable>
   );
 }
 
@@ -97,7 +129,8 @@ function ProjectCard({
   project,
   onPress,
 }) {
-  const { colors } = useTheme();
+  const { theme } = useTheme();
+  const { colors, radius, spacing } = theme;
 
   const fileCount =
     Array.isArray(project?.files)
@@ -108,18 +141,18 @@ function ProjectCard({
         : 0;
 
   return (
-    <Pressable
+    <GlassPressable
       onPress={() => onPress(project)}
-      accessibilityRole="button"
       accessibilityLabel={`Ouvrir le projet ${
         project?.name || 'Sans nom'
       }`}
-      style={({ pressed }) => [
+      style={[
         styles.projectCard,
         {
-          backgroundColor: colors.panel,
+          backgroundColor: colors.glass,
           borderColor: colors.border,
-          opacity: pressed ? 0.7 : 1,
+          borderRadius: radius.lg,
+          paddingHorizontal: spacing.sm,
         },
       ]}
     >
@@ -127,7 +160,9 @@ function ProjectCard({
         style={[
           styles.projectIcon,
           {
-            backgroundColor: colors.panel2,
+            backgroundColor: colors.primarySoft,
+            borderColor: colors.border,
+            borderRadius: radius.md,
           },
         ]}
       >
@@ -135,7 +170,7 @@ function ProjectCard({
           style={[
             styles.projectIconText,
             {
-              color: colors.purple,
+              color: colors.primary,
             },
           ]}
         >
@@ -160,7 +195,7 @@ function ProjectCard({
           style={[
             styles.projectMeta,
             {
-              color: colors.muted,
+              color: colors.textSecondary,
             },
           ]}
         >
@@ -175,13 +210,13 @@ function ProjectCard({
         style={[
           styles.arrow,
           {
-            color: colors.muted,
+            color: colors.textMuted,
           },
         ]}
       >
         ›
       </Text>
-    </Pressable>
+    </GlassPressable>
   );
 }
 
@@ -192,7 +227,8 @@ export default function HomeScreen({
   onNavigate,
   onOpenPreview,
 }) {
-  const { colors } = useTheme();
+  const { theme } = useTheme();
+  const { colors, radius, spacing } = theme;
 
   const [search, setSearch] = useState('');
   const [showCreateModal, setShowCreateModal] =
@@ -283,7 +319,6 @@ export default function HomeScreen({
     return null;
   };
 
-  // CORRIGÉ : ouvre réellement l'écran Commandes
   const handleCommands = () => {
     const project = requireProject();
 
@@ -296,7 +331,6 @@ export default function HomeScreen({
     }
   };
 
-  // CORRIGÉ : ouvre réellement le Terminal
   const handleTerminal = () => {
     const project = requireProject();
 
@@ -309,7 +343,6 @@ export default function HomeScreen({
     }
   };
 
-  // CORRIGÉ : ouvre réellement l'écran GCODE AI
   const handleGcodeAI = () => {
     if (typeof onNavigate === 'function') {
       onNavigate('ai');
@@ -343,12 +376,24 @@ export default function HomeScreen({
     >
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={
-          styles.scrollContent
-        }
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingHorizontal: spacing.md,
+            paddingTop: spacing.md,
+          },
+        ]}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.header}>
+        {/* HEADER */}
+        <View
+          style={[
+            styles.header,
+            {
+              marginBottom: spacing.md,
+            },
+          ]}
+        >
           <View style={styles.headerText}>
             <Text
               style={[
@@ -365,7 +410,7 @@ export default function HomeScreen({
               style={[
                 styles.subtitle,
                 {
-                  color: colors.muted,
+                  color: colors.textSecondary,
                 },
               ]}
             >
@@ -379,9 +424,11 @@ export default function HomeScreen({
               styles.versionBadge,
               {
                 backgroundColor:
-                  colors.panel2,
+                  colors.glassStrong,
                 borderColor:
-                  colors.border,
+                  colors.borderStrong,
+                borderRadius:
+                  radius.pill,
               },
             ]}
           >
@@ -389,7 +436,7 @@ export default function HomeScreen({
               style={[
                 styles.versionText,
                 {
-                  color: colors.purple,
+                  color: colors.primary,
                 },
               ]}
             >
@@ -398,14 +445,18 @@ export default function HomeScreen({
           </View>
         </View>
 
+        {/* SEARCH */}
         <View
           style={[
             styles.searchContainer,
             {
               backgroundColor:
-                colors.panel,
+                colors.glass,
               borderColor:
                 colors.border,
+              borderRadius:
+                radius.lg,
+              marginBottom: spacing.sm,
             },
           ]}
         >
@@ -413,7 +464,7 @@ export default function HomeScreen({
             style={[
               styles.searchIcon,
               {
-                color: colors.muted,
+                color: colors.textSecondary,
               },
             ]}
           >
@@ -425,7 +476,7 @@ export default function HomeScreen({
             onChangeText={setSearch}
             placeholder="Rechercher un projet..."
             placeholderTextColor={
-              colors.muted
+              colors.textMuted
             }
             style={[
               styles.searchInput,
@@ -439,29 +490,55 @@ export default function HomeScreen({
           />
         </View>
 
-        <Pressable
+        {/* CREATE PROJECT */}
+        <GlassPressable
           onPress={openCreateModal}
-          accessibilityRole="button"
           accessibilityLabel="Créer un nouveau projet"
-          style={({ pressed }) => [
+          style={[
             styles.createButton,
             {
               backgroundColor:
-                colors.purple,
-              opacity: pressed ? 0.75 : 1,
+                colors.primary,
+              borderColor:
+                colors.primary,
+              borderRadius:
+                radius.lg,
+              marginBottom: spacing.lg,
             },
           ]}
         >
-          <Text style={styles.createIcon}>
+          <Text
+            style={[
+              styles.createIcon,
+              {
+                color: colors.textInverse,
+              },
+            ]}
+          >
             +
           </Text>
 
-          <Text style={styles.createText}>
+          <Text
+            style={[
+              styles.createText,
+              {
+                color: colors.textInverse,
+              },
+            ]}
+          >
             Nouveau projet
           </Text>
-        </Pressable>
+        </GlassPressable>
 
-        <View style={styles.sectionHeader}>
+        {/* RECENT PROJECTS */}
+        <View
+          style={[
+            styles.sectionHeader,
+            {
+              marginBottom: spacing.sm,
+            },
+          ]}
+        >
           <Text
             style={[
               styles.sectionTitle,
@@ -483,7 +560,7 @@ export default function HomeScreen({
               style={[
                 styles.viewAll,
                 {
-                  color: colors.purple,
+                  color: colors.primary,
                 },
               ]}
             >
@@ -493,7 +570,14 @@ export default function HomeScreen({
         </View>
 
         {filteredProjects.length > 0 ? (
-          <View style={styles.projectsList}>
+          <View
+            style={[
+              styles.projectsList,
+              {
+                marginBottom: spacing.lg,
+              },
+            ]}
+          >
             {filteredProjects
               .slice(0, 5)
               .map((project) => (
@@ -512,22 +596,40 @@ export default function HomeScreen({
               styles.emptyCard,
               {
                 backgroundColor:
-                  colors.panel,
+                  colors.glass,
                 borderColor:
                   colors.border,
+                borderRadius:
+                  radius.xl,
+                marginBottom: spacing.lg,
               },
             ]}
           >
-            <Text
+            <View
               style={[
-                styles.emptyIcon,
+                styles.emptyIconContainer,
                 {
-                  color: colors.purple,
+                  backgroundColor:
+                    colors.glassStrong,
+                  borderColor:
+                    colors.border,
+                  borderRadius:
+                    radius.lg,
                 },
               ]}
             >
-              {'</>'}
-            </Text>
+              <Text
+                style={[
+                  styles.emptyIcon,
+                  {
+                    color:
+                      colors.primary,
+                  },
+                ]}
+              >
+                {'</>'}
+              </Text>
+            </View>
 
             <Text
               style={[
@@ -546,7 +648,8 @@ export default function HomeScreen({
               style={[
                 styles.emptyDescription,
                 {
-                  color: colors.muted,
+                  color:
+                    colors.textSecondary,
                 },
               ]}
             >
@@ -556,16 +659,18 @@ export default function HomeScreen({
             </Text>
 
             {!search.trim() && (
-              <Pressable
+              <GlassPressable
                 onPress={openCreateModal}
-                style={({ pressed }) => [
+                accessibilityLabel="Créer un projet"
+                style={[
                   styles.emptyButton,
                   {
+                    backgroundColor:
+                      colors.glassStrong,
                     borderColor:
-                      colors.border,
-                    opacity: pressed
-                      ? 0.7
-                      : 1,
+                      colors.borderStrong,
+                    borderRadius:
+                      radius.md,
                   },
                 ]}
               >
@@ -574,18 +679,26 @@ export default function HomeScreen({
                     styles.emptyButtonText,
                     {
                       color:
-                        colors.purple,
+                        colors.primary,
                     },
                   ]}
                 >
                   Créer un projet
                 </Text>
-              </Pressable>
+              </GlassPressable>
             )}
           </View>
         )}
 
-        <View style={styles.sectionHeader}>
+        {/* QUICK ACTIONS */}
+        <View
+          style={[
+            styles.sectionHeader,
+            {
+              marginBottom: spacing.sm,
+            },
+          ]}
+        >
           <Text
             style={[
               styles.sectionTitle,
@@ -598,7 +711,14 @@ export default function HomeScreen({
           </Text>
         </View>
 
-        <View style={styles.quickGrid}>
+        <View
+          style={[
+            styles.quickGrid,
+            {
+              marginBottom: spacing.md,
+            },
+          ]}
+        >
           <QuickAction
             icon="⌘"
             title="Commandes"
@@ -632,18 +752,20 @@ export default function HomeScreen({
           />
         </View>
 
-        <Pressable
+        {/* AI */}
+        <GlassPressable
           onPress={handleGcodeAI}
-          accessibilityRole="button"
           accessibilityLabel="Ouvrir GCODE AI"
-          style={({ pressed }) => [
+          style={[
             styles.aiBanner,
             {
               backgroundColor:
-                colors.panel,
+                colors.glassStrong,
               borderColor:
-                colors.border,
-              opacity: pressed ? 0.75 : 1,
+                colors.borderStrong,
+              borderRadius:
+                radius.xl,
+              marginBottom: spacing.lg,
             },
           ]}
         >
@@ -652,7 +774,11 @@ export default function HomeScreen({
               styles.aiIcon,
               {
                 backgroundColor:
-                  colors.panel2,
+                  colors.primarySoft,
+                borderColor:
+                  colors.border,
+                borderRadius:
+                  radius.lg,
               },
             ]}
           >
@@ -660,7 +786,8 @@ export default function HomeScreen({
               style={[
                 styles.aiIconText,
                 {
-                  color: colors.purple,
+                  color:
+                    colors.primary,
                 },
               ]}
             >
@@ -673,7 +800,8 @@ export default function HomeScreen({
               style={[
                 styles.aiTitle,
                 {
-                  color: colors.text,
+                  color:
+                    colors.text,
                 },
               ]}
             >
@@ -684,7 +812,8 @@ export default function HomeScreen({
               style={[
                 styles.aiDescription,
                 {
-                  color: colors.muted,
+                  color:
+                    colors.textSecondary,
                 },
               ]}
             >
@@ -697,7 +826,11 @@ export default function HomeScreen({
               styles.comingBadge,
               {
                 backgroundColor:
-                  colors.panel2,
+                  colors.glassSoft,
+                borderColor:
+                  colors.border,
+                borderRadius:
+                  radius.pill,
               },
             ]}
           >
@@ -705,20 +838,22 @@ export default function HomeScreen({
               style={[
                 styles.comingText,
                 {
-                  color: colors.muted,
+                  color:
+                    colors.textSecondary,
                 },
               ]}
             >
-              Bientôt
+              Ouvrir
             </Text>
           </View>
-        </Pressable>
+        </GlassPressable>
 
         <Text
           style={[
             styles.footer,
             {
-              color: colors.muted,
+              color:
+                colors.textMuted,
             },
           ]}
         >
@@ -726,6 +861,7 @@ export default function HomeScreen({
         </Text>
       </ScrollView>
 
+      {/* CREATE PROJECT MODAL */}
       <Modal
         visible={showCreateModal}
         transparent
@@ -734,23 +870,44 @@ export default function HomeScreen({
           closeCreateModal
         }
       >
-        <View style={styles.modalOverlay}>
+        <View
+          style={[
+            styles.modalOverlay,
+            {
+              backgroundColor:
+                colors.overlay,
+            },
+          ]}
+        >
           <View
             style={[
               styles.modalCard,
               {
                 backgroundColor:
-                  colors.panel,
+                  colors.glassStrong,
                 borderColor:
-                  colors.border,
+                  colors.borderStrong,
+                borderRadius:
+                  radius.xl,
               },
             ]}
           >
+            <View
+              style={[
+                styles.modalHandle,
+                {
+                  backgroundColor:
+                    colors.borderStrong,
+                },
+              ]}
+            />
+
             <Text
               style={[
                 styles.modalTitle,
                 {
-                  color: colors.text,
+                  color:
+                    colors.text,
                 },
               ]}
             >
@@ -761,7 +918,8 @@ export default function HomeScreen({
               style={[
                 styles.modalDescription,
                 {
-                  color: colors.muted,
+                  color:
+                    colors.textSecondary,
                 },
               ]}
             >
@@ -773,7 +931,7 @@ export default function HomeScreen({
               onChangeText={setProjectName}
               placeholder="Ex. Mon site web"
               placeholderTextColor={
-                colors.muted
+                colors.textMuted
               }
               autoFocus
               autoCapitalize="sentences"
@@ -785,28 +943,41 @@ export default function HomeScreen({
               style={[
                 styles.modalInput,
                 {
-                  color: colors.text,
+                  color:
+                    colors.text,
                   backgroundColor:
-                    colors.background,
+                    colors.glass,
                   borderColor:
                     colors.border,
+                  borderRadius:
+                    radius.lg,
                 },
               ]}
             />
 
             <View
-              style={styles.modalActions}
+              style={[
+                styles.modalActions,
+                {
+                  marginTop: spacing.md,
+                },
+              ]}
             >
               <Pressable
                 onPress={closeCreateModal}
+                accessibilityRole="button"
+                accessibilityLabel="Annuler"
                 style={({ pressed }) => [
                   styles.modalCancel,
                   {
+                    backgroundColor:
+                      colors.glassSoft,
                     borderColor:
                       colors.border,
-                    opacity: pressed
-                      ? 0.7
-                      : 1,
+                    borderRadius:
+                      radius.lg,
+                    opacity:
+                      pressed ? 0.7 : 1,
                   },
                 ]}
               >
@@ -827,21 +998,36 @@ export default function HomeScreen({
                 onPress={
                   handleCreateProject
                 }
+                accessibilityRole="button"
+                accessibilityLabel="Créer"
                 style={({ pressed }) => [
                   styles.modalCreate,
                   {
                     backgroundColor:
-                      colors.purple,
-                    opacity: pressed
-                      ? 0.75
-                      : 1,
+                      colors.primary,
+                    borderRadius:
+                      radius.lg,
+                    opacity:
+                      pressed ? 0.75 : 1,
+                    transform: [
+                      {
+                        scale:
+                          pressed
+                            ? 0.97
+                            : 1,
+                      },
+                    ],
                   },
                 ]}
               >
                 <Text
-                  style={
-                    styles.modalCreateText
-                  }
+                  style={[
+                    styles.modalCreateText,
+                    {
+                      color:
+                        colors.textInverse,
+                    },
+                  ]}
                 >
                   Créer
                 </Text>
@@ -860,8 +1046,6 @@ const styles = StyleSheet.create({
   },
 
   scrollContent: {
-    paddingHorizontal: 18,
-    paddingTop: 20,
     paddingBottom: 30,
   },
 
@@ -869,49 +1053,56 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: 20,
   },
 
   headerText: {
     flex: 1,
+    minWidth: 0,
   },
 
   brand: {
-    fontSize: 28,
+    fontSize: 30,
     fontWeight: '900',
-    letterSpacing: 1,
+    letterSpacing: 1.2,
   },
 
   subtitle: {
     fontSize: 12,
     marginTop: 4,
-    maxWidth: 280,
+    maxWidth: 290,
     lineHeight: 18,
+    fontWeight: '500',
   },
 
   versionBadge: {
-    minWidth: 42,
-    height: 28,
-    borderRadius: 10,
+    minWidth: 44,
+    height: 30,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 10,
+    paddingHorizontal: 10,
   },
 
   versionText: {
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
 
   searchContainer: {
-    minHeight: 48,
-    borderRadius: 14,
+    minHeight: 50,
     borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
-    marginBottom: 12,
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: {
+      width: 0,
+      height: 5,
+    },
+    elevation: 2,
   },
 
   searchIcon: {
@@ -926,62 +1117,71 @@ const styles = StyleSheet.create({
   },
 
   createButton: {
-    minHeight: 50,
-    borderRadius: 14,
+    minHeight: 52,
+    borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 28,
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
+    shadowOffset: {
+      width: 0,
+      height: 7,
+    },
+    elevation: 4,
   },
 
   createIcon: {
-    color: '#FFFFFF',
-    fontSize: 24,
+    fontSize: 25,
     fontWeight: '400',
     marginRight: 8,
   },
 
   createText: {
-    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '800',
+    letterSpacing: 0.1,
   },
 
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
   },
 
   sectionTitle: {
     fontSize: 17,
     fontWeight: '800',
+    letterSpacing: 0.1,
   },
 
   viewAll: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '800',
   },
 
   projectsList: {
     gap: 9,
-    marginBottom: 26,
   },
 
   projectCard: {
-    minHeight: 68,
-    borderRadius: 14,
+    minHeight: 70,
     borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    elevation: 1,
   },
 
   projectIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 11,
+    width: 44,
+    height: 44,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -994,6 +1194,7 @@ const styles = StyleSheet.create({
 
   projectInfo: {
     flex: 1,
+    minWidth: 0,
   },
 
   projectName: {
@@ -1007,23 +1208,29 @@ const styles = StyleSheet.create({
   },
 
   arrow: {
-    fontSize: 25,
+    fontSize: 26,
     marginLeft: 8,
   },
 
   emptyCard: {
-    borderRadius: 16,
     borderWidth: 1,
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 28,
-    marginBottom: 26,
+    paddingVertical: 30,
+  },
+
+  emptyIconContainer: {
+    width: 62,
+    height: 62,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
   },
 
   emptyIcon: {
-    fontSize: 25,
+    fontSize: 22,
     fontWeight: '900',
-    marginBottom: 10,
   },
 
   emptyTitle: {
@@ -1040,10 +1247,9 @@ const styles = StyleSheet.create({
   },
 
   emptyButton: {
-    minHeight: 38,
-    borderRadius: 10,
+    minHeight: 40,
     borderWidth: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: 17,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 16,
@@ -1056,22 +1262,26 @@ const styles = StyleSheet.create({
 
   quickGrid: {
     gap: 9,
-    marginBottom: 18,
   },
 
   quickAction: {
-    minHeight: 68,
-    borderRadius: 14,
+    minHeight: 70,
     borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    elevation: 1,
   },
 
   quickIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 11,
+    width: 44,
+    height: 44,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -1084,6 +1294,7 @@ const styles = StyleSheet.create({
 
   quickContent: {
     flex: 1,
+    minWidth: 0,
   },
 
   quickTitle: {
@@ -1097,24 +1308,29 @@ const styles = StyleSheet.create({
   },
 
   quickArrow: {
-    fontSize: 24,
+    fontSize: 25,
     marginLeft: 8,
   },
 
   aiBanner: {
-    minHeight: 76,
-    borderRadius: 16,
+    minHeight: 78,
     borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
-    marginBottom: 25,
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    shadowOffset: {
+      width: 0,
+      height: 6,
+    },
+    elevation: 2,
   },
 
   aiIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 46,
+    height: 46,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -1123,10 +1339,12 @@ const styles = StyleSheet.create({
   aiIconText: {
     fontSize: 12,
     fontWeight: '900',
+    letterSpacing: 0.5,
   },
 
   aiContent: {
     flex: 1,
+    minWidth: 0,
   },
 
   aiTitle: {
@@ -1137,12 +1355,13 @@ const styles = StyleSheet.create({
   aiDescription: {
     fontSize: 11,
     marginTop: 4,
+    lineHeight: 16,
   },
 
   comingBadge: {
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
+    borderWidth: 1,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
   },
 
   comingText: {
@@ -1158,8 +1377,6 @@ const styles = StyleSheet.create({
 
   modalOverlay: {
     flex: 1,
-    backgroundColor:
-      'rgba(0, 0, 0, 0.65)',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
@@ -1168,9 +1385,24 @@ const styles = StyleSheet.create({
   modalCard: {
     width: '100%',
     maxWidth: 420,
-    borderRadius: 20,
     borderWidth: 1,
     padding: 20,
+    shadowOpacity: 0.25,
+    shadowRadius: 30,
+    shadowOffset: {
+      width: 0,
+      height: 15,
+    },
+    elevation: 10,
+  },
+
+  modalHandle: {
+    width: 38,
+    height: 4,
+    borderRadius: 10,
+    alignSelf: 'center',
+    marginBottom: 18,
+    opacity: 0.6,
   },
 
   modalTitle: {
@@ -1187,7 +1419,6 @@ const styles = StyleSheet.create({
 
   modalInput: {
     minHeight: 50,
-    borderRadius: 12,
     borderWidth: 1,
     paddingHorizontal: 14,
     fontSize: 14,
@@ -1196,13 +1427,11 @@ const styles = StyleSheet.create({
   modalActions: {
     flexDirection: 'row',
     gap: 10,
-    marginTop: 16,
   },
 
   modalCancel: {
     flex: 1,
     minHeight: 46,
-    borderRadius: 12,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1216,13 +1445,11 @@ const styles = StyleSheet.create({
   modalCreate: {
     flex: 1,
     minHeight: 46,
-    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   modalCreateText: {
-    color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '800',
   },
