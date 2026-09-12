@@ -1,5 +1,13 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+
+import {
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+} from 'react-native';
+
+import { useTheme } from '../theme/ThemeContext';
 
 const items = [
   ['explorer', '▤', 'Explorateur'],
@@ -9,45 +17,137 @@ const items = [
   ['extensions', '▦', 'Extensions'],
 ];
 
-export default function ActivityBar({ active, onChange }) {
-  return (
-    <View style={styles.container}>
-      <View style={styles.top}>
-        {items.map(([id, icon, label]) => (
-          <Pressable
-            key={id}
-            style={[
-              styles.item,
-              active === id && styles.activeItem,
-            ]}
-            onPress={() => onChange(id)}
-          >
-            <Text
-              style={[
-                styles.icon,
-                active === id && styles.activeIcon,
-              ]}
-            >
-              {icon}
-            </Text>
+export default function ActivityBar({
+  active,
+  onChange,
+}) {
+  const { theme } = useTheme();
+  const { colors, radius, spacing } = theme;
 
-            <Text
-              style={[
-                styles.label,
-                active === id && styles.activeLabel,
+  return (
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: colors.glass,
+          borderRightColor: colors.border,
+        },
+      ]}
+    >
+      <View
+        style={[
+          styles.top,
+          {
+            paddingTop: spacing.xs,
+          },
+        ]}
+      >
+        {items.map(([id, icon, label]) => {
+          const isActive = active === id;
+
+          return (
+            <Pressable
+              key={id}
+              accessibilityRole="button"
+              accessibilityLabel={label}
+              accessibilityState={{
+                selected: isActive,
+              }}
+              onPress={() => onChange(id)}
+              hitSlop={4}
+              style={({ pressed }) => [
+                styles.item,
+                {
+                  borderRadius: radius.lg,
+                  backgroundColor: isActive
+                    ? colors.primarySoft
+                    : colors.glassSoft,
+                  borderColor: isActive
+                    ? colors.primary
+                    : colors.border,
+                  opacity: pressed ? 0.68 : 1,
+                  transform: [
+                    {
+                      scale: pressed ? 0.94 : 1,
+                    },
+                  ],
+                  marginBottom: spacing.xs,
+                },
               ]}
             >
-              {label}
-            </Text>
-          </Pressable>
-        ))}
+              <Text
+                style={[
+                  styles.icon,
+                  {
+                    color: isActive
+                      ? colors.primary
+                      : colors.textSecondary,
+                  },
+                ]}
+              >
+                {icon}
+              </Text>
+
+              <Text
+                numberOfLines={2}
+                style={[
+                  styles.label,
+                  {
+                    color: isActive
+                      ? colors.primary
+                      : colors.textMuted,
+                  },
+                ]}
+              >
+                {label}
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
 
       <Pressable
-        style={styles.settings}
+        accessibilityRole="button"
+        accessibilityLabel="Paramètres"
         onPress={() => onChange('settings')}
+        hitSlop={4}
+        style={({ pressed }) => [
+          styles.settings,
+          {
+            backgroundColor: colors.glassSoft,
+            borderColor: colors.border,
+            borderRadius: radius.lg,
+            marginBottom: spacing.xs,
+            opacity: pressed ? 0.68 : 1,
+            transform: [
+              {
+                scale: pressed ? 0.94 : 1,
+              },
+            ],
+          },
+        ]}
       >
-        <Text style={styles.settingsIcon}>⚙</Text>
+        <Text
+          style={[
+            styles.settingsIcon,
+            {
+              color: colors.textSecondary,
+            },
+          ]}
+        >
+          ⚙
+        </Text>
+
+        <Text
+          style={[
+            styles.settingsLabel,
+            {
+              color: colors.textMuted,
+            },
+          ]}
+        >
+          Réglages
+        </Text>
       </Pressable>
     </View>
   );
@@ -55,13 +155,11 @@ export default function ActivityBar({ active, onChange }) {
 
 const styles = StyleSheet.create({
   container: {
-    width: 68,
-    backgroundColor: '#090c17',
-    borderRightWidth: 1,
-    borderRightColor: '#22273a',
+    width: 72,
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 10,
+    borderRightWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 8,
   },
 
   top: {
@@ -74,44 +172,44 @@ const styles = StyleSheet.create({
     minHeight: 68,
     alignItems: 'center',
     justifyContent: 'center',
-    borderLeftWidth: 2,
-    borderLeftColor: 'transparent',
-  },
-
-  activeItem: {
-    borderLeftColor: '#8d70ff',
-    backgroundColor: '#11152a',
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 4,
+    paddingVertical: 7,
   },
 
   icon: {
-    color: '#777f9b',
-    fontSize: 24,
-  },
-
-  activeIcon: {
-    color: '#b39aff',
+    fontSize: 23,
+    lineHeight: 27,
+    fontWeight: '600',
   },
 
   label: {
-    color: '#666d86',
     fontSize: 8,
+    lineHeight: 10,
+    fontWeight: '600',
     marginTop: 4,
     textAlign: 'center',
   },
 
-  activeLabel: {
-    color: '#b39aff',
-  },
-
   settings: {
     width: 62,
-    height: 60,
+    minHeight: 60,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 7,
   },
 
   settingsIcon: {
-    color: '#777f9b',
-    fontSize: 23,
+    fontSize: 22,
+    lineHeight: 26,
+  },
+
+  settingsLabel: {
+    fontSize: 8,
+    lineHeight: 10,
+    fontWeight: '600',
+    marginTop: 3,
+    textAlign: 'center',
   },
 });
