@@ -87,6 +87,7 @@ export default function App() {
         }
 
         setProjects(storedProjects);
+
         setActiveProjectId(
           storedProjects[0]?.id || null
         );
@@ -244,6 +245,9 @@ export default function App() {
 
   let content = null;
 
+  /*
+   * HOME
+   */
   if (screen === 'home') {
     content = (
       <HomeScreen
@@ -251,6 +255,7 @@ export default function App() {
         onOpenProject={openProject}
         onCreateProject={handleCreateProject}
         onDeleteProject={handleDeleteProject}
+
         onOpenProjects={goProjects}
         onOpenSettings={goSettings}
         onOpenCommands={goCommands}
@@ -261,6 +266,9 @@ export default function App() {
     );
   }
 
+  /*
+   * PROJECTS
+   */
   if (screen === 'projects') {
     content = (
       <ProjectsScreen
@@ -273,6 +281,9 @@ export default function App() {
     );
   }
 
+  /*
+   * WORKBENCH
+   */
   if (screen === 'workbench') {
     if (!activeProject) {
       content = (
@@ -288,8 +299,15 @@ export default function App() {
         <WorkbenchScreen
           project={activeProject}
           projects={projects}
+
           onBack={goHome}
+
           onOpenProjects={goProjects}
+          onOpenSettings={goSettings}
+          onOpenTerminal={goTerminal}
+          onOpenCommands={goCommands}
+          onOpenAI={goAI}
+
           onOpenPreview={goPreview}
           onProjectUpdated={handleProjectUpdated}
         />
@@ -297,6 +315,9 @@ export default function App() {
     }
   }
 
+  /*
+   * PREVIEW
+   */
   if (screen === 'preview') {
     if (!activeProject) {
       content = (
@@ -317,6 +338,9 @@ export default function App() {
     }
   }
 
+  /*
+   * SETTINGS
+   */
   if (screen === 'settings') {
     content = (
       <SettingsScreen
@@ -325,6 +349,9 @@ export default function App() {
     );
   }
 
+  /*
+   * COMMANDS
+   */
   if (screen === 'commands') {
     content = (
       <CommandsScreen
@@ -336,6 +363,9 @@ export default function App() {
     );
   }
 
+  /*
+   * TERMINAL
+   */
   if (screen === 'terminal') {
     content = (
       <TerminalScreen
@@ -347,6 +377,9 @@ export default function App() {
     );
   }
 
+  /*
+   * GCODE AI
+   */
   if (screen === 'ai') {
     content = (
       <SafeAreaView style={styles.aiContainer}>
