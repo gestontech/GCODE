@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 import {
   ActivityIndicator,
@@ -36,6 +36,9 @@ function GcodeApp() {
   const [activeProject, setActiveProject] = useState(null);
   const [loaded, setLoaded] = useState(false);
 
+  /*
+   * Chargement initial des projets.
+   */
   useEffect(() => {
     let mounted = true;
 
@@ -71,33 +74,43 @@ function GcodeApp() {
     };
   }, []);
 
-  const refreshProjects = async () => {
+  /*
+   * Recharge les projets depuis le stockage local.
+   */
+  const refreshProjects = useCallback(async () => {
     try {
       const latestProjects = await loadProjects();
 
       setProjects(latestProjects);
 
-      if (activeProject) {
+      setActiveProject((currentActiveProject) => {
+        if (!currentActiveProject) {
+          return null;
+        }
+
         const latestActiveProject =
           latestProjects.find(
             (item) =>
-              item.id === activeProject.id
+              item.id === currentActiveProject.id
           );
 
-        if (latestActiveProject) {
-          setActiveProject(
-            latestActiveProject
-          );
-        }
-      }
+        return (
+          latestActiveProject ||
+          currentActiveProject
+        );
+      });
     } catch (error) {
       console.error(
-        'Erreur de rafraîchissement:',
+        'Erreur de rafraîchissement des projets:',
         error
       );
     }
-  };
+  }, []);
 
+  /*
+   * Synchronisation lorsque l'utilisateur revient
+   * sur Accueil ou Projets.
+   */
   useEffect(() => {
     if (
       screen === 'home' ||
@@ -105,30 +118,44 @@ function GcodeApp() {
     ) {
       refreshProjects();
     }
-  }, [screen]);
+  }, [screen, refreshProjects]);
 
+  /*
+   * Création d'un projet.
+   */
   const handleCreateProject = async (
     projectName = 'Nouveau projet'
   ) => {
-    const newProject = await createProject(
-      projectName
-    );
+    try {
+      const newProject =
+        await createProject(projectName);
 
-    if (!newProject) {
+      if (!newProject) {
+        return null;
+      }
+
+      setProjects((currentProjects) => [
+        newProject,
+        ...currentProjects,
+      ]);
+
+      setActiveProject(newProject);
+      setScreen('workbench');
+
+      return newProject;
+    } catch (error) {
+      console.error(
+        'Erreur de création du projet:',
+        error
+      );
+
       return null;
     }
-
-    setProjects((currentProjects) => [
-      newProject,
-      ...currentProjects,
-    ]);
-
-    setActiveProject(newProject);
-    setScreen('workbench');
-
-    return newProject;
   };
 
+  /*
+   * Ouverture d'un projet dans l'éditeur.
+   */
   const handleOpenProject = (project) => {
     if (!project) {
       return;
@@ -138,46 +165,70 @@ function GcodeApp() {
     setScreen('workbench');
   };
 
-  const handleProjectUpdated = (
-    updatedProject
-  ) => {
-    if (!updatedProject) {
-      return;
-    }
+  /*
+   * Mise à jour du projet actif après une modification
+   * effectuée dans Workbench.
+   */
+  const handleProjectUpdated = useCallback(
+    (updatedProject) => {
+      if (!updatedProject) {
+        return;
+      }
 
-    setActiveProject(updatedProject);
+      setActiveProject(updatedProject);
 
-    setProjects((currentProjects) =>
-      currentProjects.map((item) =>
-        item.id === updatedProject.id
-          ? updatedProject
-          : item
-      )
-    );
-  };
+      setProjects((currentProjects) =>
+        currentProjects.map((item) =>
+          item.id === updatedProject.id
+            ? updatedProject
+            : item
+        )
+      );
+    },
+    []
+  );
 
+  /*
+   * Suppression d'un projet.
+   */
   const handleDeleteProject = async (
     projectId
   ) => {
-    const updatedProjects =
-      await deleteProject(projectId);
+    try {
+      const updatedProjects =
+        await deleteProject(projectId);
 
-    setProjects(updatedProjects);
+      setProjects(updatedProjects);
 
-    if (
-      activeProject &&
-      activeProject.id === projectId
-    ) {
-      setActiveProject(null);
-      setScreen('projects');
+      setActiveProject((currentActiveProject) => {
+        if (
+          currentActiveProject &&
+          currentActiveProject.id === projectId
+        ) {
+          return null;
+        }
+
+        return currentActiveProject;
+      });
+
+      if (
+        activeProject &&
+        activeProject.id === projectId
+      ) {
+        setScreen('projects');
+      }
+    } catch (error) {
+      console.error(
+        'Erreur de suppression du projet:',
+        error
+      );
     }
   };
 
+  /*
+   * Ouverture de l'aperçu.
+   */
   const handleOpenPreview = (project) => {
-    if (project) {
-      setActiveProject(project);
-    }
-
     const projectToPreview =
       project || activeProject;
 
@@ -185,9 +236,13 @@ function GcodeApp() {
       return;
     }
 
+    setActiveProject(projectToPreview);
     setScreen('preview');
   };
 
+  /*
+   * Retour depuis l'aperçu.
+   */
   const handleBackFromPreview = () => {
     if (activeProject) {
       setScreen('workbench');
@@ -196,18 +251,28 @@ function GcodeApp() {
     }
   };
 
+  /*
+   * Navigation principale.
+   */
   const handleChangeScreen = (
     nextScreen
   ) => {
+    const allowedScreens = [
+      'home',
+      'projects',
+      'settings',
+    ];
+
     if (
-      nextScreen === 'home' ||
-      nextScreen === 'projects' ||
-      nextScreen === 'settings'
+      allowedScreens.includes(nextScreen)
     ) {
       setScreen(nextScreen);
     }
   };
 
+  /*
+   * Écran de chargement initial.
+   */
   if (!loaded) {
     return (
       <SafeAreaView
@@ -235,6 +300,10 @@ function GcodeApp() {
     );
   }
 
+  /*
+   * La barre de navigation reste visible
+   * uniquement sur les écrans principaux.
+   */
   const showBottomNav =
     screen === 'home' ||
     screen === 'projects' ||
@@ -259,6 +328,8 @@ function GcodeApp() {
       />
 
       <View style={styles.content}>
+
+        {/* ACCUEIL */}
         {screen === 'home' && (
           <HomeScreen
             projects={projects}
@@ -277,6 +348,7 @@ function GcodeApp() {
           />
         )}
 
+        {/* PROJETS */}
         {screen === 'projects' && (
           <ProjectsScreen
             projects={projects}
@@ -292,6 +364,7 @@ function GcodeApp() {
           />
         )}
 
+        {/* ÉDITEUR */}
         {screen === 'workbench' &&
           activeProject && (
             <WorkbenchScreen
@@ -310,6 +383,7 @@ function GcodeApp() {
             />
           )}
 
+        {/* APERÇU */}
         {screen === 'preview' &&
           activeProject && (
             <PreviewScreen
@@ -320,11 +394,14 @@ function GcodeApp() {
             />
           )}
 
+        {/* PARAMÈTRES */}
         {screen === 'settings' && (
           <SettingsScreen />
         )}
+
       </View>
 
+      {/* NAVIGATION BASSE */}
       {showBottomNav && (
         <BottomNav
           currentScreen={screen}
