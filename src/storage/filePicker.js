@@ -1,82 +1,27 @@
 import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
 
-/**
- * Extensions texte acceptées par GCODE.
- */
 const TEXT_EXTENSIONS = [
-  'html',
-  'htm',
-  'css',
-  'js',
-  'jsx',
-  'ts',
-  'tsx',
-  'json',
-  'md',
-  'txt',
-  'xml',
-  'svg',
-  'php',
-  'py',
-  'java',
-  'kt',
-  'kts',
-  'c',
-  'cpp',
-  'h',
-  'hpp',
-  'cs',
-  'swift',
-  'dart',
-  'go',
-  'rs',
-  'sql',
-  'sh',
-  'yaml',
-  'yml',
-  'toml',
-  'ini',
-  'env',
-  'gcode',
-  'nc',
-  'ngc',
-  'log',
+  'html', 'htm', 'css', 'js', 'jsx', 'ts', 'tsx', 'json', 'md', 'txt',
+  'xml', 'svg', 'php', 'py', 'java', 'kt', 'kts', 'c', 'cpp', 'h', 'hpp',
+  'cs', 'swift', 'dart', 'go', 'rs', 'sql', 'sh', 'yaml', 'yml', 'toml',
+  'ini', 'env', 'gcode', 'nc', 'ngc', 'log',
 ];
 
-/**
- * Retourne l'extension d'un fichier.
- */
 function getExtension(name = '') {
-  const cleanName = String(name)
-    .trim()
-    .toLowerCase();
-
+  const cleanName = String(name).trim().toLowerCase();
   const lastDot = cleanName.lastIndexOf('.');
 
-  if (lastDot === -1) {
-    return '';
-  }
-
-  return cleanName.slice(lastDot + 1);
+  return lastDot === -1 ? '' : cleanName.slice(lastDot + 1);
 }
 
-/**
- * Vérifie si le fichier est un fichier texte exploitable
- * par l'éditeur GCODE.
- */
 export function isSupportedTextFile(name = '') {
   const extension = getExtension(name);
 
-  return (
-    !extension ||
-    TEXT_EXTENSIONS.includes(extension)
-  );
+  // Les fichiers sans extension sont également acceptés.
+  return !extension || TEXT_EXTENSIONS.includes(extension);
 }
 
-/**
- * Nettoie le nom fourni par Android.
- */
 export function sanitizeFileName(name = 'untitled.txt') {
   const value = String(name)
     .trim()
@@ -85,25 +30,16 @@ export function sanitizeFileName(name = 'untitled.txt') {
   return value || 'untitled.txt';
 }
 
-/**
- * Ouvre le vrai sélecteur de fichiers Android/iOS.
- *
- * Cette fonction ne simule rien :
- * elle ouvre réellement DocumentPicker.
- */
 export async function pickFile() {
-  const result =
-    await DocumentPicker.getDocumentAsync({
-      type: 'text/*',
-      copyToCacheDirectory: true,
-      multiple: false,
-    });
+  const result = await DocumentPicker.getDocumentAsync({
+    // * / * permet de sélectionner les fichiers de code
+    // même lorsque Android leur attribue un type MIME générique.
+    type: '*/*',
+    copyToCacheDirectory: true,
+    multiple: false,
+  });
 
-  if (
-    result.canceled ||
-    !result.assets ||
-    result.assets.length === 0
-  ) {
+  if (result.canceled || !result.assets?.length) {
     return {
       canceled: true,
       asset: null,
@@ -113,10 +49,9 @@ export async function pickFile() {
 
   const asset = result.assets[0];
 
-  const name =
-    sanitizeFileName(
-      asset.name || 'untitled.txt'
-    );
+  const name = sanitizeFileName(
+    asset.name || 'untitled.txt'
+  );
 
   if (!isSupportedTextFile(name)) {
     throw new Error(
@@ -130,46 +65,35 @@ export async function pickFile() {
     );
   }
 
-  const sourceFile =
-    new File(asset.uri);
-
-  let content = '';
-
   try {
-    content =
-      await sourceFile.text();
+    const sourceFile = new File(asset.uri);
+    const content = await sourceFile.text();
+
+    return {
+      canceled: false,
+      asset,
+      name,
+      content,
+      uri: asset.uri,
+      mimeType: asset.mimeType || 'text/plain',
+      size:
+        typeof asset.size === 'number'
+          ? asset.size
+          : null,
+      lastModified:
+        typeof asset.lastModified === 'number'
+          ? asset.lastModified
+          : null,
+    };
   } catch (error) {
     throw new Error(
       `Impossible de lire "${name}" : ${
-        error?.message ||
-        'erreur inconnue'
+        error?.message || 'erreur inconnue'
       }`
     );
   }
-
-  return {
-    canceled: false,
-    asset,
-    name,
-    content,
-    uri: asset.uri,
-    mimeType:
-      asset.mimeType || 'text/plain',
-    size:
-      typeof asset.size === 'number'
-        ? asset.size
-        : null,
-    lastModified:
-      typeof asset.lastModified === 'number'
-        ? asset.lastModified
-        : null,
-  };
 }
 
-/**
- * Sélectionne un fichier puis retourne
- * directement son contenu texte.
- */
 export async function pickTextFile() {
   return pickFile();
 }
