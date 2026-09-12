@@ -1,6 +1,10 @@
-import React, { useState } from 'react';
+import React, {
+  useEffect,
+  useState,
+} from 'react';
 
 import {
+  ActivityIndicator,
   View,
   Text,
   ScrollView,
@@ -10,6 +14,11 @@ import {
 } from 'react-native';
 
 import { useTheme } from '../theme/ThemeContext';
+
+import {
+  loadEditorSettings,
+  updateEditorSetting,
+} from '../storage/editorSettings';
 
 export default function SettingsScreen() {
   const {
@@ -24,6 +33,93 @@ export default function SettingsScreen() {
   const [lineNumbers, setLineNumbers] =
     useState(true);
 
+  const [loaded, setLoaded] =
+    useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadSettings() {
+      try {
+        const settings =
+          await loadEditorSettings();
+
+        if (!mounted) {
+          return;
+        }
+
+        setAutoSave(settings.autoSave);
+        setLineNumbers(settings.lineNumbers);
+      } catch (error) {
+        console.error(
+          'Erreur de chargement des réglages:',
+          error
+        );
+      } finally {
+        if (mounted) {
+          setLoaded(true);
+        }
+      }
+    }
+
+    loadSettings();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const handleAutoSaveChange = async (
+    value
+  ) => {
+    setAutoSave(value);
+
+    const saved =
+      await updateEditorSetting(
+        'autoSave',
+        value
+      );
+
+    if (!saved) {
+      setAutoSave(!value);
+    }
+  };
+
+  const handleLineNumbersChange = async (
+    value
+  ) => {
+    setLineNumbers(value);
+
+    const saved =
+      await updateEditorSetting(
+        'lineNumbers',
+        value
+      );
+
+    if (!saved) {
+      setLineNumbers(!value);
+    }
+  };
+
+  if (!loaded) {
+    return (
+      <View
+        style={[
+          styles.loadingContainer,
+          {
+            backgroundColor:
+              colors.background,
+          },
+        ]}
+      >
+        <ActivityIndicator
+          size="large"
+          color={colors.purple}
+        />
+      </View>
+    );
+  }
+
   return (
     <View
       style={[
@@ -35,12 +131,17 @@ export default function SettingsScreen() {
       ]}
     >
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={
+          styles.content
+        }
+        showsVerticalScrollIndicator={false}
       >
         <Text
           style={[
             styles.title,
-            { color: colors.text },
+            {
+              color: colors.text,
+            },
           ]}
         >
           Paramètres
@@ -49,7 +150,9 @@ export default function SettingsScreen() {
         <Text
           style={[
             styles.section,
-            { color: colors.purple },
+            {
+              color: colors.purple,
+            },
           ]}
         >
           ÉDITEUR
@@ -57,22 +160,30 @@ export default function SettingsScreen() {
 
         <Setting
           title="Auto-save"
+          description="Enregistrer automatiquement les modifications"
           value={autoSave}
-          onChange={setAutoSave}
+          onChange={
+            handleAutoSaveChange
+          }
           colors={colors}
         />
 
         <Setting
           title="Numéros de lignes"
+          description="Afficher les numéros à gauche du code"
           value={lineNumbers}
-          onChange={setLineNumbers}
+          onChange={
+            handleLineNumbersChange
+          }
           colors={colors}
         />
 
         <Text
           style={[
             styles.section,
-            { color: colors.purple },
+            {
+              color: colors.purple,
+            },
           ]}
         >
           APPARENCE
@@ -92,13 +203,17 @@ export default function SettingsScreen() {
           <Text
             style={[
               styles.themeTitle,
-              { color: colors.text },
+              {
+                color: colors.text,
+              },
             ]}
           >
             Thème
           </Text>
 
-          <View style={styles.themeButtons}>
+          <View
+            style={styles.themeButtons}
+          >
             <Pressable
               style={[
                 styles.themeButton,
@@ -178,7 +293,9 @@ export default function SettingsScreen() {
         <Text
           style={[
             styles.section,
-            { color: colors.purple },
+            {
+              color: colors.purple,
+            },
           ]}
         >
           IA
@@ -199,7 +316,9 @@ export default function SettingsScreen() {
         <Text
           style={[
             styles.version,
-            { color: colors.muted },
+            {
+              color: colors.muted,
+            },
           ]}
         >
           GCODE Mobile V3.0.0
@@ -211,6 +330,7 @@ export default function SettingsScreen() {
 
 function Setting({
   title,
+  description,
   value,
   onChange,
   colors,
@@ -218,23 +338,40 @@ function Setting({
   return (
     <View
       style={[
-        styles.row,
+        styles.settingBox,
         {
           backgroundColor:
             colors.panel,
-          borderBottomColor:
+          borderColor:
             colors.border,
         },
       ]}
     >
-      <Text
-        style={[
-          styles.rowTitle,
-          { color: colors.text },
-        ]}
+      <View
+        style={styles.settingTextContainer}
       >
-        {title}
-      </Text>
+        <Text
+          style={[
+            styles.rowTitle,
+            {
+              color: colors.text,
+            },
+          ]}
+        >
+          {title}
+        </Text>
+
+        <Text
+          style={[
+            styles.description,
+            {
+              color: colors.muted,
+            },
+          ]}
+        >
+          {description}
+        </Text>
+      </View>
 
       <Switch
         value={value}
@@ -243,6 +380,11 @@ function Setting({
           false: colors.border,
           true: colors.purple,
         }}
+        thumbColor={
+          value
+            ? '#ffffff'
+            : colors.muted
+        }
       />
     </View>
   );
@@ -268,7 +410,9 @@ function Row({
       <Text
         style={[
           styles.rowTitle,
-          { color: colors.text },
+          {
+            color: colors.text,
+          },
         ]}
       >
         {title}
@@ -277,7 +421,9 @@ function Row({
       <Text
         style={[
           styles.value,
-          { color: colors.muted },
+          {
+            color: colors.muted,
+          },
         ]}
       >
         {value}
@@ -291,9 +437,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
   content: {
     padding: 20,
-    paddingBottom: 40,
+    paddingBottom: 50,
   },
 
   title: {
@@ -310,6 +462,23 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
 
+  settingBox: {
+    minHeight: 72,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  settingTextContainer: {
+    flex: 1,
+    paddingRight: 15,
+  },
+
   row: {
     minHeight: 58,
     borderBottomWidth: 1,
@@ -321,6 +490,13 @@ const styles = StyleSheet.create({
 
   rowTitle: {
     fontSize: 14,
+    fontWeight: '600',
+  },
+
+  description: {
+    fontSize: 12,
+    marginTop: 4,
+    lineHeight: 17,
   },
 
   value: {
@@ -363,5 +539,6 @@ const styles = StyleSheet.create({
   version: {
     textAlign: 'center',
     marginTop: 35,
+    fontSize: 12,
   },
 });
