@@ -1,6 +1,8 @@
 {
   "platforms": ["android"],
   "android": {
-    "modules": ["expo.modules.gcodeterminal.GcodeTerminalModule"]
+    "modules": [
+      "expo.modules.gcodeterminal.GcodeTerminalModule"
+    ]
   }
 }
