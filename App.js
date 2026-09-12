@@ -1,13 +1,18 @@
 import React, { useEffect, useState } from 'react';
+
 import {
   ActivityIndicator,
   SafeAreaView,
   StyleSheet,
   View,
 } from 'react-native';
+
 import { StatusBar } from 'expo-status-bar';
 
-import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
+import {
+  ThemeProvider,
+  useTheme,
+} from './src/theme/ThemeContext';
 
 import HomeScreen from './src/screens/HomeScreen';
 import ProjectsScreen from './src/screens/ProjectsScreen';
@@ -21,7 +26,6 @@ import {
   createProject,
   deleteProject,
   loadProjects,
-  saveProjects,
 } from './src/storage/projectStorage';
 
 function GcodeApp() {
@@ -36,14 +40,28 @@ function GcodeApp() {
     let mounted = true;
 
     async function initialize() {
-      const storedProjects = await loadProjects();
+      try {
+        const storedProjects = await loadProjects();
 
-      if (!mounted) {
-        return;
+        if (!mounted) {
+          return;
+        }
+
+        setProjects(storedProjects);
+      } catch (error) {
+        console.error(
+          'Erreur de chargement des projets:',
+          error
+        );
+
+        if (mounted) {
+          setProjects([]);
+        }
+      } finally {
+        if (mounted) {
+          setLoaded(true);
+        }
       }
-
-      setProjects(storedProjects);
-      setLoaded(true);
     }
 
     initialize();
@@ -52,6 +70,42 @@ function GcodeApp() {
       mounted = false;
     };
   }, []);
+
+  const refreshProjects = async () => {
+    try {
+      const latestProjects = await loadProjects();
+
+      setProjects(latestProjects);
+
+      if (activeProject) {
+        const latestActiveProject =
+          latestProjects.find(
+            (item) =>
+              item.id === activeProject.id
+          );
+
+        if (latestActiveProject) {
+          setActiveProject(
+            latestActiveProject
+          );
+        }
+      }
+    } catch (error) {
+      console.error(
+        'Erreur de rafraîchissement:',
+        error
+      );
+    }
+  };
+
+  useEffect(() => {
+    if (
+      screen === 'home' ||
+      screen === 'projects'
+    ) {
+      refreshProjects();
+    }
+  }, [screen]);
 
   const handleCreateProject = async (
     projectName = 'Nouveau projet'
@@ -119,16 +173,15 @@ function GcodeApp() {
     }
   };
 
-  const handleBackToHome = () => {
-    setScreen('home');
-  };
+  const handleOpenPreview = (project) => {
+    if (project) {
+      setActiveProject(project);
+    }
 
-  const handleBackToProjects = () => {
-    setScreen('projects');
-  };
+    const projectToPreview =
+      project || activeProject;
 
-  const handleOpenPreview = () => {
-    if (!activeProject) {
+    if (!projectToPreview) {
       return;
     }
 
@@ -143,7 +196,9 @@ function GcodeApp() {
     }
   };
 
-  const handleChangeScreen = (nextScreen) => {
+  const handleChangeScreen = (
+    nextScreen
+  ) => {
     if (
       nextScreen === 'home' ||
       nextScreen === 'projects' ||
@@ -152,36 +207,6 @@ function GcodeApp() {
       setScreen(nextScreen);
     }
   };
-
-  const refreshProjects = async () => {
-    const latestProjects =
-      await loadProjects();
-
-    setProjects(latestProjects);
-
-    if (activeProject) {
-      const latestActiveProject =
-        latestProjects.find(
-          (item) =>
-            item.id === activeProject.id
-        );
-
-      if (latestActiveProject) {
-        setActiveProject(
-          latestActiveProject
-        );
-      }
-    }
-  };
-
-  useEffect(() => {
-    if (
-      screen === 'home' ||
-      screen === 'projects'
-    ) {
-      refreshProjects();
-    }
-  }, [screen]);
 
   if (!loaded) {
     return (
@@ -246,6 +271,9 @@ function GcodeApp() {
             onNavigate={
               handleChangeScreen
             }
+            onOpenPreview={
+              handleOpenPreview
+            }
           />
         )}
 
@@ -268,11 +296,13 @@ function GcodeApp() {
           activeProject && (
             <WorkbenchScreen
               project={activeProject}
-              onBack={
-                handleBackToProjects
+              onBack={() =>
+                setScreen('projects')
               }
-              onPreview={
-                handleOpenPreview
+              onPreview={() =>
+                handleOpenPreview(
+                  activeProject
+                )
               }
               onProjectUpdated={
                 handleProjectUpdated
