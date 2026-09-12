@@ -283,6 +283,7 @@ export default function HomeScreen({
     return null;
   };
 
+  // CORRIGÉ : ouvre réellement l'écran Commandes
   const handleCommands = () => {
     const project = requireProject();
 
@@ -290,11 +291,12 @@ export default function HomeScreen({
       return;
     }
 
-    if (typeof onOpenProject === 'function') {
-      onOpenProject(project);
+    if (typeof onNavigate === 'function') {
+      onNavigate('commands');
     }
   };
 
+  // CORRIGÉ : ouvre réellement le Terminal
   const handleTerminal = () => {
     const project = requireProject();
 
@@ -302,16 +304,16 @@ export default function HomeScreen({
       return;
     }
 
-    if (typeof onOpenProject === 'function') {
-      onOpenProject(project);
+    if (typeof onNavigate === 'function') {
+      onNavigate('terminal');
     }
   };
 
+  // CORRIGÉ : ouvre réellement l'écran GCODE AI
   const handleGcodeAI = () => {
-    Alert.alert(
-      'GCODE AI',
-      'GCODE AI est bien intégré à l’accueil. Le moteur IA sera activé dans une prochaine version.'
-    );
+    if (typeof onNavigate === 'function') {
+      onNavigate('ai');
+    }
   };
 
   const handlePreview = () => {
