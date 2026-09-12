@@ -1,0 +1,16 @@
+{
+  "name": "gcode-terminal",
+  "version": "3.0.0",
+  "private": true,
+  "main": "src/GcodeTerminal.ts",
+  "types": "src/GcodeTerminal.ts",
+  "expo": {
+    "autolinking": {
+      "android": {
+        "modules": [
+          "expo.modules.gcodeterminal.GcodeTerminalModule"
+        ]
+      }
+    }
+  }
+}
