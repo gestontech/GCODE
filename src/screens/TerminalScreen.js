@@ -23,12 +23,16 @@ import {
 
 import {
   loadProjects,
+  saveProjectFile,
+  addProjectFile,
+  deleteProjectFile,
 } from '../storage/projectStorage';
 
 export default function TerminalScreen({
   project,
   projects = [],
   onBack,
+  onProjectUpdated,
 }) {
   const { colors } = useTheme();
 
@@ -46,15 +50,17 @@ export default function TerminalScreen({
     '',
   ]);
 
-  const [history, setHistory] =
-    useState([]);
+  const [history, setHistory] = useState([]);
 
   const [historyIndex, setHistoryIndex] =
     useState(-1);
 
+  const [cwd, setCwd] = useState('');
+
   useEffect(() => {
     if (project) {
       setCurrentProject(project);
+      setCwd('');
     }
   }, [project]);
 
@@ -73,19 +79,137 @@ export default function TerminalScreen({
       return currentProject;
     }
 
+    if (projects.length > 0) {
+      const firstProject = projects[0];
+
+      setCurrentProject(firstProject);
+
+      return firstProject;
+    }
+
     const storedProjects =
       await loadProjects();
 
     if (storedProjects.length > 0) {
-      const first =
+      const firstProject =
         storedProjects[0];
 
-      setCurrentProject(first);
+      setCurrentProject(firstProject);
 
-      return first;
+      return firstProject;
     }
 
     return null;
+  };
+
+  const updateProjectState = async (
+    projectId
+  ) => {
+    const storedProjects =
+      await loadProjects();
+
+    const updatedProject =
+      storedProjects.find(
+        (item) => item.id === projectId
+      );
+
+    if (!updatedProject) {
+      return null;
+    }
+
+    setCurrentProject(updatedProject);
+
+    if (typeof onProjectUpdated === 'function') {
+      await onProjectUpdated(
+        updatedProject
+      );
+    }
+
+    return updatedProject;
+  };
+
+  const handleCreateFile = async (
+    fileName,
+    content = ''
+  ) => {
+    const activeProject =
+      await getProject();
+
+    if (!activeProject?.id) {
+      throw new Error(
+        'Aucun projet actif.'
+      );
+    }
+
+    await addProjectFile(
+      activeProject.id,
+      fileName,
+      content
+    );
+
+    return updateProjectState(
+      activeProject.id
+    );
+  };
+
+  const handleDeleteFile = async (
+    fileName
+  ) => {
+    const activeProject =
+      await getProject();
+
+    if (!activeProject?.id) {
+      throw new Error(
+        'Aucun projet actif.'
+      );
+    }
+
+    await deleteProjectFile(
+      activeProject.id,
+      fileName
+    );
+
+    return updateProjectState(
+      activeProject.id
+    );
+  };
+
+  const handleWriteFile = async (
+    fileName,
+    content
+  ) => {
+    const activeProject =
+      await getProject();
+
+    if (!activeProject?.id) {
+      throw new Error(
+        'Aucun projet actif.'
+      );
+    }
+
+    const exists =
+      Object.prototype.hasOwnProperty.call(
+        activeProject.files || {},
+        fileName
+      );
+
+    if (exists) {
+      await saveProjectFile(
+        activeProject.id,
+        fileName,
+        content
+      );
+    } else {
+      await addProjectFile(
+        activeProject.id,
+        fileName,
+        content
+      );
+    }
+
+    return updateProjectState(
+      activeProject.id
+    );
   };
 
   const executeCommand = async (
@@ -124,22 +248,51 @@ export default function TerminalScreen({
         createTerminalEngine({
           project: activeProject,
 
-          onProjectUpdated:
-            (updatedProject) => {
-              setCurrentProject(
-                updatedProject
-              );
-            },
+          files:
+            activeProject.files || {},
+
+          cwd,
+
+          onCreateFile:
+            handleCreateFile,
+
+          onDeleteFile:
+            handleDeleteFile,
+
+          onWriteFile:
+            handleWriteFile,
         });
 
       const result =
-        await engine.execute(trimmed);
+        await engine.execute(
+          trimmed
+        );
+
+      if (
+        result &&
+        result.output === '__CLEAR__'
+      ) {
+        setOutput([
+          'GCODE Terminal V3',
+          '',
+        ]);
+
+        setCwd(
+          result.nextCwd || ''
+        );
+
+        return;
+      }
 
       const resultText =
-        result === undefined ||
-        result === null
+        result?.output === undefined ||
+        result?.output === null
           ? ''
-          : String(result);
+          : String(result.output);
+
+      setCwd(
+        result?.nextCwd || ''
+      );
 
       setOutput((currentOutput) => [
         ...currentOutput,
@@ -172,10 +325,12 @@ export default function TerminalScreen({
 
     setInput('');
 
-    await executeCommand(command);
+    await executeCommand(
+      command
+    );
   };
 
-  const handleInputKeyPress = () => {
+  const handleHistoryUp = () => {
     if (history.length === 0) {
       return;
     }
@@ -188,7 +343,10 @@ export default function TerminalScreen({
             0
           );
 
-    setHistoryIndex(nextIndex);
+    setHistoryIndex(
+      nextIndex
+    );
+
     setInput(
       history[nextIndex] || ''
     );
@@ -238,8 +396,8 @@ export default function TerminalScreen({
             {
               backgroundColor:
                 colors.panel2,
-                borderColor:
-                  colors.border,
+              borderColor:
+                colors.border,
             },
           ]}
         >
@@ -247,7 +405,8 @@ export default function TerminalScreen({
             style={[
               styles.backText,
               {
-                color: colors.text,
+                color:
+                  colors.text,
               },
             ]}
           >
@@ -255,12 +414,15 @@ export default function TerminalScreen({
           </Text>
         </Pressable>
 
-        <View style={styles.headerCenter}>
+        <View
+          style={styles.headerCenter}
+        >
           <Text
             style={[
               styles.title,
               {
-                color: colors.textStrong,
+                color:
+                  colors.textStrong,
               },
             ]}
           >
@@ -271,7 +433,8 @@ export default function TerminalScreen({
             style={[
               styles.project,
               {
-                color: colors.muted,
+                color:
+                  colors.muted,
               },
             ]}
             numberOfLines={1}
@@ -296,7 +459,8 @@ export default function TerminalScreen({
             style={[
               styles.clearText,
               {
-                color: colors.text,
+                color:
+                  colors.text,
               },
             ]}
           >
@@ -354,7 +518,8 @@ export default function TerminalScreen({
           style={[
             styles.prompt,
             {
-              color: colors.purple,
+              color:
+                colors.purple,
             },
           ]}
         >
@@ -364,18 +529,18 @@ export default function TerminalScreen({
         <TextInput
           ref={inputRef}
           value={input}
-          onChangeText={setInput}
+          onChangeText={
+            setInput
+          }
           onSubmitEditing={
             handleSubmit
           }
-          onKeyPress={(
-            event
-          ) => {
+          onKeyPress={(event) => {
             if (
               event.nativeEvent.key ===
               'ArrowUp'
             ) {
-              handleInputKeyPress();
+              handleHistoryUp();
             }
           }}
           placeholder="Entrer une commande..."
@@ -385,7 +550,8 @@ export default function TerminalScreen({
           style={[
             styles.input,
             {
-              color: colors.text,
+              color:
+                colors.text,
             },
           ]}
           autoCapitalize="none"
@@ -396,7 +562,9 @@ export default function TerminalScreen({
         />
 
         <Pressable
-          onPress={handleSubmit}
+          onPress={
+            handleSubmit
+          }
           style={({ pressed }) => [
             styles.sendButton,
             {
@@ -488,9 +656,10 @@ const styles = StyleSheet.create({
   },
 
   outputLine: {
-    fontFamily: Platform.OS === 'ios'
-      ? 'Menlo'
-      : 'monospace',
+    fontFamily:
+      Platform.OS === 'ios'
+        ? 'Menlo'
+        : 'monospace',
     fontSize: 12,
     lineHeight: 20,
   },
@@ -513,9 +682,10 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     minHeight: 42,
-    fontFamily: Platform.OS === 'ios'
-      ? 'Menlo'
-      : 'monospace',
+    fontFamily:
+      Platform.OS === 'ios'
+        ? 'Menlo'
+        : 'monospace',
     fontSize: 12,
     paddingHorizontal: 8,
   },
