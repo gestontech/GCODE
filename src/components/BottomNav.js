@@ -10,101 +10,87 @@ import {
 import { useTheme } from '../theme/ThemeContext';
 
 const items = [
-  {
-    id: 'home',
-    label: 'Accueil',
-    icon: '⌂',
-  },
-  {
-    id: 'projects',
-    label: 'Projets',
-    icon: '▣',
-  },
-  {
-    id: 'settings',
-    label: 'Réglages',
-    icon: '⚙',
-  },
+  ['files', '▤', 'Fichiers'],
+  ['editor', '✎', 'Éditeur'],
+  ['preview', '▷', 'Aperçu'],
+  ['terminal', '⌘', 'Terminal'],
 ];
 
 export default function BottomNav({
-  currentScreen = 'home',
-  onNavigate,
+  active,
+  onChange,
 }) {
-  const { colors } = useTheme();
-
-  const handleNavigate = (screen) => {
-    if (typeof onNavigate === 'function') {
-      onNavigate(screen);
-    }
-  };
+  const { theme } = useTheme();
+  const { colors, radius, spacing } = theme;
 
   return (
     <View
       style={[
         styles.container,
         {
-          backgroundColor: colors.panel,
+          backgroundColor: colors.glass,
           borderTopColor: colors.border,
         },
       ]}
     >
-      {items.map((item) => {
-        const selected =
-          currentScreen === item.id;
+      {items.map(([id, icon, label]) => {
+        const isActive = active === id;
 
         return (
           <Pressable
-            key={item.id}
+            key={id}
             accessibilityRole="button"
-            accessibilityLabel={item.label}
+            accessibilityLabel={label}
             accessibilityState={{
-              selected,
+              selected: isActive,
             }}
-            onPress={() =>
-              handleNavigate(item.id)
-            }
+            onPress={() => onChange?.(id)}
+            hitSlop={4}
             style={({ pressed }) => [
               styles.item,
               {
-                opacity: pressed ? 0.65 : 1,
+                backgroundColor: isActive
+                  ? colors.primarySoft
+                  : colors.glassSoft,
+                borderColor: isActive
+                  ? colors.primary
+                  : colors.border,
+                borderRadius: radius.lg,
+                marginHorizontal: spacing.xs,
+                opacity: pressed ? 0.68 : 1,
+                transform: [
+                  {
+                    scale: pressed ? 0.95 : 1,
+                  },
+                ],
               },
             ]}
           >
-            <View
+            <Text
               style={[
-                styles.iconContainer,
-                selected && {
-                  backgroundColor:
-                    colors.panel2,
+                styles.icon,
+                {
+                  color: isActive
+                    ? colors.primary
+                    : colors.textSecondary,
                 },
               ]}
             >
-              <Text
-                style={[
-                  styles.icon,
-                  {
-                    color: selected
-                      ? colors.purple
-                      : colors.muted,
-                  },
-                ]}
-              >
-                {item.icon}
-              </Text>
-            </View>
+              {icon}
+            </Text>
 
             <Text
+              numberOfLines={1}
               style={[
                 styles.label,
                 {
-                  color: selected
-                    ? colors.text
-                    : colors.muted,
+                  color: isActive
+                    ? colors.primary
+                    : colors.textMuted,
                 },
               ]}
             >
-              {item.label}
+              {label}
             </Text>
           </Pressable>
         );
@@ -115,36 +101,36 @@ export default function BottomNav({
 
 const styles = StyleSheet.create({
   container: {
-    minHeight: 67,
-    borderTopWidth: 1,
+    minHeight: 68,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    paddingHorizontal: 8,
-    paddingBottom: 5,
+    paddingHorizontal: 6,
+    paddingVertical: 7,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
 
   item: {
     flex: 1,
+    minHeight: 54,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-
-  iconContainer: {
-    minWidth: 42,
-    minHeight: 30,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 4,
+    paddingVertical: 5,
   },
 
   icon: {
-    fontSize: 20,
+    fontSize: 21,
+    lineHeight: 25,
+    fontWeight: '600',
   },
 
   label: {
-    fontSize: 10,
+    fontSize: 9,
+    lineHeight: 12,
     fontWeight: '700',
-    marginTop: 2,
+    marginTop: 3,
+    textAlign: 'center',
   },
 });
