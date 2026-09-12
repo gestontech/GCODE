@@ -29,29 +29,31 @@ import {
   loadProjects,
 } from './src/storage/projectStorage';
 
-const COLORS = {
-  background: '#070914',
-  surface: '#0d1120',
-  border: '#20283d',
-  text: '#f5f7ff',
-  muted: '#8f98ad',
-  primary: '#7c5cff',
-};
+import {
+  ThemeProvider,
+  useTheme,
+} from './src/theme/ThemeContext';
 
-export default function App() {
+function GcodeApp() {
+  const { theme } = useTheme();
+  const { colors, radius, spacing } = theme;
+
   const [screen, setScreen] = useState('home');
   const [projects, setProjects] = useState([]);
-  const [activeProjectId, setActiveProjectId] = useState(null);
+  const [activeProjectId, setActiveProjectId] =
+    useState(null);
   const [loading, setLoading] = useState(true);
 
   const activeProject =
     projects.find(
-      (project) => project.id === activeProjectId
+      (project) =>
+        project.id === activeProjectId
     ) || null;
 
   const refreshProjects = useCallback(async () => {
     try {
-      const storedProjects = await loadProjects();
+      const storedProjects =
+        await loadProjects();
 
       setProjects(storedProjects);
 
@@ -59,7 +61,8 @@ export default function App() {
         if (
           currentId &&
           storedProjects.some(
-            (project) => project.id === currentId
+            (project) =>
+              project.id === currentId
           )
         ) {
           return currentId;
@@ -80,7 +83,8 @@ export default function App() {
 
     const initialize = async () => {
       try {
-        const storedProjects = await loadProjects();
+        const storedProjects =
+          await loadProjects();
 
         if (!mounted) {
           return;
@@ -113,7 +117,8 @@ export default function App() {
   const handleCreateProject = useCallback(
     async (name) => {
       try {
-        const project = await createProject(name);
+        const project =
+          await createProject(name);
 
         await refreshProjects();
 
@@ -132,36 +137,42 @@ export default function App() {
     [refreshProjects]
   );
 
-  const handleDeleteProject = useCallback(
-    async (projectId) => {
-      try {
-        await deleteProject(projectId);
+  const handleDeleteProject =
+    useCallback(
+      async (projectId) => {
+        try {
+          await deleteProject(projectId);
 
-        const remainingProjects =
-          await loadProjects();
+          const remainingProjects =
+            await loadProjects();
 
-        setProjects(remainingProjects);
+          setProjects(remainingProjects);
 
-        setActiveProjectId((currentId) => {
-          if (currentId !== projectId) {
-            return currentId;
+          setActiveProjectId((currentId) => {
+            if (currentId !== projectId) {
+              return currentId;
+            }
+
+            return (
+              remainingProjects[0]?.id ||
+              null
+            );
+          });
+
+          if (
+            remainingProjects.length === 0
+          ) {
+            setScreen('home');
           }
-
-          return remainingProjects[0]?.id || null;
-        });
-
-        if (remainingProjects.length === 0) {
-          setScreen('home');
+        } catch (error) {
+          console.error(
+            'Erreur suppression projet :',
+            error
+          );
         }
-      } catch (error) {
-        console.error(
-          'Erreur suppression projet :',
-          error
-        );
-      }
-    },
-    []
-  );
+      },
+      []
+    );
 
   const openProject = useCallback(
     (project) => {
@@ -215,30 +226,61 @@ export default function App() {
     setScreen('ai');
   }, []);
 
-  const handleProjectUpdated = useCallback(
-    async (updatedProject) => {
-      if (!updatedProject?.id) {
-        return;
-      }
+  const handleProjectUpdated =
+    useCallback(
+      async (updatedProject) => {
+        if (!updatedProject?.id) {
+          return;
+        }
 
-      await refreshProjects();
+        await refreshProjects();
 
-      setActiveProjectId(updatedProject.id);
-    },
-    [refreshProjects]
-  );
+        setActiveProjectId(
+          updatedProject.id
+        );
+      },
+      [refreshProjects]
+    );
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator
-          size="large"
-          color={COLORS.primary}
-        />
+      <SafeAreaView
+        style={[
+          styles.loadingContainer,
+          {
+            backgroundColor:
+              colors.background,
+          },
+        ]}
+      >
+        <View
+          style={[
+            styles.loadingGlass,
+            {
+              backgroundColor: colors.glass,
+              borderColor: colors.border,
+              borderRadius: radius.xl,
+              padding: spacing.lg,
+            },
+          ]}
+        >
+          <ActivityIndicator
+            size="large"
+            color={colors.primary}
+          />
 
-        <Text style={styles.loadingText}>
-          Chargement de GCODE...
-        </Text>
+          <Text
+            style={[
+              styles.loadingText,
+              {
+                color: colors.textSecondary,
+                marginTop: spacing.sm,
+              },
+            ]}
+          >
+            Chargement de GCODE...
+          </Text>
+        </View>
       </SafeAreaView>
     );
   }
@@ -253,9 +295,12 @@ export default function App() {
       <HomeScreen
         projects={projects}
         onOpenProject={openProject}
-        onCreateProject={handleCreateProject}
-        onDeleteProject={handleDeleteProject}
-
+        onCreateProject={
+          handleCreateProject
+        }
+        onDeleteProject={
+          handleDeleteProject
+        }
         onOpenProjects={goProjects}
         onOpenSettings={goSettings}
         onOpenCommands={goCommands}
@@ -274,8 +319,12 @@ export default function App() {
       <ProjectsScreen
         projects={projects}
         onOpenProject={openProject}
-        onCreateProject={handleCreateProject}
-        onDeleteProject={handleDeleteProject}
+        onCreateProject={
+          handleCreateProject
+        }
+        onDeleteProject={
+          handleDeleteProject
+        }
         onBack={goHome}
       />
     );
@@ -299,17 +348,16 @@ export default function App() {
         <WorkbenchScreen
           project={activeProject}
           projects={projects}
-
           onBack={goHome}
-
           onOpenProjects={goProjects}
           onOpenSettings={goSettings}
           onOpenTerminal={goTerminal}
           onOpenCommands={goCommands}
           onOpenAI={goAI}
-
           onOpenPreview={goPreview}
-          onProjectUpdated={handleProjectUpdated}
+          onProjectUpdated={
+            handleProjectUpdated
+          }
         />
       );
     }
@@ -372,7 +420,9 @@ export default function App() {
         project={activeProject}
         projects={projects}
         onBack={goHome}
-        onProjectUpdated={handleProjectUpdated}
+        onProjectUpdated={
+          handleProjectUpdated
+        }
       />
     );
   }
@@ -382,48 +432,172 @@ export default function App() {
    */
   if (screen === 'ai') {
     content = (
-      <SafeAreaView style={styles.aiContainer}>
-        <View style={styles.aiHeader}>
+      <SafeAreaView
+        style={[
+          styles.aiContainer,
+          {
+            backgroundColor:
+              colors.background,
+          },
+        ]}
+      >
+        <View
+          style={[
+            styles.aiHeader,
+            {
+              backgroundColor: colors.glass,
+              borderBottomColor:
+                colors.border,
+              paddingHorizontal:
+                spacing.sm,
+            },
+          ]}
+        >
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Retour"
             onPress={goHome}
-            style={styles.backButton}
+            hitSlop={6}
+            style={({ pressed }) => [
+              styles.backButton,
+              {
+                backgroundColor:
+                  colors.glassSoft,
+                borderColor:
+                  colors.border,
+                borderRadius:
+                  radius.pill,
+                opacity: pressed
+                  ? 0.68
+                  : 1,
+                transform: [
+                  {
+                    scale: pressed
+                      ? 0.94
+                      : 1,
+                  },
+                ],
+              },
+            ]}
           >
-            <Text style={styles.backButtonText}>
+            <Text
+              style={[
+                styles.backButtonText,
+                {
+                  color: colors.text,
+                },
+              ]}
+            >
               ‹
             </Text>
           </Pressable>
 
           <View>
-            <Text style={styles.aiTitle}>
+            <Text
+              style={[
+                styles.aiTitle,
+                {
+                  color: colors.text,
+                },
+              ]}
+            >
               GCODE AI
             </Text>
 
-            <Text style={styles.aiSubtitle}>
+            <Text
+              style={[
+                styles.aiSubtitle,
+                {
+                  color:
+                    colors.textSecondary,
+                },
+              ]}
+            >
               Assistant de développement
             </Text>
           </View>
         </View>
 
-        <View style={styles.aiCard}>
-          <Text style={styles.aiIcon}>
+        <View
+          style={[
+            styles.aiCard,
+            {
+              backgroundColor:
+                colors.glass,
+              borderColor:
+                colors.border,
+              borderRadius:
+                radius.xl,
+              margin: spacing.md,
+              padding: spacing.lg,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.aiIcon,
+              {
+                color: colors.primary,
+              },
+            ]}
+          >
             ✦
           </Text>
 
-          <Text style={styles.aiCardTitle}>
+          <Text
+            style={[
+              styles.aiCardTitle,
+              {
+                color: colors.text,
+              },
+            ]}
+          >
             GCODE AI
           </Text>
 
-          <Text style={styles.aiCardText}>
-            L'espace IA est prêt à être intégré
-            ultérieurement. Les fonctions principales
-            de GCODE restent entièrement utilisables
+          <Text
+            style={[
+              styles.aiCardText,
+              {
+                color:
+                  colors.textSecondary,
+                marginTop: spacing.sm,
+              },
+            ]}
+          >
+            L'espace IA est prêt à être
+            intégré ultérieurement. Les
+            fonctions principales de GCODE
+            restent entièrement utilisables
             sans API externe.
           </Text>
 
-          <View style={styles.aiStatus}>
-            <View style={styles.aiStatusDot} />
+          <View
+            style={[
+              styles.aiStatus,
+              {
+                marginTop: spacing.md,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.aiStatusDot,
+                {
+                  backgroundColor:
+                    colors.success,
+                },
+              ]}
+            />
 
-            <Text style={styles.aiStatusText}>
+            <Text
+              style={[
+                styles.aiStatusText,
+                {
+                  color: colors.success,
+                },
+              ]}
+            >
               Module prêt
             </Text>
           </View>
@@ -439,25 +613,55 @@ export default function App() {
     'settings',
   ].includes(screen);
 
+  let bottomActive = 'files';
+
+  if (screen === 'workbench') {
+    bottomActive = 'editor';
+  }
+
+  if (screen === 'settings') {
+    bottomActive = 'files';
+  }
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView
+      style={[
+        styles.container,
+        {
+          backgroundColor:
+            colors.background,
+        },
+      ]}
+    >
       <View style={styles.content}>
         {content}
       </View>
 
-      {showBottomNav && (
+      {showBottomNav ? (
         <BottomNav
-          activeTab={
-            screen === 'workbench'
-              ? 'editor'
-              : screen
-          }
-          onHome={goHome}
-          onProjects={goProjects}
-          onEditor={goWorkbench}
-          onSettings={goSettings}
+          active={bottomActive}
+          onChange={(id) => {
+            if (id === 'files') {
+              goProjects();
+              return;
+            }
+
+            if (id === 'editor') {
+              goWorkbench();
+              return;
+            }
+
+            if (id === 'preview') {
+              goPreview();
+              return;
+            }
+
+            if (id === 'terminal') {
+              goTerminal();
+            }
+          }}
         />
-      )}
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -468,32 +672,103 @@ function EmptyState({
   onPress,
   buttonText,
 }) {
+  const { theme } = useTheme();
+  const { colors, radius, spacing } = theme;
+
   return (
-    <SafeAreaView style={styles.emptyContainer}>
-      <Text style={styles.emptyTitle}>
-        {title}
-      </Text>
-
-      <Text style={styles.emptyMessage}>
-        {message}
-      </Text>
-
-      <Pressable
-        onPress={onPress}
-        style={styles.emptyButton}
+    <SafeAreaView
+      style={[
+        styles.emptyContainer,
+        {
+          backgroundColor:
+            colors.background,
+          padding: spacing.lg,
+        },
+      ]}
+    >
+      <View
+        style={[
+          styles.emptyGlass,
+          {
+            backgroundColor: colors.glass,
+            borderColor: colors.border,
+            borderRadius: radius.xl,
+            padding: spacing.lg,
+          },
+        ]}
       >
-        <Text style={styles.emptyButtonText}>
-          {buttonText}
+        <Text
+          style={[
+            styles.emptyTitle,
+            {
+              color: colors.text,
+            },
+          ]}
+        >
+          {title}
         </Text>
-      </Pressable>
+
+        <Text
+          style={[
+            styles.emptyMessage,
+            {
+              color: colors.textSecondary,
+              marginTop: spacing.sm,
+              marginBottom: spacing.md,
+            },
+          ]}
+        >
+          {message}
+        </Text>
+
+        <Pressable
+          accessibilityRole="button"
+          onPress={onPress}
+          hitSlop={4}
+          style={({ pressed }) => [
+            styles.emptyButton,
+            {
+              backgroundColor:
+                colors.primarySoft,
+              borderColor:
+                colors.primary,
+              borderRadius: radius.lg,
+              opacity: pressed ? 0.68 : 1,
+              transform: [
+                {
+                  scale: pressed ? 0.97 : 1,
+                },
+              ],
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.emptyButtonText,
+              {
+                color: colors.primary,
+              },
+            ]}
+          >
+            {buttonText}
+          </Text>
+        </Pressable>
+      </View>
     </SafeAreaView>
+  );
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <GcodeApp />
+    </ThemeProvider>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
   },
 
   content: {
@@ -504,141 +779,131 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.background,
+  },
+
+  loadingGlass: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth:
+      StyleSheet.hairlineWidth,
   },
 
   loadingText: {
-    marginTop: 14,
-    color: COLORS.muted,
     fontSize: 14,
+    fontWeight: '600',
   },
 
   emptyContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
-    backgroundColor: COLORS.background,
+  },
+
+  emptyGlass: {
+    width: '100%',
+    maxWidth: 420,
+    alignItems: 'center',
+    borderWidth:
+      StyleSheet.hairlineWidth,
   },
 
   emptyTitle: {
-    color: COLORS.text,
     fontSize: 22,
     fontWeight: '800',
     textAlign: 'center',
   },
 
   emptyMessage: {
-    color: COLORS.muted,
     fontSize: 14,
     lineHeight: 21,
     textAlign: 'center',
-    marginTop: 10,
-    marginBottom: 24,
   },
 
   emptyButton: {
     minHeight: 48,
     paddingHorizontal: 22,
-    borderRadius: 12,
-    backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth:
+      StyleSheet.hairlineWidth,
   },
 
   emptyButtonText: {
-    color: '#ffffff',
     fontSize: 14,
     fontWeight: '800',
   },
 
   aiContainer: {
     flex: 1,
-    backgroundColor: COLORS.background,
   },
 
   aiHeader: {
     minHeight: 76,
-    paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-    backgroundColor: COLORS.surface,
+    borderBottomWidth:
+      StyleSheet.hairlineWidth,
   },
 
   backButton: {
     width: 42,
     height: 42,
-    borderRadius: 12,
     marginRight: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#151a2c',
+    borderWidth:
+      StyleSheet.hairlineWidth,
   },
 
   backButtonText: {
-    color: COLORS.text,
     fontSize: 30,
     lineHeight: 32,
+    fontWeight: '300',
   },
 
   aiTitle: {
-    color: COLORS.text,
     fontSize: 18,
     fontWeight: '900',
   },
 
   aiSubtitle: {
-    color: COLORS.muted,
     fontSize: 12,
     marginTop: 2,
   },
 
   aiCard: {
-    margin: 20,
-    padding: 22,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.surface,
+    borderWidth:
+      StyleSheet.hairlineWidth,
   },
 
   aiIcon: {
-    color: COLORS.primary,
     fontSize: 32,
     marginBottom: 10,
   },
 
   aiCardTitle: {
-    color: COLORS.text,
     fontSize: 22,
     fontWeight: '900',
   },
 
   aiCardText: {
-    color: COLORS.muted,
     fontSize: 14,
     lineHeight: 22,
-    marginTop: 12,
   },
 
   aiStatus: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 22,
   },
 
   aiStatusDot: {
     width: 9,
     height: 9,
     borderRadius: 5,
-    backgroundColor: '#45d483',
     marginRight: 8,
   },
 
   aiStatusText: {
-    color: '#45d483',
     fontSize: 13,
     fontWeight: '700',
   },
