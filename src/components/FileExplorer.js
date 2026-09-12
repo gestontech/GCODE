@@ -87,16 +87,15 @@ export default function FileExplorer({
   onRenameFolder,
   onDeleteFolder,
 }) {
+  const { theme } = useTheme();
   const {
     colors,
     spacing,
     radius,
-  } = useTheme();
+  } = theme;
 
   const [expandedFolders, setExpandedFolders] =
-    useState(
-      new Set(['root'])
-    );
+    useState(new Set(['root']));
 
   const [menuVisible, setMenuVisible] =
     useState(false);
@@ -113,31 +112,20 @@ export default function FileExplorer({
       : [];
   }, [project?.folders]);
 
-  /*
-   * Ouvre/ferme un dossier.
-   */
   function toggleFolder(folderId) {
-    setExpandedFolders(
-      (previous) => {
-        const next =
-          new Set(previous);
+    setExpandedFolders((previous) => {
+      const next = new Set(previous);
 
-        if (
-          next.has(folderId)
-        ) {
-          next.delete(folderId);
-        } else {
-          next.add(folderId);
-        }
-
-        return next;
+      if (next.has(folderId)) {
+        next.delete(folderId);
+      } else {
+        next.add(folderId);
       }
-    );
+
+      return next;
+    });
   }
 
-  /*
-   * Menu création.
-   */
   function requestCreateFile() {
     setMenuVisible(false);
     onCreateFile?.();
@@ -148,9 +136,6 @@ export default function FileExplorer({
     onCreateFolder?.();
   }
 
-  /*
-   * Actions fichier.
-   */
   function requestRenameFile(file) {
     if (!file) {
       return;
@@ -164,9 +149,7 @@ export default function FileExplorer({
       return;
     }
 
-    if (
-      file.name === 'index.html'
-    ) {
+    if (file.name === 'index.html') {
       Alert.alert(
         'Fichier protégé',
         'index.html est nécessaire au Preview de GCODE et ne peut pas être supprimé.',
@@ -198,12 +181,7 @@ export default function FileExplorer({
     );
   }
 
-  /*
-   * Actions dossier.
-   */
-  function requestRenameFolder(
-    folder
-  ) {
+  function requestRenameFolder(folder) {
     if (!folder) {
       return;
     }
@@ -211,9 +189,7 @@ export default function FileExplorer({
     onRenameFolder?.(folder);
   }
 
-  function requestDeleteFolder(
-    folder
-  ) {
+  function requestDeleteFolder(folder) {
     if (!folder) {
       return;
     }
@@ -230,17 +206,12 @@ export default function FileExplorer({
           text: 'Supprimer',
           style: 'destructive',
           onPress: () =>
-            onDeleteFolder?.(
-              folder
-            ),
+            onDeleteFolder?.(folder),
         },
       ]
     );
   }
 
-  /*
-   * Menu contextuel fichier.
-   */
   function showFileActions(file) {
     Alert.alert(
       file.name,
@@ -254,17 +225,13 @@ export default function FileExplorer({
         {
           text: 'Renommer',
           onPress: () =>
-            requestRenameFile(
-              file
-            ),
+            requestRenameFile(file),
         },
         {
           text: 'Supprimer',
           style: 'destructive',
           onPress: () =>
-            requestDeleteFile(
-              file
-            ),
+            requestDeleteFile(file),
         },
         {
           text: 'Annuler',
@@ -274,12 +241,7 @@ export default function FileExplorer({
     );
   }
 
-  /*
-   * Menu contextuel dossier.
-   */
-  function showFolderActions(
-    folder
-  ) {
+  function showFolderActions(folder) {
     Alert.alert(
       folder.name,
       'Choisissez une action',
@@ -287,24 +249,18 @@ export default function FileExplorer({
         {
           text: 'Ouvrir / Fermer',
           onPress: () =>
-            toggleFolder(
-              folder.id
-            ),
+            toggleFolder(folder.id),
         },
         {
           text: 'Renommer',
           onPress: () =>
-            requestRenameFolder(
-              folder
-            ),
+            requestRenameFolder(folder),
         },
         {
           text: 'Supprimer',
           style: 'destructive',
           onPress: () =>
-            requestDeleteFolder(
-              folder
-            ),
+            requestDeleteFolder(folder),
         },
         {
           text: 'Annuler',
@@ -314,12 +270,7 @@ export default function FileExplorer({
     );
   }
 
-  /*
-   * Récupère les fichiers d'un dossier.
-   */
-  function getFilesForFolder(
-    folderId
-  ) {
+  function getFilesForFolder(folderId) {
     return files.filter(
       (file) =>
         (file.folderId ||
@@ -328,12 +279,7 @@ export default function FileExplorer({
     );
   }
 
-  /*
-   * Récupère les sous-dossiers.
-   */
-  function getChildrenForFolder(
-    folderId
-  ) {
+  function getChildrenForFolder(folderId) {
     return folders.filter(
       (folder) =>
         (folder.parentId ||
@@ -341,69 +287,97 @@ export default function FileExplorer({
     );
   }
 
-  /*
-   * Rend un fichier.
-   */
-  function renderFile(
-    file,
-    depth = 0
-  ) {
+  function renderFile(file, depth = 0) {
     const isActive =
-      activeFile?.id ===
-      file.id;
+      activeFile?.id === file.id;
 
     return (
       <Pressable
         key={file.id}
+        accessibilityRole="button"
+        accessibilityLabel={`Ouvrir ${file.name}`}
         onPress={() =>
           onOpenFile?.(file)
         }
         onLongPress={() =>
           showFileActions(file)
         }
+        hitSlop={2}
         style={({ pressed }) => [
           styles.file,
           {
             paddingLeft:
-              14 +
+              10 +
               depth * 18,
+
             backgroundColor:
               isActive
-                ? colors.panel2
-                : 'transparent',
+                ? colors.primarySoft
+                : colors.glassSoft,
+
+            borderColor:
+              isActive
+                ? colors.primary
+                : colors.border,
+
+            borderRadius:
+              radius.md,
+
+            marginHorizontal: 6,
+            marginVertical: 2,
+
             opacity:
-              pressed ? 0.7 : 1,
+              pressed ? 0.65 : 1,
+
+            transform: [
+              {
+                scale:
+                  pressed ? 0.985 : 1,
+              },
+            ],
           },
         ]}
       >
-        <Text
+        <View
           style={[
-            styles.fileIcon,
+            styles.fileIconContainer,
             {
-              color: isActive
-                ? colors.blue
-                : colors.purple,
+              backgroundColor:
+                isActive
+                  ? colors.glassStrong
+                  : colors.glass,
+              borderColor:
+                colors.border,
+              borderRadius:
+                radius.sm,
             },
           ]}
         >
-          {getFileIcon(
-            file.name
-          )}
-        </Text>
+          <Text
+            style={[
+              styles.fileIcon,
+              {
+                color:
+                  isActive
+                    ? colors.primary
+                    : colors.accent,
+              },
+            ]}
+          >
+            {getFileIcon(file.name)}
+          </Text>
+        </View>
 
-        <View
-          style={
-            styles.fileInfo
-          }
-        >
+        <View style={styles.fileInfo}>
           <Text
             numberOfLines={1}
             style={[
               styles.fileName,
               {
-                color: isActive
-                  ? colors.text
-                  : colors.muted,
+                color:
+                  isActive
+                    ? colors.text
+                    : colors.textSecondary,
               },
             ]}
           >
@@ -416,90 +390,111 @@ export default function FileExplorer({
               styles.fileLanguage,
               {
                 color:
-                  colors.muted,
+                  colors.textMuted,
               },
             ]}
           >
-            {getLanguage(
-              file.name
-            )}
+            {getLanguage(file.name)}
           </Text>
         </View>
       </Pressable>
     );
   }
 
-  /*
-   * Rend récursivement un dossier.
-   */
-  function renderFolder(
-    folder,
-    depth = 0
-  ) {
+  function renderFolder(folder, depth = 0) {
     const folderId =
       folder.id;
 
     const expanded =
-      expandedFolders.has(
-        folderId
-      );
+      expandedFolders.has(folderId);
 
     const childFolders =
-      getChildrenForFolder(
-        folderId
-      );
+      getChildrenForFolder(folderId);
 
     const folderFiles =
-      getFilesForFolder(
-        folderId
-      );
+      getFilesForFolder(folderId);
 
     return (
-      <View
-        key={folderId}
-      >
+      <View key={folderId}>
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={
+            expanded
+              ? `Fermer ${folder.name}`
+              : `Ouvrir ${folder.name}`
+          }
           onPress={() =>
-            toggleFolder(
-              folderId
-            )
+            toggleFolder(folderId)
           }
           onLongPress={() =>
-            showFolderActions(
-              folder
-            )
+            showFolderActions(folder)
           }
+          hitSlop={2}
           style={({ pressed }) => [
             styles.folder,
             {
               paddingLeft:
                 8 +
                 depth * 18,
+
+              backgroundColor:
+                colors.glassSoft,
+
+              borderColor:
+                colors.border,
+
+              borderRadius:
+                radius.md,
+
+              marginHorizontal: 6,
+              marginVertical: 2,
+
               opacity:
-                pressed ? 0.7 : 1,
+                pressed ? 0.65 : 1,
+
+              transform: [
+                {
+                  scale:
+                    pressed ? 0.985 : 1,
+                },
+              ],
             },
           ]}
         >
-          <Text
+          <View
             style={[
-              styles.arrow,
+              styles.arrowContainer,
               {
-                color:
-                  colors.muted,
+                backgroundColor:
+                  colors.glass,
+                borderColor:
+                  colors.border,
+                borderRadius:
+                  radius.sm,
               },
             ]}
           >
-            {expanded
-              ? '⌄'
-              : '›'}
-          </Text>
+            <Text
+              style={[
+                styles.arrow,
+                {
+                  color:
+                    colors.textSecondary,
+                },
+              ]}
+            >
+              {expanded
+                ? '⌄'
+                : '›'}
+            </Text>
+          </View>
 
           <Text
             style={[
               styles.folderIcon,
               {
                 color:
-                  colors.purple,
+                  colors.accent,
               },
             ]}
           >
@@ -540,25 +535,36 @@ export default function FileExplorer({
                 )
             )}
 
-            {childFolders.length ===
-              0 &&
-              folderFiles.length ===
-                0 && (
-                <Text
+            {childFolders.length === 0 &&
+              folderFiles.length === 0 && (
+                <View
                   style={[
-                    styles.emptyFolder,
+                    styles.emptyFolderContainer,
                     {
-                      color:
-                        colors.muted,
-                      paddingLeft:
-                        36 +
-                        depth *
-                          18,
+                      marginLeft:
+                        34 +
+                        depth * 18,
+                      backgroundColor:
+                        colors.glassSoft,
+                      borderColor:
+                        colors.border,
+                      borderRadius:
+                        radius.sm,
                     },
                   ]}
                 >
-                  Dossier vide
-                </Text>
+                  <Text
+                    style={[
+                      styles.emptyFolder,
+                      {
+                        color:
+                          colors.textMuted,
+                      },
+                    ]}
+                  >
+                    Dossier vide
+                  </Text>
+                </View>
               )}
           </View>
         )}
@@ -566,9 +572,6 @@ export default function FileExplorer({
     );
   }
 
-  /*
-   * Fichiers racine.
-   */
   const rootFiles =
     files.filter(
       (file) =>
@@ -576,9 +579,6 @@ export default function FileExplorer({
         !file.parentId
     );
 
-  /*
-   * Dossiers racine.
-   */
   const rootFolders =
     folders.filter(
       (folder) =>
@@ -586,9 +586,7 @@ export default function FileExplorer({
     );
 
   const rootExpanded =
-    expandedFolders.has(
-      'root'
-    );
+    expandedFolders.has('root');
 
   return (
     <View
@@ -596,36 +594,65 @@ export default function FileExplorer({
         styles.container,
         {
           backgroundColor:
-            colors.panel,
+            colors.background,
         },
       ]}
     >
       {/* HEADER */}
+
       <View
         style={[
           styles.header,
           {
+            backgroundColor:
+              colors.glass,
+
             borderBottomColor:
               colors.border,
+
+            borderBottomWidth:
+              StyleSheet.hairlineWidth,
           },
         ]}
       >
-        <View
-          style={
-            styles.headerText
-          }
-        >
-          <Text
+        <View style={styles.headerText}>
+          <View
             style={[
-              styles.title,
+              styles.sectionBadge,
               {
-                color:
-                  colors.muted,
+                backgroundColor:
+                  colors.glassStrong,
+
+                borderColor:
+                  colors.border,
+
+                borderRadius:
+                  radius.pill,
               },
             ]}
           >
-            EXPLORATEUR
-          </Text>
+            <View
+              style={[
+                styles.statusDot,
+                {
+                  backgroundColor:
+                    colors.success,
+                },
+              ]}
+            />
+
+            <Text
+              style={[
+                styles.title,
+                {
+                  color:
+                    colors.textSecondary,
+                },
+              ]}
+            >
+              EXPLORATEUR
+            </Text>
+          </View>
 
           <Text
             numberOfLines={1}
@@ -637,27 +664,44 @@ export default function FileExplorer({
               },
             ]}
           >
-            {project?.name ||
-              'GCODE'}
+            {project?.name || 'GCODE'}
           </Text>
         </View>
 
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Créer un fichier ou un dossier"
           onPress={() =>
             setMenuVisible(
-              (value) =>
-                !value
+              (value) => !value
             )
           }
+          hitSlop={4}
           style={({ pressed }) => [
             styles.moreButton,
             {
               backgroundColor:
-                colors.panel2,
+                menuVisible
+                  ? colors.primarySoft
+                  : colors.glassStrong,
+
               borderColor:
-                colors.border,
+                menuVisible
+                  ? colors.primary
+                  : colors.border,
+
+              borderRadius:
+                radius.pill,
+
               opacity:
-                pressed ? 0.7 : 1,
+                pressed ? 0.65 : 1,
+
+              transform: [
+                {
+                  scale:
+                    pressed ? 0.92 : 1,
+                },
+              ],
             },
           ]}
         >
@@ -666,7 +710,9 @@ export default function FileExplorer({
               styles.moreText,
               {
                 color:
-                  colors.text,
+                  menuVisible
+                    ? colors.primary
+                    : colors.text,
               },
             ]}
           >
@@ -676,93 +722,186 @@ export default function FileExplorer({
       </View>
 
       {/* MENU */}
+
       {menuVisible && (
         <View
           style={[
             styles.actionMenu,
             {
               backgroundColor:
-                colors.panel2,
+                colors.glassStrong,
+
               borderColor:
-                colors.border,
+                colors.borderStrong,
+
               borderRadius:
-                radius.md,
+                radius.xl,
+
+              shadowColor:
+                colors.shadow,
             },
           ]}
         >
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Nouveau fichier"
             onPress={
               requestCreateFile
             }
-            style={
-              styles.menuItem
-            }
-          >
-            <Text
-              style={[
-                styles.menuIcon,
-                {
-                  color:
-                    colors.blue,
-                },
-              ]}
-            >
-              ＋
-            </Text>
+            style={({ pressed }) => [
+              styles.menuItem,
+              {
+                backgroundColor:
+                  pressed
+                    ? colors.primarySoft
+                    : colors.glassSoft,
 
-            <Text
+                borderRadius:
+                  radius.lg,
+
+                opacity:
+                  pressed ? 0.72 : 1,
+              },
+            ]}
+          >
+            <View
               style={[
-                styles.menuText,
+                styles.menuIconContainer,
                 {
-                  color:
-                    colors.text,
+                  backgroundColor:
+                    colors.primarySoft,
+
+                  borderColor:
+                    colors.border,
+
+                  borderRadius:
+                    radius.md,
                 },
               ]}
             >
-              Nouveau fichier
-            </Text>
+              <Text
+                style={[
+                  styles.menuIcon,
+                  {
+                    color:
+                      colors.primary,
+                  },
+                ]}
+              >
+                ＋
+              </Text>
+            </View>
+
+            <View>
+              <Text
+                style={[
+                  styles.menuText,
+                  {
+                    color:
+                      colors.text,
+                  },
+                ]}
+              >
+                Nouveau fichier
+              </Text>
+
+              <Text
+                style={[
+                  styles.menuHint,
+                  {
+                    color:
+                      colors.textMuted,
+                  },
+                ]}
+              >
+                Créer un fichier
+              </Text>
+            </View>
           </Pressable>
 
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Nouveau dossier"
             onPress={
               requestCreateFolder
             }
-            style={
-              styles.menuItem
-            }
-          >
-            <Text
-              style={[
-                styles.menuIcon,
-                {
-                  color:
-                    colors.purple,
-                },
-              ]}
-            >
-              □
-            </Text>
+            style={({ pressed }) => [
+              styles.menuItem,
+              {
+                backgroundColor:
+                  pressed
+                    ? colors.primarySoft
+                    : colors.glassSoft,
 
-            <Text
+                borderRadius:
+                  radius.lg,
+
+                opacity:
+                  pressed ? 0.72 : 1,
+              },
+            ]}
+          >
+            <View
               style={[
-                styles.menuText,
+                styles.menuIconContainer,
                 {
-                  color:
-                    colors.text,
+                  backgroundColor:
+                    colors.glass,
+
+                  borderColor:
+                    colors.border,
+
+                  borderRadius:
+                    radius.md,
                 },
               ]}
             >
-              Nouveau dossier
-            </Text>
+              <Text
+                style={[
+                  styles.menuIcon,
+                  {
+                    color:
+                      colors.accent,
+                  },
+                ]}
+              >
+                □
+              </Text>
+            </View>
+
+            <View>
+              <Text
+                style={[
+                  styles.menuText,
+                  {
+                    color:
+                      colors.text,
+                  },
+                ]}
+              >
+                Nouveau dossier
+              </Text>
+
+              <Text
+                style={[
+                  styles.menuHint,
+                  {
+                    color:
+                      colors.textMuted,
+                  },
+                ]}
+              >
+                Organiser le projet
+              </Text>
+            </View>
           </Pressable>
         </View>
       )}
 
       {/* ARBRE */}
+
       <ScrollView
-        showsVerticalScrollIndicator={
-          false
-        }
+        showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.content,
           {
@@ -772,34 +911,79 @@ export default function FileExplorer({
         ]}
       >
         {/* RACINE */}
+
         <Pressable
-          onPress={() =>
-            toggleFolder(
-              'root'
-            )
+          accessibilityRole="button"
+          accessibilityLabel={
+            rootExpanded
+              ? 'Fermer le projet'
+              : 'Ouvrir le projet'
           }
-          style={styles.rootFolder}
+          onPress={() =>
+            toggleFolder('root')
+          }
+          style={({ pressed }) => [
+            styles.rootFolder,
+            {
+              backgroundColor:
+                colors.glass,
+
+              borderColor:
+                colors.borderStrong,
+
+              borderRadius:
+                radius.lg,
+
+              marginHorizontal: 6,
+
+              opacity:
+                pressed ? 0.7 : 1,
+
+              transform: [
+                {
+                  scale:
+                    pressed ? 0.99 : 1,
+                },
+              ],
+            },
+          ]}
         >
-          <Text
+          <View
             style={[
-              styles.arrow,
+              styles.arrowContainer,
               {
-                color:
-                  colors.muted,
+                backgroundColor:
+                  colors.glassStrong,
+
+                borderColor:
+                  colors.border,
+
+                borderRadius:
+                  radius.sm,
               },
             ]}
           >
-            {rootExpanded
-              ? '⌄'
-              : '›'}
-          </Text>
+            <Text
+              style={[
+                styles.arrow,
+                {
+                  color:
+                    colors.textSecondary,
+                },
+              ]}
+            >
+              {rootExpanded
+                ? '⌄'
+                : '›'}
+            </Text>
+          </View>
 
           <Text
             style={[
               styles.folderIcon,
               {
                 color:
-                  colors.purple,
+                  colors.primary,
               },
             ]}
           >
@@ -808,18 +992,38 @@ export default function FileExplorer({
               : '□'}
           </Text>
 
-          <Text
-            numberOfLines={1}
-            style={[
-              styles.folderName,
-              {
-                color:
-                  colors.text,
-              },
-            ]}
-          >
-            projet
-          </Text>
+          <View style={styles.rootInfo}>
+            <Text
+              style={[
+                styles.folderName,
+                {
+                  color:
+                    colors.text,
+                },
+              ]}
+            >
+              projet
+            </Text>
+
+            <Text
+              style={[
+                styles.rootHint,
+                {
+                  color:
+                    colors.textMuted,
+                },
+              ]}
+            >
+              {files.length +
+                folders.length}{' '}
+              élément
+              {files.length +
+                folders.length !==
+              1
+                ? 's'
+                : ''}
+            </Text>
+          </View>
         </Pressable>
 
         {rootExpanded && (
@@ -840,15 +1044,51 @@ export default function FileExplorer({
                 )
             )}
 
-            {rootFolders.length ===
-              0 &&
-              rootFiles.length ===
-                0 && (
+            {rootFolders.length === 0 &&
+              rootFiles.length === 0 && (
                 <View
-                  style={
-                    styles.emptyContainer
-                  }
+                  style={[
+                    styles.emptyContainer,
+                    {
+                      backgroundColor:
+                        colors.glassSoft,
+
+                      borderColor:
+                        colors.border,
+
+                      borderRadius:
+                        radius.xl,
+                    },
+                  ]}
                 >
+                  <View
+                    style={[
+                      styles.emptyIcon,
+                      {
+                        backgroundColor:
+                          colors.glass,
+
+                        borderColor:
+                          colors.border,
+
+                        borderRadius:
+                          radius.pill,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.emptyIconText,
+                        {
+                          color:
+                            colors.primary,
+                        },
+                      ]}
+                    >
+                      ＋
+                    </Text>
+                  </View>
+
                   <Text
                     style={[
                       styles.emptyTitle,
@@ -866,13 +1106,13 @@ export default function FileExplorer({
                       styles.emptyText,
                       {
                         color:
-                          colors.muted,
+                          colors.textMuted,
                       },
                     ]}
                   >
-                    Utilise ⋮ pour
-                    créer un fichier
-                    ou un dossier.
+                    Utilise le bouton ⋮
+                    pour créer un
+                    fichier ou un dossier.
                   </Text>
                 </View>
               )}
@@ -881,34 +1121,54 @@ export default function FileExplorer({
       </ScrollView>
 
       {/* FOOTER */}
+
       <View
         style={[
           styles.footer,
           {
+            backgroundColor:
+              colors.glass,
+
             borderTopColor:
               colors.border,
           },
         ]}
       >
-        <Text
+        <View
           style={[
-            styles.footerText,
+            styles.footerPill,
             {
-              color:
-                colors.muted,
+              backgroundColor:
+                colors.glassSoft,
+
+              borderColor:
+                colors.border,
+
+              borderRadius:
+                radius.pill,
             },
           ]}
         >
-          {files.length} fichier
-          {files.length !== 1
-            ? 's'
-            : ''}
-          {' • '}
-          {folders.length} dossier
-          {folders.length !== 1
-            ? 's'
-            : ''}
-        </Text>
+          <Text
+            style={[
+              styles.footerText,
+              {
+                color:
+                  colors.textSecondary,
+              },
+            ]}
+          >
+            {files.length} fichier
+            {files.length !== 1
+              ? 's'
+              : ''}
+            {'  •  '}
+            {folders.length} dossier
+            {folders.length !== 1
+              ? 's'
+              : ''}
+          </Text>
+        </View>
       </View>
     </View>
   );
@@ -920,10 +1180,9 @@ const styles = StyleSheet.create({
   },
 
   header: {
-    minHeight: 70,
+    minHeight: 76,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    borderBottomWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -933,60 +1192,91 @@ const styles = StyleSheet.create({
     paddingRight: 10,
   },
 
+  sectionBadge: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 6,
+    marginRight: 6,
+  },
+
   title: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '900',
     letterSpacing: 0.9,
   },
 
   projectName: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '800',
-    marginTop: 4,
+    marginTop: 5,
   },
 
   moreButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    borderWidth: 1,
+    width: 42,
+    height: 42,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
   },
 
   moreText: {
-    fontSize: 22,
-    lineHeight: 22,
+    fontSize: 23,
+    lineHeight: 24,
     fontWeight: '900',
   },
 
   actionMenu: {
     position: 'absolute',
-    top: 62,
+    top: 68,
     right: 10,
     zIndex: 100,
-    elevation: 12,
-    minWidth: 190,
+    elevation: 16,
+    minWidth: 230,
     borderWidth: 1,
-    paddingVertical: 6,
+    padding: 7,
   },
 
   menuItem: {
-    minHeight: 46,
-    paddingHorizontal: 14,
+    minHeight: 58,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
     flexDirection: 'row',
     alignItems: 'center',
+    marginVertical: 2,
+  },
+
+  menuIconContainer: {
+    width: 38,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    marginRight: 10,
   },
 
   menuIcon: {
-    width: 28,
-    fontSize: 17,
+    fontSize: 19,
     fontWeight: '900',
   },
 
   menuText: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '800',
+  },
+
+  menuHint: {
+    fontSize: 9,
+    marginTop: 2,
+    fontWeight: '500',
   },
 
   content: {
@@ -994,61 +1284,91 @@ const styles = StyleSheet.create({
   },
 
   rootFolder: {
-    minHeight: 40,
+    minHeight: 52,
     paddingHorizontal: 8,
+    paddingVertical: 5,
     flexDirection: 'row',
     alignItems: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+
+  rootInfo: {
+    flex: 1,
+    marginLeft: 5,
+  },
+
+  rootHint: {
+    fontSize: 9,
+    marginTop: 2,
   },
 
   folder: {
-    minHeight: 38,
+    minHeight: 42,
     paddingRight: 8,
     flexDirection: 'row',
     alignItems: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+
+  arrowContainer: {
+    width: 23,
+    height: 23,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
   },
 
   arrow: {
-    width: 20,
-    textAlign: 'center',
     fontSize: 17,
+    lineHeight: 19,
+    textAlign: 'center',
   },
 
   folderIcon: {
-    width: 24,
+    width: 26,
     fontSize: 15,
     fontWeight: '900',
     textAlign: 'center',
+    marginLeft: 2,
   },
 
   folderName: {
     flex: 1,
     marginLeft: 5,
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '750',
   },
 
   file: {
-    minHeight: 42,
+    minHeight: 50,
     paddingRight: 8,
     flexDirection: 'row',
     alignItems: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+
+  fileIconContainer: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
   },
 
   fileIcon: {
-    width: 30,
     textAlign: 'center',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '900',
   },
 
   fileInfo: {
     flex: 1,
-    marginLeft: 3,
+    marginLeft: 7,
   },
 
   fileName: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '750',
   },
 
   fileLanguage: {
@@ -1056,36 +1376,69 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  emptyContainer: {
-    paddingHorizontal: 22,
-    paddingVertical: 30,
-  },
-
-  emptyTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-  },
-
-  emptyText: {
-    fontSize: 11,
-    marginTop: 5,
-    lineHeight: 17,
+  emptyFolderContainer: {
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    marginVertical: 2,
+    borderWidth: StyleSheet.hairlineWidth,
   },
 
   emptyFolder: {
-    fontSize: 10,
+    fontSize: 9,
     fontStyle: 'italic',
-    paddingVertical: 8,
+  },
+
+  emptyContainer: {
+    marginHorizontal: 10,
+    marginTop: 18,
+    paddingHorizontal: 22,
+    paddingVertical: 28,
+    alignItems: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+
+  emptyIcon: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    marginBottom: 12,
+  },
+
+  emptyIconText: {
+    fontSize: 22,
+    fontWeight: '500',
+  },
+
+  emptyTitle: {
+    fontSize: 14,
+    fontWeight: '850',
+  },
+
+  emptyText: {
+    fontSize: 10,
+    marginTop: 6,
+    lineHeight: 16,
+    textAlign: 'center',
   },
 
   footer: {
-    minHeight: 32,
-    borderTopWidth: 1,
+    minHeight: 38,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+
+  footerPill: {
     paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderWidth: StyleSheet.hairlineWidth,
   },
 
   footerText: {
     fontSize: 9,
+    fontWeight: '600',
   },
 });
