@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 
 import {
+  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -8,7 +9,6 @@ import {
   Text,
   TextInput,
   View,
-  Alert,
 } from 'react-native';
 
 import { useTheme } from '../theme/ThemeContext';
@@ -18,27 +18,20 @@ function QuickAction({
   title,
   description,
   onPress,
-  disabled = false,
 }) {
   const { colors } = useTheme();
 
   return (
     <Pressable
-      disabled={disabled}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={title}
-      accessibilityState={{ disabled }}
       style={({ pressed }) => [
         styles.quickAction,
         {
           backgroundColor: colors.panel,
           borderColor: colors.border,
-          opacity: disabled
-            ? 0.5
-            : pressed
-              ? 0.7
-              : 1,
+          opacity: pressed ? 0.7 : 1,
         },
       ]}
     >
@@ -85,6 +78,17 @@ function QuickAction({
           {description}
         </Text>
       </View>
+
+      <Text
+        style={[
+          styles.quickArrow,
+          {
+            color: colors.muted,
+          },
+        ]}
+      >
+        ›
+      </Text>
     </Pressable>
   );
 }
@@ -228,7 +232,8 @@ export default function HomeScreen({
       'Nouveau projet';
 
     if (
-      typeof onCreateProject !== 'function'
+      typeof onCreateProject !==
+      'function'
     ) {
       closeCreateModal();
       return;
@@ -265,23 +270,59 @@ export default function HomeScreen({
     }
   };
 
+  const requireProject = () => {
+    if (projects.length > 0) {
+      return projects[0];
+    }
+
+    Alert.alert(
+      'Aucun projet',
+      'Crée d’abord un projet pour utiliser cette fonction.'
+    );
+
+    return null;
+  };
+
+  const handleCommands = () => {
+    const project = requireProject();
+
+    if (!project) {
+      return;
+    }
+
+    if (typeof onOpenProject === 'function') {
+      onOpenProject(project);
+    }
+  };
+
+  const handleTerminal = () => {
+    const project = requireProject();
+
+    if (!project) {
+      return;
+    }
+
+    if (typeof onOpenProject === 'function') {
+      onOpenProject(project);
+    }
+  };
+
+  const handleGcodeAI = () => {
+    Alert.alert(
+      'GCODE AI',
+      'GCODE AI est bien intégré à l’accueil. Le moteur IA sera activé dans une prochaine version.'
+    );
+  };
+
   const handlePreview = () => {
     if (
-      typeof onOpenPreview !== 'function'
+      typeof onOpenPreview !==
+      'function'
     ) {
       return;
     }
 
-    if (!projects.length) {
-      Alert.alert(
-        'Aucun projet',
-        'Crée d’abord un projet pour utiliser le Preview.'
-      );
-
-      return;
-    }
-
-    const project = projects[0];
+    const project = requireProject();
 
     if (project) {
       onOpenPreview(project);
@@ -306,7 +347,7 @@ export default function HomeScreen({
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
-          <View>
+          <View style={styles.headerText}>
             <Text
               style={[
                 styles.brand,
@@ -326,7 +367,8 @@ export default function HomeScreen({
                 },
               ]}
             >
-              Votre environnement de développement mobile
+              Votre environnement de développement
+              mobile
             </Text>
           </View>
 
@@ -358,8 +400,10 @@ export default function HomeScreen({
           style={[
             styles.searchContainer,
             {
-              backgroundColor: colors.panel,
-              borderColor: colors.border,
+              backgroundColor:
+                colors.panel,
+              borderColor:
+                colors.border,
             },
           ]}
         >
@@ -557,21 +601,21 @@ export default function HomeScreen({
             icon="⌘"
             title="Commandes"
             description="Outils du projet"
-            disabled
+            onPress={handleCommands}
           />
 
           <QuickAction
             icon="AI"
             title="GCODE AI"
             description="Assistant intelligent"
-            disabled
+            onPress={handleGcodeAI}
           />
 
           <QuickAction
             icon="›_"
             title="Terminal"
             description="Console du projet"
-            disabled
+            onPress={handleTerminal}
           />
 
           <QuickAction
@@ -586,14 +630,18 @@ export default function HomeScreen({
           />
         </View>
 
-        <View
-          style={[
+        <Pressable
+          onPress={handleGcodeAI}
+          accessibilityRole="button"
+          accessibilityLabel="Ouvrir GCODE AI"
+          style={({ pressed }) => [
             styles.aiBanner,
             {
               backgroundColor:
                 colors.panel,
               borderColor:
                 colors.border,
+              opacity: pressed ? 0.75 : 1,
             },
           ]}
         >
@@ -662,7 +710,7 @@ export default function HomeScreen({
               Bientôt
             </Text>
           </View>
-        </View>
+        </Pressable>
 
         <Text
           style={[
@@ -680,7 +728,9 @@ export default function HomeScreen({
         visible={showCreateModal}
         transparent
         animationType="fade"
-        onRequestClose={closeCreateModal}
+        onRequestClose={
+          closeCreateModal
+        }
       >
         <View style={styles.modalOverlay}>
           <View
@@ -742,7 +792,9 @@ export default function HomeScreen({
               ]}
             />
 
-            <View style={styles.modalActions}>
+            <View
+              style={styles.modalActions}
+            >
               <Pressable
                 onPress={closeCreateModal}
                 style={({ pressed }) => [
@@ -760,7 +812,8 @@ export default function HomeScreen({
                   style={[
                     styles.modalCancelText,
                     {
-                      color: colors.text,
+                      color:
+                        colors.text,
                     },
                   ]}
                 >
@@ -769,7 +822,9 @@ export default function HomeScreen({
               </Pressable>
 
               <Pressable
-                onPress={handleCreateProject}
+                onPress={
+                  handleCreateProject
+                }
                 style={({ pressed }) => [
                   styles.modalCreate,
                   {
@@ -782,7 +837,9 @@ export default function HomeScreen({
                 ]}
               >
                 <Text
-                  style={styles.modalCreateText}
+                  style={
+                    styles.modalCreateText
+                  }
                 >
                   Créer
                 </Text>
@@ -813,6 +870,10 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
 
+  headerText: {
+    flex: 1,
+  },
+
   brand: {
     fontSize: 28,
     fontWeight: '900',
@@ -822,7 +883,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 12,
     marginTop: 4,
-    maxWidth: 270,
+    maxWidth: 280,
     lineHeight: 18,
   },
 
@@ -833,6 +894,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    marginLeft: 10,
   },
 
   versionText: {
@@ -1032,6 +1094,11 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
+  quickArrow: {
+    fontSize: 24,
+    marginLeft: 8,
+  },
+
   aiBanner: {
     minHeight: 76,
     borderRadius: 16,
@@ -1089,7 +1156,8 @@ const styles = StyleSheet.create({
 
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    backgroundColor:
+      'rgba(0, 0, 0, 0.65)',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
