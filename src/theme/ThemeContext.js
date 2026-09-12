@@ -10,39 +10,44 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import {
   themes,
-  spacing,
-  radius,
+  defaultTheme,
 } from './theme';
 
-const THEME_KEY = '@gcode_theme_v3';
+const THEME_STORAGE_KEY = '@gcode_theme';
 
-const ThemeContext = createContext(null);
+const ThemeContext = createContext({
+  theme: defaultTheme,
+  themeName: 'dark',
+  setTheme: () => {},
+  toggleTheme: () => {},
+  isDark: true,
+});
 
 export function ThemeProvider({ children }) {
-  const [mode, setMode] = useState('dark');
-  const [loaded, setLoaded] = useState(false);
+  const [themeName, setThemeName] = useState('dark');
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     let mounted = true;
 
     async function loadTheme() {
       try {
-        const saved = await AsyncStorage.getItem(THEME_KEY);
+        const savedTheme = await AsyncStorage.getItem(
+          THEME_STORAGE_KEY
+        );
 
         if (
           mounted &&
-          (saved === 'dark' || saved === 'light')
+          savedTheme &&
+          Object.prototype.hasOwnProperty.call(themes, savedTheme)
         ) {
-          setMode(saved);
+          setThemeName(savedTheme);
         }
       } catch (error) {
-        console.error(
-          'Erreur chargement thème:',
-          error
-        );
+        // Si le stockage échoue, GCODE conserve le thème par défaut.
       } finally {
         if (mounted) {
-          setLoaded(true);
+          setReady(true);
         }
       }
     }
@@ -54,47 +59,40 @@ export function ThemeProvider({ children }) {
     };
   }, []);
 
-  const changeTheme = async (nextMode) => {
-    if (
-      nextMode !== 'dark' &&
-      nextMode !== 'light'
-    ) {
+  const setTheme = async (nextTheme) => {
+    if (!Object.prototype.hasOwnProperty.call(themes, nextTheme)) {
       return;
     }
 
-    setMode(nextMode);
+    setThemeName(nextTheme);
 
     try {
       await AsyncStorage.setItem(
-        THEME_KEY,
-        nextMode
+        THEME_STORAGE_KEY,
+        nextTheme
       );
     } catch (error) {
-      console.error(
-        'Erreur sauvegarde thème:',
-        error
-      );
+      // Le changement visuel reste actif même si la sauvegarde échoue.
     }
   };
 
   const toggleTheme = () => {
-    changeTheme(
-      mode === 'dark'
-        ? 'light'
-        : 'dark'
-    );
+    setTheme(themeName === 'dark' ? 'light' : 'dark');
   };
 
-  const value = useMemo(() => ({
-    mode,
-    theme: themes[mode],
-    colors: themes[mode].colors,
-    spacing,
-    radius,
-    changeTheme,
-    toggleTheme,
-    loaded,
-  }), [mode, loaded]);
+  const theme = themes[themeName] || defaultTheme;
+
+  const value = useMemo(
+    () => ({
+      theme,
+      themeName,
+      setTheme,
+      toggleTheme,
+      isDark: themeName === 'dark',
+      ready,
+    }),
+    [theme, themeName, ready]
+  );
 
   return (
     <ThemeContext.Provider value={value}>
@@ -104,13 +102,7 @@ export function ThemeProvider({ children }) {
 }
 
 export function useTheme() {
-  const context = useContext(ThemeContext);
-
-  if (!context) {
-    throw new Error(
-      'useTheme doit être utilisé dans ThemeProvider'
-    );
-  }
-
-  return context;
+  return useContext(ThemeContext);
 }
+
+export default ThemeContext;
