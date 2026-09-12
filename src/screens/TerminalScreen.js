@@ -29,6 +29,78 @@ import {
   stopCommand as stopNativeCommand,
 } from '../../modules/gcode-terminal/src/GcodeTerminal';
 
+import {
+  ensureProjectDirectory,
+  getProjectDirectoryUri,
+  syncProjectToFilesystem,
+} from '../storage/projectFileSystem';
+
+function uriToPath(uri) {
+  if (!uri) {
+    return '';
+  }
+
+  let value = String(uri);
+
+  if (value.startsWith('file://')) {
+    value = value.slice('file://'.length);
+  }
+
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function normalizePath(path) {
+  if (!path) {
+    return '';
+  }
+
+  const parts = String(path)
+    .replace(/\\/g, '/')
+    .split('/');
+
+  const result = [];
+
+  for (const part of parts) {
+    if (!part || part === '.') {
+      continue;
+    }
+
+    if (part === '..') {
+      if (result.length > 0) {
+        result.pop();
+      }
+
+      continue;
+    }
+
+    result.push(part);
+  }
+
+  return '/' + result.join('/');
+}
+
+function resolveDirectoryPath(currentPath, target) {
+  if (!target || target === '.') {
+    return currentPath;
+  }
+
+  if (target === '/') {
+    return '/';
+  }
+
+  if (target.startsWith('/')) {
+    return normalizePath(target);
+  }
+
+  return normalizePath(
+    `${currentPath}/${target}`
+  );
+}
+
 export default function TerminalScreen({
   project,
   projects = [],
@@ -43,30 +115,41 @@ export default function TerminalScreen({
   const [currentProject, setCurrentProject] =
     useState(project || null);
 
-  const [input, setInput] = useState('');
+  const [input, setInput] =
+    useState('');
 
-  const [output, setOutput] = useState([
-    'GCODE Terminal V3',
-    'Terminal natif Android activé.',
-    'Tape "help" pour tester les commandes disponibles.',
-    '',
-  ]);
+  const [output, setOutput] =
+    useState([
+      'GCODE Terminal V3',
+      'Terminal natif Android activé.',
+      'Le terminal utilise maintenant le système de fichiers physique du projet.',
+      'Tape "help" pour tester les commandes disponibles.',
+      '',
+    ]);
 
-  const [history, setHistory] = useState([]);
+  const [history, setHistory] =
+    useState([]);
 
   const [historyIndex, setHistoryIndex] =
     useState(-1);
 
-  const [cwd, setCwd] = useState('');
+  const [cwd, setCwd] =
+    useState('');
+
+  const [projectRoot, setProjectRoot] =
+    useState('');
 
   const [running, setRunning] =
     useState(false);
 
   useEffect(() => {
-    if (project) {
-      setCurrentProject(project);
-      setCwd('');
+    if (!project) {
+      return;
     }
+
+    setCurrentProject(project);
+
+    initializeProjectFilesystem(project);
   }, [project]);
 
   useEffect(() => {
@@ -76,8 +159,53 @@ export default function TerminalScreen({
       });
     }, 50);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+    };
   }, [output]);
+
+  const initializeProjectFilesystem = async (
+    activeProject
+  ) => {
+    try {
+      if (!activeProject?.id) {
+        return;
+      }
+
+      const directory =
+        ensureProjectDirectory(
+          activeProject.id
+        );
+
+      syncProjectToFilesystem(
+        activeProject
+      );
+
+      const physicalPath =
+        uriToPath(
+          directory.uri
+        );
+
+      setProjectRoot(
+        physicalPath
+      );
+
+      setCwd(
+        physicalPath
+      );
+    } catch (error) {
+      console.error(
+        'Erreur filesystem GCODE:',
+        error
+      );
+
+      appendOutput([
+        'Filesystem error:',
+        error?.message ||
+          'Impossible d’initialiser le dossier du projet.',
+      ]);
+    }
+  };
 
   const getProject = async () => {
     if (currentProject) {
@@ -85,9 +213,16 @@ export default function TerminalScreen({
     }
 
     if (projects.length > 0) {
-      const firstProject = projects[0];
+      const firstProject =
+        projects[0];
 
-      setCurrentProject(firstProject);
+      setCurrentProject(
+        firstProject
+      );
+
+      await initializeProjectFilesystem(
+        firstProject
+      );
 
       return firstProject;
     }
@@ -99,7 +234,13 @@ export default function TerminalScreen({
       const firstProject =
         storedProjects[0];
 
-      setCurrentProject(firstProject);
+      setCurrentProject(
+        firstProject
+      );
+
+      await initializeProjectFilesystem(
+        firstProject
+      );
 
       return firstProject;
     }
@@ -115,14 +256,28 @@ export default function TerminalScreen({
 
     const updatedProject =
       storedProjects.find(
-        (item) => item.id === projectId
+        (item) =>
+          item.id === projectId
       );
 
     if (!updatedProject) {
       return null;
     }
 
-    setCurrentProject(updatedProject);
+    setCurrentProject(
+      updatedProject
+    );
+
+    try {
+      syncProjectToFilesystem(
+        updatedProject
+      );
+    } catch (error) {
+      console.error(
+        'Erreur synchronisation filesystem:',
+        error
+      );
+    }
 
     if (
       typeof onProjectUpdated ===
@@ -153,6 +308,21 @@ export default function TerminalScreen({
       activeProject.id,
       fileName,
       content
+    );
+
+    const directory =
+      ensureProjectDirectory(
+        activeProject.id
+      );
+
+    syncProjectToFilesystem(
+      {
+        ...activeProject,
+        files: {
+          ...(activeProject.files || {}),
+          [fileName]: content,
+        },
+      }
     );
 
     return updateProjectState(
@@ -228,11 +398,124 @@ export default function TerminalScreen({
         ? lines
         : [String(lines)];
 
-    setOutput((currentOutput) => [
-      ...currentOutput,
-      ...normalized,
-      '',
+    setOutput(
+      (currentOutput) => [
+        ...currentOutput,
+        ...normalized,
+        '',
+      ]
+    );
+  };
+
+  const executeNative = async (
+    command,
+    workingDirectory
+  ) => {
+    return executeNativeCommand(
+      command,
+      workingDirectory || undefined,
+      {
+        GCODE_PROJECT_ID:
+          String(
+            currentProject?.id || ''
+          ),
+
+        GCODE_PROJECT_NAME:
+          String(
+            currentProject?.name || ''
+          ),
+
+        GCODE_PROJECT_ROOT:
+          String(
+            projectRoot || ''
+          ),
+      }
+    );
+  };
+
+  const executeCdCommand = async (
+    trimmed,
+    activeProject
+  ) => {
+    const match =
+      trimmed.match(
+        /^cd(?:\s+(.+))?$/
+      );
+
+    if (!match) {
+      return false;
+    }
+
+    const target =
+      (match[1] || '').trim();
+
+    if (!target || target === '~') {
+      setCwd(projectRoot);
+
+      appendOutput([
+        `CWD: ${projectRoot}`,
+      ]);
+
+      return true;
+    }
+
+    if (
+      target === '..' &&
+      cwd === projectRoot
+    ) {
+      appendOutput([
+        'cd: impossible de sortir du dossier du projet.',
+      ]);
+
+      return true;
+    }
+
+    const nextPath =
+      resolveDirectoryPath(
+        cwd || projectRoot,
+        target
+      );
+
+    if (
+      !nextPath.startsWith(
+        projectRoot
+      )
+    ) {
+      appendOutput([
+        'cd: accès en dehors du dossier du projet refusé.',
+      ]);
+
+      return true;
+    }
+
+    const check =
+      await executeNativeCommand(
+        `test -d '${nextPath.replace(
+          /'/g,
+          "'\\''"
+        )}'`,
+        projectRoot,
+        {
+          GCODE_PROJECT_ROOT:
+            projectRoot,
+        }
+      );
+
+    if (!check.success) {
+      appendOutput([
+        `cd: dossier introuvable: ${target}`,
+      ]);
+
+      return true;
+    }
+
+    setCwd(nextPath);
+
+    appendOutput([
+      `CWD: ${nextPath}`,
     ]);
+
+    return true;
   };
 
   const executeCommand = async (
@@ -245,10 +528,12 @@ export default function TerminalScreen({
       return;
     }
 
-    setHistory((currentHistory) => [
-      ...currentHistory,
-      trimmed,
-    ]);
+    setHistory(
+      (currentHistory) => [
+        ...currentHistory,
+        trimmed,
+      ]
+    );
 
     setHistoryIndex(-1);
 
@@ -265,44 +550,50 @@ export default function TerminalScreen({
       return;
     }
 
+    if (!projectRoot) {
+      await initializeProjectFilesystem(
+        activeProject
+      );
+    }
+
     setRunning(true);
 
-    setOutput((currentOutput) => [
-      ...currentOutput,
-      `> ${trimmed}`,
-    ]);
+    setOutput(
+      (currentOutput) => [
+        ...currentOutput,
+        `> ${trimmed}`,
+      ]
+    );
 
     try {
       /*
-       * Le moteur natif Android exécute
-       * réellement la commande dans le
-       * processus système disponible dans
-       * le sandbox de GCODE.
-       *
-       * Pour le moment, cwd vide signifie
-       * que le moteur utilise son répertoire
-       * de travail applicatif par défaut.
-       *
-       * Nous connecterons ensuite ce chemin
-       * physique au système de fichiers réel
-       * des projets GCODE.
+       * cd est géré par GCODE afin que le
+       * répertoire courant reste persistant
+       * entre deux commandes.
        */
-
-      const result =
-        await executeNativeCommand(
+      if (
+        /^cd(?:\s+.*)?$/.test(
+          trimmed
+        )
+      ) {
+        await executeCdCommand(
           trimmed,
-          cwd || undefined,
-          {
-            GCODE_PROJECT_ID:
-              String(
-                activeProject.id || ''
-              ),
+          activeProject
+        );
 
-            GCODE_PROJECT_NAME:
-              String(
-                activeProject.name || ''
-              ),
-          }
+        return;
+      }
+
+      /*
+       * Toutes les autres commandes sont
+       * exécutées réellement par le shell
+       * Android dans le dossier physique
+       * du projet.
+       */
+      const result =
+        await executeNative(
+          trimmed,
+          cwd || projectRoot
         );
 
       const stdout =
@@ -323,23 +614,21 @@ export default function TerminalScreen({
           ? result.exitCode
           : -1;
 
-      const nextCwd =
-        typeof result?.cwd ===
-        'string'
-          ? result.cwd
-          : cwd;
-
-      setCwd(nextCwd);
-
       if (stdout) {
         appendOutput(
-          stdout.replace(/\n$/, '')
+          stdout.replace(
+            /\n$/,
+            ''
+          )
         );
       }
 
       if (stderr) {
         appendOutput(
-          stderr.replace(/\n$/, '')
+          stderr.replace(
+            /\n$/,
+            ''
+          )
         );
       }
 
@@ -348,10 +637,12 @@ export default function TerminalScreen({
       ]);
 
       /*
-       * Une commande native réussie peut
-       * modifier ultérieurement les fichiers
-       * physiques du projet. On recharge donc
-       * l'état du projet après exécution.
+       * Le terminal peut avoir créé/modifié
+       * des fichiers physiques.
+       *
+       * On recharge ensuite les métadonnées
+       * du projet pour conserver la cohérence
+       * de GCODE.
        */
       if (activeProject.id) {
         await updateProjectState(
@@ -384,7 +675,8 @@ export default function TerminalScreen({
       return;
     }
 
-    const command = input;
+    const command =
+      input;
 
     setInput('');
 
@@ -475,6 +767,13 @@ export default function TerminalScreen({
     setOutput([
       'GCODE Terminal V3',
       'Terminal natif Android.',
+      `Projet : ${
+        currentProject?.name ||
+        'Aucun projet'
+      }`,
+      `CWD : ${
+        cwd || projectRoot || '/'
+      }`,
       '',
     ]);
   };
@@ -535,7 +834,9 @@ export default function TerminalScreen({
         </Pressable>
 
         <View
-          style={styles.headerCenter}
+          style={
+            styles.headerCenter
+          }
         >
           <Text
             style={[
@@ -565,7 +866,9 @@ export default function TerminalScreen({
 
         {running ? (
           <Pressable
-            onPress={handleStop}
+            onPress={
+              handleStop
+            }
             style={[
               styles.stopButton,
               {
@@ -590,7 +893,9 @@ export default function TerminalScreen({
           </Pressable>
         ) : (
           <Pressable
-            onPress={handleClear}
+            onPress={
+              handleClear
+            }
             style={[
               styles.clearButton,
               {
@@ -616,6 +921,43 @@ export default function TerminalScreen({
         )}
       </View>
 
+      <View
+        style={[
+          styles.cwdBar,
+          {
+            backgroundColor:
+              colors.panel,
+            borderBottomColor:
+              colors.border,
+          },
+        ]}
+      >
+        <Text
+          style={[
+            styles.cwdLabel,
+            {
+              color:
+                colors.muted,
+            },
+          ]}
+        >
+          CWD
+        </Text>
+
+        <Text
+          style={[
+            styles.cwdText,
+            {
+              color:
+                colors.editorText,
+            },
+          ]}
+          numberOfLines={1}
+        >
+          {cwd || projectRoot || '/'}
+        </Text>
+      </View>
+
       <ScrollView
         ref={scrollRef}
         style={[
@@ -632,19 +974,28 @@ export default function TerminalScreen({
       >
         {output.map(
           (line, index) => {
+            const lower =
+              line.toLowerCase();
+
             const isCommand =
               line.startsWith('> ');
 
             const isError =
-              line
-                .toLowerCase()
-                .includes('error') ||
-              line
-                .toLowerCase()
-                .includes('not found') ||
-              line
-                .toLowerCase()
-                .includes('permission denied');
+              lower.includes(
+                'error'
+              ) ||
+              lower.includes(
+                'not found'
+              ) ||
+              lower.includes(
+                'permission denied'
+              ) ||
+              lower.includes(
+                'introuvable'
+              ) ||
+              lower.includes(
+                'refusé'
+              );
 
             const isExit =
               line.startsWith(
@@ -783,14 +1134,11 @@ export default function TerminalScreen({
             onPress={
               handleSubmit
             }
-            style={({ pressed }) => [
+            style={[
               styles.sendButton,
               {
                 backgroundColor:
                   colors.purple,
-                opacity: pressed
-                  ? 0.7
-                  : 1,
               },
             ]}
           >
@@ -799,7 +1147,7 @@ export default function TerminalScreen({
                 styles.sendButtonText
               }
             >
-              ›
+              →
             </Text>
           </Pressable>
         )}
@@ -808,133 +1156,160 @@ export default function TerminalScreen({
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+const styles =
+  StyleSheet.create({
+    container: {
+      flex: 1,
+    },
 
-  header: {
-    minHeight: 64,
-    paddingHorizontal: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-  },
+    header: {
+      minHeight: 64,
+      paddingHorizontal: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderBottomWidth: 1,
+    },
 
-  backButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 11,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+    backButton: {
+      width: 42,
+      height: 42,
+      borderRadius: 12,
+      borderWidth: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
 
-  backText: {
-    fontSize: 30,
-    lineHeight: 32,
-  },
+    backText: {
+      fontSize: 32,
+      lineHeight: 34,
+      fontWeight: '400',
+    },
 
-  headerCenter: {
-    flex: 1,
-    paddingHorizontal: 12,
-  },
+    headerCenter: {
+      flex: 1,
+      marginHorizontal: 12,
+    },
 
-  title: {
-    fontSize: 17,
-    fontWeight: '900',
-  },
+    title: {
+      fontSize: 17,
+      fontWeight: '800',
+    },
 
-  project: {
-    fontSize: 10,
-    marginTop: 3,
-  },
+    project: {
+      marginTop: 2,
+      fontSize: 11,
+      fontWeight: '600',
+    },
 
-  clearButton: {
-    minWidth: 58,
-    height: 36,
-    paddingHorizontal: 10,
-    borderRadius: 9,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+    clearButton: {
+      minWidth: 62,
+      height: 38,
+      paddingHorizontal: 12,
+      borderRadius: 10,
+      borderWidth: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
 
-  clearText: {
-    fontSize: 10,
-    fontWeight: '700',
-  },
+    clearText: {
+      fontSize: 12,
+      fontWeight: '800',
+    },
 
-  stopButton: {
-    minWidth: 58,
-    height: 36,
-    paddingHorizontal: 10,
-    borderRadius: 9,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+    stopButton: {
+      minWidth: 62,
+      height: 38,
+      paddingHorizontal: 12,
+      borderRadius: 10,
+      borderWidth: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
 
-  stopText: {
-    fontSize: 10,
-    fontWeight: '800',
-  },
+    stopText: {
+      fontSize: 12,
+      fontWeight: '800',
+    },
 
-  output: {
-    flex: 1,
-  },
+    cwdBar: {
+      minHeight: 32,
+      paddingHorizontal: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderBottomWidth: 1,
+    },
 
-  outputContent: {
-    padding: 14,
-    paddingBottom: 30,
-  },
+    cwdLabel: {
+      fontSize: 10,
+      fontWeight: '900',
+      marginRight: 8,
+    },
 
-  outputLine: {
-    fontFamily:
-      Platform.OS === 'ios'
-        ? 'Menlo'
-        : 'monospace',
-    fontSize: 12,
-    lineHeight: 20,
-  },
+    cwdText: {
+      flex: 1,
+      fontSize: 11,
+      fontFamily:
+        Platform.OS === 'ios'
+          ? 'Menlo'
+          : 'monospace',
+    },
 
-  inputBar: {
-    minHeight: 58,
-    paddingHorizontal: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderTopWidth: 1,
-  },
+    output: {
+      flex: 1,
+    },
 
-  prompt: {
-    fontFamily: 'monospace',
-    fontSize: 17,
-    fontWeight: '900',
-    marginRight: 7,
-  },
+    outputContent: {
+      padding: 14,
+      paddingBottom: 24,
+    },
 
-  input: {
-    flex: 1,
-    minHeight: 42,
-    fontFamily:
-      Platform.OS === 'ios'
-        ? 'Menlo'
-        : 'monospace',
-    fontSize: 12,
-    paddingHorizontal: 8,
-  },
+    outputLine: {
+      fontSize: 13,
+      lineHeight: 20,
+      fontFamily:
+        Platform.OS === 'ios'
+          ? 'Menlo'
+          : 'monospace',
+    },
 
-  sendButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+    inputBar: {
+      minHeight: 62,
+      paddingHorizontal: 10,
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderTopWidth: 1,
+    },
 
-  sendButtonText: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: '900',
-  },
-});
+    prompt: {
+      width: 24,
+      fontSize: 17,
+      fontWeight: '900',
+      textAlign: 'center',
+    },
+
+    input: {
+      flex: 1,
+      minHeight: 44,
+      paddingHorizontal: 8,
+      paddingVertical: 8,
+      fontSize: 13,
+      fontFamily:
+        Platform.OS === 'ios'
+          ? 'Menlo'
+          : 'monospace',
+    },
+
+    sendButton: {
+      width: 44,
+      height: 44,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    sendButtonText: {
+      color: '#FFFFFF',
+      fontSize: 18,
+      fontWeight: '900',
+    },
+  });
