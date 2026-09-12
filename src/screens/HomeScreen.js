@@ -1,4 +1,5 @@
 import React from 'react';
+
 import {
   View,
   Text,
@@ -7,37 +8,97 @@ import {
   ScrollView,
   Image,
 } from 'react-native';
+
 import { useTheme } from '../theme/ThemeContext';
 
 export default function HomeScreen({
   projects = [],
   onCreateProject,
   onOpenProject,
+  onNavigate,
+  onOpenPreview,
 }) {
-  const { colors, spacing, radius } = useTheme();
+  const {
+    colors,
+    spacing,
+    radius,
+  } = useTheme();
 
-  const recentProjects = projects.slice(0, 5);
+  const recentProjects =
+    projects.slice(0, 5);
 
-  const getProjectName = (project) => {
-    return project?.name || project?.title || 'Projet sans nom';
-  };
+  const getProjectName = (project) =>
+    project?.name ||
+    project?.title ||
+    'Projet sans nom';
 
-  const getProjectDescription = (project) => {
-    return project?.description || 'Projet GCODE';
-  };
+  const getProjectDescription = (
+    project
+  ) =>
+    project?.description ||
+    'Projet GCODE';
 
   const getProjectDate = (project) => {
-    if (!project?.updatedAt && !project?.createdAt) {
+    if (
+      !project?.updatedAt &&
+      !project?.createdAt
+    ) {
       return 'Projet récent';
     }
 
-    const date = new Date(project.updatedAt || project.createdAt);
+    const date = new Date(
+      project.updatedAt ||
+        project.createdAt
+    );
 
-    if (Number.isNaN(date.getTime())) {
+    if (
+      Number.isNaN(date.getTime())
+    ) {
       return 'Projet récent';
     }
 
     return `Modifié le ${date.toLocaleDateString()}`;
+  };
+
+  const handlePreview = () => {
+    if (
+      typeof onOpenPreview ===
+      'function' &&
+      projects.length > 0
+    ) {
+      /*
+       * Le Preview travaille sur le projet
+       * actuellement ouvert dans App.js.
+       *
+       * Depuis l'accueil, on ouvre donc le
+       * dernier projet disponible.
+       */
+      const project =
+        projects[0];
+
+      if (
+        project &&
+        typeof onOpenProject ===
+          'function'
+      ) {
+        onOpenProject(project);
+
+        /*
+         * App.js change l'écran vers
+         * Workbench. Le Preview sera
+         * accessible depuis le Workbench.
+         */
+      }
+    }
+  };
+
+  const handleViewAll = () => {
+    if (
+      typeof onNavigate ===
+      'function'
+    ) {
+      onNavigate('projects');
+    }
   };
 
   return (
@@ -45,25 +106,36 @@ export default function HomeScreen({
       style={[
         styles.container,
         {
-          backgroundColor: colors.background,
+          backgroundColor:
+            colors.background,
         },
       ]}
     >
       <ScrollView
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={
+          false
+        }
         contentContainerStyle={[
           styles.content,
           {
-            paddingHorizontal: spacing.md,
-            paddingBottom: spacing.xxl,
+            paddingHorizontal:
+              spacing.md,
+            paddingBottom:
+              spacing.xxl,
           },
         ]}
       >
         {/* HEADER */}
         <View style={styles.header}>
-          <View style={styles.brandContainer}>
+          <View
+            style={
+              styles.brandContainer
+            }
+          >
             <Image
-              source={require('../../assets/gcode-icon-new.png')}
+              source={require(
+                '../../assets/gcode-icon-new.png'
+              )}
               style={styles.logo}
               resizeMode="contain"
             />
@@ -73,7 +145,8 @@ export default function HomeScreen({
                 style={[
                   styles.brand,
                   {
-                    color: colors.textStrong,
+                    color:
+                      colors.textStrong,
                   },
                 ]}
               >
@@ -84,7 +157,8 @@ export default function HomeScreen({
                 style={[
                   styles.version,
                   {
-                    color: colors.muted,
+                    color:
+                      colors.muted,
                   },
                 ]}
               >
@@ -97,8 +171,10 @@ export default function HomeScreen({
             style={[
               styles.status,
               {
-                backgroundColor: colors.panel2,
-                borderColor: colors.border,
+                backgroundColor:
+                  colors.panel2,
+                borderColor:
+                  colors.border,
               },
             ]}
           >
@@ -106,7 +182,8 @@ export default function HomeScreen({
               style={[
                 styles.statusDot,
                 {
-                  backgroundColor: colors.green,
+                  backgroundColor:
+                    colors.green,
                 },
               ]}
             />
@@ -115,7 +192,8 @@ export default function HomeScreen({
               style={[
                 styles.statusText,
                 {
-                  color: colors.muted,
+                  color:
+                    colors.muted,
                 },
               ]}
             >
@@ -130,7 +208,8 @@ export default function HomeScreen({
             style={[
               styles.greeting,
               {
-                color: colors.muted,
+                color:
+                  colors.muted,
               },
             ]}
           >
@@ -141,13 +220,19 @@ export default function HomeScreen({
             style={[
               styles.title,
               {
-                color: colors.textStrong,
+                color:
+                  colors.textStrong,
               },
             ]}
           >
             Crée quelque chose
             {'\n'}
-            <Text style={{ color: colors.purple }}>
+            <Text
+              style={{
+                color:
+                  colors.purple,
+              }}
+            >
               d’exception.
             </Text>
           </Text>
@@ -156,11 +241,13 @@ export default function HomeScreen({
             style={[
               styles.subtitle,
               {
-                color: colors.muted,
+                color:
+                  colors.muted,
               },
             ]}
           >
-            Ton environnement de développement
+            Ton environnement de
+            développement
             {'\n'}
             directement dans ta poche.
           </Text>
@@ -168,56 +255,101 @@ export default function HomeScreen({
 
         {/* CREATE PROJECT */}
         <Pressable
-          onPress={onCreateProject}
+          onPress={
+            onCreateProject
+          }
+          accessibilityRole="button"
+          accessibilityLabel="Créer un nouveau projet"
           style={({ pressed }) => [
             styles.createCard,
             {
-              backgroundColor: colors.purple,
-              borderRadius: radius.lg,
-              opacity: pressed ? 0.88 : 1,
+              backgroundColor:
+                colors.purple,
+              borderRadius:
+                radius.lg,
+              opacity: pressed
+                ? 0.88
+                : 1,
               transform: [
                 {
-                  scale: pressed ? 0.985 : 1,
+                  scale: pressed
+                    ? 0.985
+                    : 1,
                 },
               ],
             },
           ]}
         >
-          <View style={styles.createContent}>
+          <View
+            style={
+              styles.createContent
+            }
+          >
             <View
               style={[
                 styles.createIcon,
                 {
-                  backgroundColor: 'rgba(255,255,255,0.16)',
+                  backgroundColor:
+                    'rgba(255,255,255,0.16)',
                 },
               ]}
             >
-              <Text style={styles.plus}>+</Text>
+              <Text
+                style={styles.plus}
+              >
+                +
+              </Text>
             </View>
 
-            <View style={styles.createTextContainer}>
-              <Text style={styles.createTitle}>
+            <View
+              style={
+                styles.createTextContainer
+              }
+            >
+              <Text
+                style={
+                  styles.createTitle
+                }
+              >
                 Nouveau projet
               </Text>
 
-              <Text style={styles.createSubtitle}>
-                Commencer un nouveau projet
+              <Text
+                style={
+                  styles.createSubtitle
+                }
+              >
+                Commencer un nouveau
+                projet
               </Text>
             </View>
           </View>
 
-          <View style={styles.arrowContainer}>
-            <Text style={styles.arrow}>›</Text>
+          <View
+            style={
+              styles.arrowContainer
+            }
+          >
+            <Text
+              style={styles.arrow}
+            >
+              ›
+            </Text>
           </View>
         </Pressable>
 
         {/* QUICK ACTIONS */}
-        <View style={styles.sectionHeader}>
+        <View
+          style={
+            styles.sectionHeader
+          }
+        >
           <Text
             style={[
               styles.sectionTitle,
               {
-                color: colors.textStrong,
+                color:
+                  colors.textStrong,
               },
             ]}
           >
@@ -225,11 +357,16 @@ export default function HomeScreen({
           </Text>
         </View>
 
-        <View style={styles.quickGrid}>
+        <View
+          style={
+            styles.quickGrid
+          }
+        >
           <QuickAction
             icon="⌘"
             title="Commandes"
-            subtitle="Palette"
+            subtitle="Bientôt"
+            disabled
             colors={colors}
             radius={radius}
           />
@@ -237,7 +374,8 @@ export default function HomeScreen({
           <QuickAction
             icon="AI"
             title="GCODE AI"
-            subtitle="Assistant"
+            subtitle="Bientôt"
+            disabled
             colors={colors}
             radius={radius}
           />
@@ -245,7 +383,8 @@ export default function HomeScreen({
           <QuickAction
             icon="▶"
             title="Terminal"
-            subtitle="Console"
+            subtitle="Bientôt"
+            disabled
             colors={colors}
             radius={radius}
           />
@@ -253,19 +392,34 @@ export default function HomeScreen({
           <QuickAction
             icon="◈"
             title="Preview"
-            subtitle="Aperçu"
+            subtitle={
+              projects.length > 0
+                ? 'Ouvrir'
+                : 'Aucun projet'
+            }
+            disabled={
+              projects.length === 0
+            }
+            onPress={
+              handlePreview
+            }
             colors={colors}
             radius={radius}
           />
         </View>
 
         {/* RECENT PROJECTS */}
-        <View style={styles.sectionHeader}>
+        <View
+          style={
+            styles.sectionHeader
+          }
+        >
           <Text
             style={[
               styles.sectionTitle,
               {
-                color: colors.textStrong,
+                color:
+                  colors.textStrong,
               },
             ]}
           >
@@ -273,27 +427,41 @@ export default function HomeScreen({
           </Text>
 
           {projects.length > 0 && (
-            <Text
-              style={[
-                styles.viewAll,
-                {
-                  color: colors.purple,
-                },
-              ]}
+            <Pressable
+              onPress={
+                handleViewAll
+              }
+              accessibilityRole="button"
+              accessibilityLabel="Voir tous les projets"
+              hitSlop={10}
             >
-              Voir tout
-            </Text>
+              <Text
+                style={[
+                  styles.viewAll,
+                  {
+                    color:
+                      colors.purple,
+                  },
+                ]}
+              >
+                Voir tout
+              </Text>
+            </Pressable>
           )}
         </View>
 
-        {recentProjects.length === 0 ? (
+        {recentProjects.length ===
+        0 ? (
           <View
             style={[
               styles.emptyCard,
               {
-                backgroundColor: colors.panel,
-                borderColor: colors.border,
-                borderRadius: radius.lg,
+                backgroundColor:
+                  colors.panel,
+                borderColor:
+                  colors.border,
+                borderRadius:
+                  radius.lg,
               },
             ]}
           >
@@ -301,7 +469,8 @@ export default function HomeScreen({
               style={[
                 styles.emptyIcon,
                 {
-                  backgroundColor: colors.panel2,
+                  backgroundColor:
+                    colors.panel2,
                 },
               ]}
             >
@@ -309,7 +478,8 @@ export default function HomeScreen({
                 style={[
                   styles.emptyIconText,
                   {
-                    color: colors.purple,
+                    color:
+                      colors.purple,
                   },
                 ]}
               >
@@ -321,33 +491,47 @@ export default function HomeScreen({
               style={[
                 styles.emptyTitle,
                 {
-                  color: colors.textStrong,
+                  color:
+                    colors.textStrong,
                 },
               ]}
             >
-              Aucun projet pour le moment
+              Aucun projet pour le
+              moment
             </Text>
 
             <Text
               style={[
                 styles.emptyDescription,
                 {
-                  color: colors.muted,
+                  color:
+                    colors.muted,
                 },
               ]}
             >
-              Crée ton premier projet pour commencer
-              à coder avec GCODE.
+              Crée ton premier projet
+              pour commencer à coder
+              avec GCODE.
             </Text>
 
             <Pressable
-              onPress={onCreateProject}
-              style={({ pressed }) => [
+              onPress={
+                onCreateProject
+              }
+              accessibilityRole="button"
+              accessibilityLabel="Créer un projet"
+              style={({
+                pressed,
+              }) => [
                 styles.emptyButton,
                 {
-                  backgroundColor: colors.panel2,
-                  borderColor: colors.border,
-                  opacity: pressed ? 0.75 : 1,
+                  backgroundColor:
+                    colors.panel2,
+                  borderColor:
+                    colors.border,
+                  opacity: pressed
+                    ? 0.75
+                    : 1,
                 },
               ]}
             >
@@ -355,7 +539,8 @@ export default function HomeScreen({
                 style={[
                   styles.emptyButtonText,
                   {
-                    color: colors.purple,
+                    color:
+                      colors.purple,
                   },
                 ]}
               >
@@ -364,90 +549,133 @@ export default function HomeScreen({
             </Pressable>
           </View>
         ) : (
-          <View style={styles.projectsList}>
-            {recentProjects.map((project, index) => (
-              <Pressable
-                key={project.id || `${getProjectName(project)}-${index}`}
-                onPress={() => onOpenProject?.(project)}
-                style={({ pressed }) => [
-                  styles.projectCard,
-                  {
-                    backgroundColor: colors.panel,
-                    borderColor: colors.border,
-                    borderRadius: radius.md,
-                    opacity: pressed ? 0.78 : 1,
-                  },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.projectIcon,
+          <View
+            style={
+              styles.projectsList
+            }
+          >
+            {recentProjects.map(
+              (project, index) => (
+                <Pressable
+                  key={
+                    project.id ||
+                    `${getProjectName(
+                      project
+                    )}-${index}`
+                  }
+                  onPress={() =>
+                    onOpenProject?.(
+                      project
+                    )
+                  }
+                  accessibilityRole="button"
+                  accessibilityLabel={`Ouvrir ${getProjectName(
+                    project
+                  )}`}
+                  style={({
+                    pressed,
+                  }) => [
+                    styles.projectCard,
                     {
-                      backgroundColor: colors.panel2,
+                      backgroundColor:
+                        colors.panel,
+                      borderColor:
+                        colors.border,
+                      borderRadius:
+                        radius.md,
+                      opacity:
+                        pressed
+                          ? 0.78
+                          : 1,
                     },
                   ]}
                 >
-                  <Text
+                  <View
                     style={[
-                      styles.projectIconText,
+                      styles.projectIcon,
                       {
-                        color: colors.purple,
+                        backgroundColor:
+                          colors.panel2,
                       },
                     ]}
                   >
-                    {'</>'}
-                  </Text>
-                </View>
+                    <Text
+                      style={[
+                        styles.projectIconText,
+                        {
+                          color:
+                            colors.purple,
+                        },
+                      ]}
+                    >
+                      {'</>'}
+                    </Text>
+                  </View>
 
-                <View style={styles.projectInfo}>
+                  <View
+                    style={
+                      styles.projectInfo
+                    }
+                  >
+                    <Text
+                      numberOfLines={1}
+                      style={[
+                        styles.projectName,
+                        {
+                          color:
+                            colors.textStrong,
+                        },
+                      ]}
+                    >
+                      {getProjectName(
+                        project
+                      )}
+                    </Text>
+
+                    <Text
+                      numberOfLines={1}
+                      style={[
+                        styles.projectDescription,
+                        {
+                          color:
+                            colors.muted,
+                        },
+                      ]}
+                    >
+                      {getProjectDescription(
+                        project
+                      )}
+                    </Text>
+
+                    <Text
+                      style={[
+                        styles.projectDate,
+                        {
+                          color:
+                            colors.muted2,
+                        },
+                      ]}
+                    >
+                      {getProjectDate(
+                        project
+                      )}
+                    </Text>
+                  </View>
+
                   <Text
-                    numberOfLines={1}
                     style={[
-                      styles.projectName,
+                      styles.projectArrow,
                       {
-                        color: colors.textStrong,
+                        color:
+                          colors.muted,
                       },
                     ]}
                   >
-                    {getProjectName(project)}
+                    ›
                   </Text>
-
-                  <Text
-                    numberOfLines={1}
-                    style={[
-                      styles.projectDescription,
-                      {
-                        color: colors.muted,
-                      },
-                    ]}
-                  >
-                    {getProjectDescription(project)}
-                  </Text>
-
-                  <Text
-                    style={[
-                      styles.projectDate,
-                      {
-                        color: colors.muted2,
-                      },
-                    ]}
-                  >
-                    {getProjectDate(project)}
-                  </Text>
-                </View>
-
-                <Text
-                  style={[
-                    styles.projectArrow,
-                    {
-                      color: colors.muted,
-                    },
-                  ]}
-                >
-                  ›
-                </Text>
-              </Pressable>
-            ))}
+                </Pressable>
+              )
+            )}
           </View>
         )}
 
@@ -456,9 +684,12 @@ export default function HomeScreen({
           style={[
             styles.aiCard,
             {
-              backgroundColor: colors.panel,
-              borderColor: colors.border,
-              borderRadius: radius.lg,
+              backgroundColor:
+                colors.panel,
+              borderColor:
+                colors.border,
+              borderRadius:
+                radius.lg,
             },
           ]}
         >
@@ -466,7 +697,8 @@ export default function HomeScreen({
             style={[
               styles.aiIcon,
               {
-                backgroundColor: colors.panel2,
+                backgroundColor:
+                  colors.panel2,
               },
             ]}
           >
@@ -474,7 +706,8 @@ export default function HomeScreen({
               style={[
                 styles.aiIconText,
                 {
-                  color: colors.purple,
+                  color:
+                    colors.purple,
                 },
               ]}
             >
@@ -482,12 +715,15 @@ export default function HomeScreen({
             </Text>
           </View>
 
-          <View style={styles.aiContent}>
+          <View
+            style={styles.aiContent}
+          >
             <Text
               style={[
                 styles.aiTitle,
                 {
-                  color: colors.textStrong,
+                  color:
+                    colors.textStrong,
                 },
               ]}
             >
@@ -498,34 +734,51 @@ export default function HomeScreen({
               style={[
                 styles.aiDescription,
                 {
-                  color: colors.muted,
+                  color:
+                    colors.muted,
                 },
               ]}
             >
-              Décris ton idée. GCODE peut t’aider
-              à construire ton projet.
+              Assistant IA optionnel.
+              Cette fonction sera
+              activée dans une prochaine
+              version.
             </Text>
           </View>
 
-          <Text
+          <View
             style={[
-              styles.aiArrow,
+              styles.comingBadge,
               {
-                color: colors.purple,
+                backgroundColor:
+                  colors.panel2,
               },
             ]}
           >
-            ›
-          </Text>
+            <Text
+              style={[
+                styles.comingBadgeText,
+                {
+                  color:
+                    colors.muted,
+                },
+              ]}
+            >
+              Bientôt
+            </Text>
+          </View>
         </View>
 
         {/* FOOTER */}
-        <View style={styles.footer}>
+        <View
+          style={styles.footer}
+        >
           <Text
             style={[
               styles.footerText,
               {
-                color: colors.muted2,
+                color:
+                  colors.muted2,
               },
             ]}
           >
@@ -536,7 +789,8 @@ export default function HomeScreen({
             style={[
               styles.footerDot,
               {
-                color: colors.borderStrong,
+                color:
+                  colors.borderStrong,
               },
             ]}
           >
@@ -547,7 +801,8 @@ export default function HomeScreen({
             style={[
               styles.footerText,
               {
-                color: colors.muted2,
+                color:
+                  colors.muted2,
               },
             ]}
           >
@@ -563,18 +818,34 @@ function QuickAction({
   icon,
   title,
   subtitle,
+  disabled = false,
+  onPress,
   colors,
   radius,
 }) {
   return (
     <Pressable
+      disabled={disabled}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${title} — ${subtitle}`}
+      accessibilityState={{
+        disabled,
+      }}
       style={({ pressed }) => [
         styles.quickCard,
         {
-          backgroundColor: colors.panel,
-          borderColor: colors.border,
-          borderRadius: radius.md,
-          opacity: pressed ? 0.75 : 1,
+          backgroundColor:
+            colors.panel,
+          borderColor:
+            colors.border,
+          borderRadius:
+            radius.md,
+          opacity: disabled
+            ? 0.48
+            : pressed
+              ? 0.75
+              : 1,
         },
       ]}
     >
@@ -582,7 +853,8 @@ function QuickAction({
         style={[
           styles.quickIcon,
           {
-            backgroundColor: colors.panel2,
+            backgroundColor:
+              colors.panel2,
           },
         ]}
       >
@@ -590,7 +862,8 @@ function QuickAction({
           style={[
             styles.quickIconText,
             {
-              color: colors.purple,
+              color:
+                colors.purple,
             },
           ]}
         >
@@ -602,7 +875,8 @@ function QuickAction({
         style={[
           styles.quickTitle,
           {
-            color: colors.textStrong,
+            color:
+              colors.textStrong,
           },
         ]}
       >
@@ -613,7 +887,10 @@ function QuickAction({
         style={[
           styles.quickSubtitle,
           {
-            color: colors.muted,
+            color:
+              disabled
+                ? colors.muted2
+                : colors.muted,
           },
         ]}
       >
@@ -635,7 +912,8 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent:
+      'space-between',
     marginBottom: 34,
   },
 
@@ -714,7 +992,8 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent:
+      'space-between',
     marginBottom: 30,
   },
 
@@ -747,153 +1026,109 @@ const styles = StyleSheet.create({
   createTitle: {
     color: '#FFFFFF',
     fontSize: 17,
-    fontWeight: '700',
-    marginBottom: 4,
+    fontWeight: '800',
   },
 
   createSubtitle: {
-    color: 'rgba(255,255,255,0.72)',
+    color:
+      'rgba(255,255,255,0.72)',
     fontSize: 12,
-    lineHeight: 17,
+    marginTop: 4,
   },
 
   arrowContainer: {
-    width: 34,
-    height: 34,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor:
+      'rgba(255,255,255,0.12)',
   },
 
   arrow: {
     color: '#FFFFFF',
     fontSize: 28,
     fontWeight: '300',
+    marginTop: -3,
   },
 
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent:
+      'space-between',
     marginBottom: 13,
   },
 
   sectionTitle: {
     fontSize: 17,
-    fontWeight: '700',
-    letterSpacing: -0.2,
+    fontWeight: '800',
   },
 
   viewAll: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 
   quickGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    justifyContent:
+      'space-between',
     marginBottom: 30,
   },
 
   quickCard: {
-    width: '48.3%',
-    minHeight: 116,
-    padding: 14,
+    width: '48.2%',
+    minHeight: 132,
     borderWidth: 1,
-    marginBottom: 10,
+    padding: 14,
+    marginBottom: 12,
   },
 
   quickIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+    width: 38,
+    height: 38,
+    borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 11,
+    marginBottom: 12,
   },
 
   quickIconText: {
-    fontSize: 13,
+    fontSize: 17,
     fontWeight: '800',
   },
 
   quickTitle: {
     fontSize: 14,
-    fontWeight: '700',
-    marginBottom: 3,
-  },
-
-  quickSubtitle: {
-    fontSize: 11,
-  },
-
-  emptyCard: {
-    borderWidth: 1,
-    paddingHorizontal: 22,
-    paddingVertical: 28,
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-
-  emptyIcon: {
-    width: 58,
-    height: 58,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 15,
-  },
-
-  emptyIconText: {
-    fontSize: 17,
     fontWeight: '800',
   },
 
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 7,
-    textAlign: 'center',
-  },
-
-  emptyDescription: {
-    maxWidth: 290,
-    fontSize: 12,
-    lineHeight: 18,
-    textAlign: 'center',
-    marginBottom: 18,
-  },
-
-  emptyButton: {
-    borderWidth: 1,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 10,
-  },
-
-  emptyButtonText: {
-    fontSize: 12,
-    fontWeight: '700',
+  quickSubtitle: {
+    marginTop: 4,
+    fontSize: 11,
+    fontWeight: '600',
   },
 
   projectsList: {
-    marginBottom: 20,
+    marginBottom: 30,
   },
 
   projectCard: {
     minHeight: 82,
+    borderWidth: 1,
+    padding: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 13,
-    paddingVertical: 12,
-    borderWidth: 1,
-    marginBottom: 9,
+    marginBottom: 10,
   },
 
   projectIcon: {
     width: 48,
     height: 48,
-    borderRadius: 14,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -906,51 +1141,97 @@ const styles = StyleSheet.create({
 
   projectInfo: {
     flex: 1,
-    minWidth: 0,
   },
 
   projectName: {
     fontSize: 14,
-    fontWeight: '700',
-    marginBottom: 3,
+    fontWeight: '800',
   },
 
   projectDescription: {
     fontSize: 11,
-    marginBottom: 4,
+    marginTop: 4,
   },
 
   projectDate: {
     fontSize: 9,
-  },
-
-  projectArrow: {
-    fontSize: 25,
-    fontWeight: '300',
-    marginLeft: 8,
-  },
-
-  aiCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 15,
-    borderWidth: 1,
     marginTop: 5,
   },
 
+  projectArrow: {
+    fontSize: 26,
+    marginLeft: 8,
+  },
+
+  emptyCard: {
+    borderWidth: 1,
+    padding: 24,
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+
+  emptyIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 15,
+  },
+
+  emptyIconText: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+
+  emptyDescription: {
+    marginTop: 8,
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
+    maxWidth: 280,
+  },
+
+  emptyButton: {
+    marginTop: 18,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 11,
+  },
+
+  emptyButtonText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+
+  aiCard: {
+    minHeight: 96,
+    borderWidth: 1,
+    padding: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 28,
+  },
+
   aiIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 15,
+    width: 46,
+    height: 46,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
 
   aiIconText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '900',
-    letterSpacing: 0.5,
   },
 
   aiContent: {
@@ -959,35 +1240,42 @@ const styles = StyleSheet.create({
 
   aiTitle: {
     fontSize: 14,
-    fontWeight: '700',
-    marginBottom: 4,
+    fontWeight: '800',
   },
 
   aiDescription: {
+    marginTop: 5,
     fontSize: 11,
-    lineHeight: 16,
+    lineHeight: 17,
   },
 
-  aiArrow: {
-    fontSize: 25,
+  comingBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
     marginLeft: 8,
+  },
+
+  comingBadgeText: {
+    fontSize: 9,
+    fontWeight: '700',
   },
 
   footer: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 30,
+    justifyContent: 'center',
+    marginTop: 4,
   },
 
   footerText: {
     fontSize: 9,
     fontWeight: '600',
-    letterSpacing: 0.7,
+    letterSpacing: 0.5,
   },
 
   footerDot: {
-    marginHorizontal: 7,
+    marginHorizontal: 8,
     fontSize: 10,
   },
 });
