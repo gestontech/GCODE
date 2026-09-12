@@ -78,12 +78,52 @@ const COMMANDS = [
   },
 ];
 
+function GlassAction({
+  children,
+  onPress,
+  colors,
+  radius,
+  primary = false,
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      style={({ pressed }) => [
+        styles.actionButton,
+        {
+          backgroundColor: primary
+            ? colors.primarySoft
+            : colors.glassStrong,
+          borderColor: primary
+            ? colors.primary
+            : colors.border,
+          borderRadius: radius.xl,
+          opacity: pressed ? 0.68 : 1,
+          transform: [
+            {
+              scale: pressed ? 0.97 : 1,
+            },
+          ],
+        },
+      ]}
+    >
+      {children}
+    </Pressable>
+  );
+}
+
 export default function CommandsScreen({
   onBack,
   onOpenTerminal,
   onOpenProject,
 }) {
-  const { colors } = useTheme();
+  const { theme } = useTheme();
+
+  const {
+    colors,
+    radius,
+  } = theme;
 
   return (
     <View
@@ -95,12 +135,14 @@ export default function CommandsScreen({
         },
       ]}
     >
+      {/* HEADER */}
+
       <View
         style={[
           styles.header,
           {
             backgroundColor:
-              colors.backgroundElevated,
+              colors.glassStrong,
             borderBottomColor:
               colors.border,
           },
@@ -108,13 +150,26 @@ export default function CommandsScreen({
       >
         <Pressable
           onPress={onBack}
-          style={[
+          accessibilityRole="button"
+          style={({ pressed }) => [
             styles.backButton,
             {
               backgroundColor:
-                colors.panel2,
+                colors.glass,
               borderColor:
                 colors.border,
+              borderRadius:
+                radius.pill,
+              opacity: pressed
+                ? 0.65
+                : 1,
+              transform: [
+                {
+                  scale: pressed
+                    ? 0.94
+                    : 1,
+                },
+              ],
             },
           ]}
         >
@@ -122,7 +177,8 @@ export default function CommandsScreen({
             style={[
               styles.backText,
               {
-                color: colors.text,
+                color:
+                  colors.text,
               },
             ]}
           >
@@ -130,12 +186,15 @@ export default function CommandsScreen({
           </Text>
         </Pressable>
 
-        <View style={styles.headerContent}>
+        <View
+          style={styles.headerContent}
+        >
           <Text
             style={[
               styles.title,
               {
-                color: colors.textStrong,
+                color:
+                  colors.text,
               },
             ]}
           >
@@ -146,48 +205,132 @@ export default function CommandsScreen({
             style={[
               styles.subtitle,
               {
-                color: colors.muted,
+                color:
+                  colors.textSecondary,
               },
             ]}
           >
-            Outils GCODE pour gérer tes projets
+            Outils GCODE pour gérer tes
+            projets
           </Text>
         </View>
-      </View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={
-          styles.content
-        }
-      >
         <View
           style={[
-            styles.infoCard,
+            styles.commandBadge,
             {
               backgroundColor:
-                colors.panel,
+                colors.primarySoft,
               borderColor:
                 colors.border,
+              borderRadius:
+                radius.pill,
             },
           ]}
         >
           <Text
             style={[
-              styles.infoTitle,
+              styles.commandBadgeText,
               {
-                color: colors.text,
+                color:
+                  colors.primary,
               },
             ]}
           >
-            Commandes disponibles
+            {COMMANDS.length}
           </Text>
+        </View>
+      </View>
+
+      <ScrollView
+        showsVerticalScrollIndicator={
+          false
+        }
+        contentContainerStyle={
+          styles.content
+        }
+      >
+        {/* INTRO */}
+
+        <View
+          style={[
+            styles.infoCard,
+            {
+              backgroundColor:
+                colors.glass,
+              borderColor:
+                colors.border,
+              borderRadius:
+                radius.xl,
+            },
+          ]}
+        >
+          <View
+            style={styles.infoHeader}
+          >
+            <View
+              style={[
+                styles.infoIcon,
+                {
+                  backgroundColor:
+                    colors.primarySoft,
+                  borderColor:
+                    colors.border,
+                  borderRadius:
+                    radius.lg,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.infoIconText,
+                  {
+                    color:
+                      colors.primary,
+                  },
+                ]}
+              >
+                $
+              </Text>
+            </View>
+
+            <View
+              style={
+                styles.infoHeaderText
+              }
+            >
+              <Text
+                style={[
+                  styles.infoTitle,
+                  {
+                    color:
+                      colors.text,
+                  },
+                ]}
+              >
+                Commandes disponibles
+              </Text>
+
+              <Text
+                style={[
+                  styles.infoCaption,
+                  {
+                    color:
+                      colors.textSecondary,
+                  },
+                ]}
+              >
+                Terminal GCODE V3
+              </Text>
+            </View>
+          </View>
 
           <Text
             style={[
               styles.infoText,
               {
-                color: colors.muted,
+                color:
+                  colors.textSecondary,
               },
             ]}
           >
@@ -199,197 +342,374 @@ export default function CommandsScreen({
           </Text>
         </View>
 
-        {COMMANDS.map((item) => (
-          <View
-            key={item.command}
-            style={[
-              styles.commandCard,
-              {
-                backgroundColor:
-                  colors.panel,
-                borderColor:
-                  colors.border,
-              },
-            ]}
-          >
-            <Text
+        {/* COMMANDES */}
+
+        {COMMANDS.map(
+          (item, index) => (
+            <View
+              key={item.command}
               style={[
-                styles.command,
+                styles.commandCard,
                 {
-                  color: colors.purple,
+                  backgroundColor:
+                    colors.glass,
+                  borderColor:
+                    colors.border,
+                  borderRadius:
+                    radius.xl,
                 },
               ]}
             >
-              {item.command}
+              <View
+                style={
+                  styles.commandRow
+                }
+              >
+                <View
+                  style={[
+                    styles.numberBadge,
+                    {
+                      backgroundColor:
+                        colors.glassSoft,
+                      borderColor:
+                        colors.border,
+                      borderRadius:
+                        radius.pill,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.numberText,
+                      {
+                        color:
+                          colors.textMuted,
+                      },
+                    ]}
+                  >
+                    {String(
+                      index + 1
+                    ).padStart(2, '0')}
+                  </Text>
+                </View>
+
+                <View
+                  style={
+                    styles.commandBody
+                  }
+                >
+                  <View
+                    style={
+                      styles.commandLine
+                    }
+                  >
+                    <Text
+                      style={[
+                        styles.command,
+                        {
+                          color:
+                            colors.primary,
+                        },
+                      ]}
+                    >
+                      {item.command}
+                    </Text>
+                  </View>
+
+                  <Text
+                    style={[
+                      styles.description,
+                      {
+                        color:
+                          colors.textSecondary,
+                      },
+                    ]}
+                  >
+                    {item.description}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )
+        )}
+
+        {/* ACTIONS */}
+
+        <View
+          style={styles.actions}
+        >
+          <GlassAction
+            onPress={
+              onOpenTerminal
+            }
+            colors={colors}
+            radius={radius}
+            primary
+          >
+            <Text
+              style={[
+                styles.primaryButtonText,
+                {
+                  color:
+                    colors.primary,
+                },
+              ]}
+            >
+              Ouvrir le Terminal
             </Text>
 
             <Text
               style={[
-                styles.description,
+                styles.actionArrow,
                 {
-                  color: colors.muted,
+                  color:
+                    colors.primary,
                 },
               ]}
             >
-              {item.description}
+              →
             </Text>
-          </View>
-        ))}
+          </GlassAction>
 
-        <Pressable
-          onPress={onOpenTerminal}
-          style={({ pressed }) => [
-            styles.primaryButton,
-            {
-              backgroundColor:
-                colors.purple,
-              opacity: pressed ? 0.75 : 1,
-            },
-          ]}
-        >
-          <Text style={styles.primaryButtonText}>
-            Ouvrir le Terminal
-          </Text>
-        </Pressable>
-
-        <Pressable
-          onPress={onOpenProject}
-          style={({ pressed }) => [
-            styles.secondaryButton,
-            {
-              backgroundColor:
-                colors.panel2,
-              borderColor:
-                colors.border,
-              opacity: pressed ? 0.7 : 1,
-            },
-          ]}
-        >
-          <Text
-            style={[
-              styles.secondaryButtonText,
-              {
-                color: colors.text,
-              },
-            ]}
+          <GlassAction
+            onPress={
+              onOpenProject
+            }
+            colors={colors}
+            radius={radius}
           >
-            Ouvrir un projet
-          </Text>
-        </Pressable>
+            <Text
+              style={[
+                styles.secondaryButtonText,
+                {
+                  color:
+                    colors.text,
+                },
+              ]}
+            >
+              Ouvrir un projet
+            </Text>
+
+            <Text
+              style={[
+                styles.actionArrow,
+                {
+                  color:
+                    colors.textSecondary,
+                },
+              ]}
+            >
+              →
+            </Text>
+          </GlassAction>
+        </View>
       </ScrollView>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+const styles =
+  StyleSheet.create({
+    container: {
+      flex: 1,
+    },
 
-  header: {
-    minHeight: 66,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-  },
+    header: {
+      minHeight: 70,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderBottomWidth:
+        StyleSheet.hairlineWidth,
+    },
 
-  backButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 11,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+    backButton: {
+      width: 42,
+      height: 42,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth:
+        StyleSheet.hairlineWidth,
+    },
 
-  backText: {
-    fontSize: 30,
-    lineHeight: 32,
-  },
+    backText: {
+      fontSize: 31,
+      lineHeight: 34,
+      fontWeight: '400',
+    },
 
-  headerContent: {
-    flex: 1,
-    marginLeft: 12,
-  },
+    headerContent: {
+      flex: 1,
+      minWidth: 0,
+      marginLeft: 12,
+      marginRight: 8,
+    },
 
-  title: {
-    fontSize: 18,
-    fontWeight: '900',
-  },
+    title: {
+      fontSize: 18,
+      fontWeight: '900',
+    },
 
-  subtitle: {
-    fontSize: 11,
-    marginTop: 3,
-  },
+    subtitle: {
+      fontSize: 10,
+      marginTop: 3,
+      fontWeight: '600',
+    },
 
-  content: {
-    padding: 16,
-    paddingBottom: 32,
-  },
+    commandBadge: {
+      minWidth: 34,
+      height: 34,
+      paddingHorizontal: 9,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth:
+        StyleSheet.hairlineWidth,
+    },
 
-  infoCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 16,
-    marginBottom: 12,
-  },
+    commandBadgeText: {
+      fontSize: 11,
+      fontWeight: '900',
+    },
 
-  infoTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    marginBottom: 7,
-  },
+    content: {
+      padding: 12,
+      paddingBottom: 32,
+    },
 
-  infoText: {
-    fontSize: 12,
-    lineHeight: 18,
-  },
+    infoCard: {
+      padding: 15,
+      marginBottom: 10,
+      borderWidth:
+        StyleSheet.hairlineWidth,
+      elevation: 3,
+    },
 
-  commandCard: {
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 14,
-    marginBottom: 8,
-  },
+    infoHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
 
-  command: {
-    fontFamily: 'monospace',
-    fontSize: 13,
-    fontWeight: '800',
-  },
+    infoIcon: {
+      width: 42,
+      height: 42,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth:
+        StyleSheet.hairlineWidth,
+    },
 
-  description: {
-    fontSize: 11,
-    lineHeight: 17,
-    marginTop: 5,
-  },
+    infoIconText: {
+      fontSize: 18,
+      fontWeight: '900',
+      fontFamily:
+        Platform.OS === 'ios'
+          ? 'Menlo'
+          : 'monospace',
+    },
 
-  primaryButton: {
-    minHeight: 48,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 10,
-  },
+    infoHeaderText: {
+      flex: 1,
+      marginLeft: 10,
+    },
 
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '800',
-  },
+    infoTitle: {
+      fontSize: 14,
+      fontWeight: '900',
+    },
 
-  secondaryButton: {
-    minHeight: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 9,
-  },
+    infoCaption: {
+      fontSize: 10,
+      marginTop: 2,
+      fontWeight: '600',
+    },
 
-  secondaryButtonText: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-});
+    infoText: {
+      fontSize: 11,
+      lineHeight: 18,
+    },
+
+    commandCard: {
+      padding: 12,
+      marginBottom: 7,
+      borderWidth:
+        StyleSheet.hairlineWidth,
+      elevation: 2,
+    },
+
+    commandRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+
+    numberBadge: {
+      width: 34,
+      height: 34,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth:
+        StyleSheet.hairlineWidth,
+    },
+
+    numberText: {
+      fontSize: 9,
+      fontWeight: '800',
+    },
+
+    commandBody: {
+      flex: 1,
+      marginLeft: 10,
+    },
+
+    commandLine: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+
+    command: {
+      fontFamily:
+        Platform.OS === 'ios'
+          ? 'Menlo'
+          : 'monospace',
+      fontSize: 12,
+      fontWeight: '900',
+    },
+
+    description: {
+      fontSize: 10,
+      lineHeight: 16,
+      marginTop: 4,
+    },
+
+    actions: {
+      marginTop: 5,
+      gap: 9,
+    },
+
+    actionButton: {
+      minHeight: 54,
+      paddingHorizontal: 16,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      borderWidth:
+        StyleSheet.hairlineWidth,
+      elevation: 4,
+    },
+
+    primaryButtonText: {
+      fontSize: 13,
+      fontWeight: '900',
+    },
+
+    secondaryButtonText: {
+      fontSize: 13,
+      fontWeight: '800',
+    },
+
+    actionArrow: {
+      fontSize: 20,
+      fontWeight: '800',
+    },
+  });
