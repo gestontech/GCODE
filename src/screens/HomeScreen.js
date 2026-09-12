@@ -1,15 +1,180 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 
 import {
-  View,
-  Text,
-  StyleSheet,
+  Alert,
   Pressable,
   ScrollView,
-  Image,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
 
 import { useTheme } from '../theme/ThemeContext';
+
+function QuickAction({
+  icon,
+  title,
+  description,
+  onPress,
+  disabled = false,
+}) {
+  const { colors } = useTheme();
+
+  return (
+    <Pressable
+      disabled={disabled}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{
+        disabled,
+      }}
+      style={({ pressed }) => [
+        styles.quickAction,
+        {
+          backgroundColor: colors.panel,
+          borderColor: colors.border,
+          opacity: disabled
+            ? 0.5
+            : pressed
+              ? 0.7
+              : 1,
+        },
+      ]}
+    >
+      <View
+        style={[
+          styles.quickIcon,
+          {
+            backgroundColor: colors.panel2,
+          },
+        ]}
+      >
+        <Text
+          style={[
+            styles.quickIconText,
+            {
+              color: colors.purple,
+            },
+          ]}
+        >
+          {icon}
+        </Text>
+      </View>
+
+      <View style={styles.quickContent}>
+        <Text
+          style={[
+            styles.quickTitle,
+            {
+              color: colors.text,
+            },
+          ]}
+        >
+          {title}
+        </Text>
+
+        <Text
+          style={[
+            styles.quickDescription,
+            {
+              color: colors.muted,
+            },
+          ]}
+        >
+          {description}
+        </Text>
+      </View>
+    </Pressable>
+  );
+}
+
+function ProjectCard({
+  project,
+  onPress,
+}) {
+  const { colors } = useTheme();
+
+  const fileCount =
+    Array.isArray(project?.files)
+      ? project.files.length
+      : 0;
+
+  return (
+    <Pressable
+      onPress={() => onPress(project)}
+      accessibilityRole="button"
+      accessibilityLabel={`Ouvrir le projet ${project?.name || 'Sans nom'}`}
+      style={({ pressed }) => [
+        styles.projectCard,
+        {
+          backgroundColor: colors.panel,
+          borderColor: colors.border,
+          opacity: pressed ? 0.7 : 1,
+        },
+      ]}
+    >
+      <View
+        style={[
+          styles.projectIcon,
+          {
+            backgroundColor: colors.panel2,
+          },
+        ]}
+      >
+        <Text
+          style={[
+            styles.projectIconText,
+            {
+              color: colors.purple,
+            },
+          ]}
+        >
+          {'</>'}
+        </Text>
+      </View>
+
+      <View style={styles.projectInfo}>
+        <Text
+          numberOfLines={1}
+          style={[
+            styles.projectName,
+            {
+              color: colors.text,
+            },
+          ]}
+        >
+          {project?.name || 'Sans nom'}
+        </Text>
+
+        <Text
+          style={[
+            styles.projectMeta,
+            {
+              color: colors.muted,
+            },
+          ]}
+        >
+          {fileCount}{' '}
+          {fileCount === 1
+            ? 'fichier'
+            : 'fichiers'}
+        </Text>
+      </View>
+
+      <Text
+        style={[
+          styles.arrow,
+          {
+            color: colors.muted,
+          },
+        ]}
+      >
+        ›
+      </Text>
+    </Pressable>
+  );
+}
 
 export default function HomeScreen({
   projects = [],
@@ -18,87 +183,96 @@ export default function HomeScreen({
   onNavigate,
   onOpenPreview,
 }) {
-  const {
-    colors,
-    spacing,
-    radius,
-  } = useTheme();
+  const { colors } = useTheme();
 
-  const recentProjects =
-    projects.slice(0, 5);
+  const [search, setSearch] = useState('');
 
-  const getProjectName = (project) =>
-    project?.name ||
-    project?.title ||
-    'Projet sans nom';
+  const filteredProjects = useMemo(() => {
+    const query = search
+      .trim()
+      .toLowerCase();
 
-  const getProjectDescription = (
-    project
-  ) =>
-    project?.description ||
-    'Projet GCODE';
-
-  const getProjectDate = (project) => {
-    if (
-      !project?.updatedAt &&
-      !project?.createdAt
-    ) {
-      return 'Projet récent';
+    if (!query) {
+      return projects;
     }
 
-    const date = new Date(
-      project.updatedAt ||
-        project.createdAt
+    return projects.filter((project) =>
+      String(project?.name || '')
+        .toLowerCase()
+        .includes(query)
     );
+  }, [projects, search]);
 
+  const handleCreateProject = () => {
     if (
-      Number.isNaN(date.getTime())
+      typeof onCreateProject !== 'function'
     ) {
-      return 'Projet récent';
+      return;
     }
 
-    return `Modifié le ${date.toLocaleDateString()}`;
+    Alert.prompt(
+      'Nouveau projet',
+      'Entre le nom du projet',
+      [
+        {
+          text: 'Annuler',
+          style: 'cancel',
+        },
+        {
+          text: 'Créer',
+          onPress: (value) => {
+            const name =
+              String(value || '').trim();
+
+            onCreateProject(
+              name || 'Nouveau projet'
+            );
+          },
+        },
+      ],
+      'plain-text',
+      'Mon projet'
+    );
   };
 
-  const handlePreview = () => {
+  const handleOpenProject = (project) => {
     if (
-      typeof onOpenPreview ===
-      'function' &&
-      projects.length > 0
+      project &&
+      typeof onOpenProject === 'function'
     ) {
-      /*
-       * Le Preview travaille sur le projet
-       * actuellement ouvert dans App.js.
-       *
-       * Depuis l'accueil, on ouvre donc le
-       * dernier projet disponible.
-       */
-      const project =
-        projects[0];
-
-      if (
-        project &&
-        typeof onOpenProject ===
-          'function'
-      ) {
-        onOpenProject(project);
-
-        /*
-         * App.js change l'écran vers
-         * Workbench. Le Preview sera
-         * accessible depuis le Workbench.
-         */
-      }
+      onOpenProject(project);
     }
   };
 
   const handleViewAll = () => {
-    if (
-      typeof onNavigate ===
-      'function'
-    ) {
+    if (typeof onNavigate === 'function') {
       onNavigate('projects');
     }
+  };
+
+  const handlePreview = () => {
+    if (
+      typeof onOpenPreview !== 'function'
+    ) {
+      return;
+    }
+
+    if (!projects.length) {
+      Alert.alert(
+        'Aucun projet',
+        'Crée d’abord un projet pour utiliser le Preview.'
+      );
+
+      return;
+    }
+
+    const project = projects[0];
+
+    if (!project) {
+      return;
+    }
+
+    onOpenPreview(project);
   };
 
   return (
@@ -112,64 +286,40 @@ export default function HomeScreen({
       ]}
     >
       <ScrollView
-        showsVerticalScrollIndicator={
-          false
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={
+          styles.scrollContent
         }
-        contentContainerStyle={[
-          styles.content,
-          {
-            paddingHorizontal:
-              spacing.md,
-            paddingBottom:
-              spacing.xxl,
-          },
-        ]}
+        keyboardShouldPersistTaps="handled"
       >
-        {/* HEADER */}
         <View style={styles.header}>
-          <View
-            style={
-              styles.brandContainer
-            }
-          >
-            <Image
-              source={require(
-                '../../assets/gcode-icon-new.png'
-              )}
-              style={styles.logo}
-              resizeMode="contain"
-            />
+          <View>
+            <Text
+              style={[
+                styles.brand,
+                {
+                  color: colors.text,
+                },
+              ]}
+            >
+              GCODE
+            </Text>
 
-            <View>
-              <Text
-                style={[
-                  styles.brand,
-                  {
-                    color:
-                      colors.textStrong,
-                  },
-                ]}
-              >
-                GCODE
-              </Text>
-
-              <Text
-                style={[
-                  styles.version,
-                  {
-                    color:
-                      colors.muted,
-                  },
-                ]}
-              >
-                MOBILE V3
-              </Text>
-            </View>
+            <Text
+              style={[
+                styles.subtitle,
+                {
+                  color: colors.muted,
+                },
+              ]}
+            >
+              Votre environnement de développement mobile
+            </Text>
           </View>
 
           <View
             style={[
-              styles.status,
+              styles.versionBadge,
               {
                 backgroundColor:
                   colors.panel2,
@@ -178,280 +328,131 @@ export default function HomeScreen({
               },
             ]}
           >
-            <View
-              style={[
-                styles.statusDot,
-                {
-                  backgroundColor:
-                    colors.green,
-                },
-              ]}
-            />
-
             <Text
               style={[
-                styles.statusText,
+                styles.versionText,
                 {
-                  color:
-                    colors.muted,
+                  color: colors.purple,
                 },
               ]}
             >
-              Prêt
+              V3
             </Text>
           </View>
         </View>
 
-        {/* HERO */}
-        <View style={styles.hero}>
-          <Text
-            style={[
-              styles.greeting,
-              {
-                color:
-                  colors.muted,
-              },
-            ]}
-          >
-            Bonjour 👋
-          </Text>
-
-          <Text
-            style={[
-              styles.title,
-              {
-                color:
-                  colors.textStrong,
-              },
-            ]}
-          >
-            Crée quelque chose
-            {'\n'}
-            <Text
-              style={{
-                color:
-                  colors.purple,
-              }}
-            >
-              d’exception.
-            </Text>
-          </Text>
-
-          <Text
-            style={[
-              styles.subtitle,
-              {
-                color:
-                  colors.muted,
-              },
-            ]}
-          >
-            Ton environnement de
-            développement
-            {'\n'}
-            directement dans ta poche.
-          </Text>
-        </View>
-
-        {/* CREATE PROJECT */}
-        <Pressable
-          onPress={
-            onCreateProject
-          }
-          accessibilityRole="button"
-          accessibilityLabel="Créer un nouveau projet"
-          style={({ pressed }) => [
-            styles.createCard,
+        <View
+          style={[
+            styles.searchContainer,
             {
-              backgroundColor:
-                colors.purple,
-              borderRadius:
-                radius.lg,
-              opacity: pressed
-                ? 0.88
-                : 1,
-              transform: [
-                {
-                  scale: pressed
-                    ? 0.985
-                    : 1,
-                },
-              ],
+              backgroundColor: colors.panel,
+              borderColor: colors.border,
             },
           ]}
         >
-          <View
-            style={
-              styles.createContent
-            }
-          >
-            <View
-              style={[
-                styles.createIcon,
-                {
-                  backgroundColor:
-                    'rgba(255,255,255,0.16)',
-                },
-              ]}
-            >
-              <Text
-                style={styles.plus}
-              >
-                +
-              </Text>
-            </View>
-
-            <View
-              style={
-                styles.createTextContainer
-              }
-            >
-              <Text
-                style={
-                  styles.createTitle
-                }
-              >
-                Nouveau projet
-              </Text>
-
-              <Text
-                style={
-                  styles.createSubtitle
-                }
-              >
-                Commencer un nouveau
-                projet
-              </Text>
-            </View>
-          </View>
-
-          <View
-            style={
-              styles.arrowContainer
-            }
-          >
-            <Text
-              style={styles.arrow}
-            >
-              ›
-            </Text>
-          </View>
-        </Pressable>
-
-        {/* QUICK ACTIONS */}
-        <View
-          style={
-            styles.sectionHeader
-          }
-        >
           <Text
             style={[
-              styles.sectionTitle,
+              styles.searchIcon,
               {
-                color:
-                  colors.textStrong,
+                color: colors.muted,
               },
             ]}
           >
-            Accès rapide
+            ⌕
           </Text>
-        </View>
 
-        <View
-          style={
-            styles.quickGrid
-          }
-        >
-          <QuickAction
-            icon="⌘"
-            title="Commandes"
-            subtitle="Bientôt"
-            disabled
-            colors={colors}
-            radius={radius}
-          />
-
-          <QuickAction
-            icon="AI"
-            title="GCODE AI"
-            subtitle="Bientôt"
-            disabled
-            colors={colors}
-            radius={radius}
-          />
-
-          <QuickAction
-            icon="▶"
-            title="Terminal"
-            subtitle="Bientôt"
-            disabled
-            colors={colors}
-            radius={radius}
-          />
-
-          <QuickAction
-            icon="◈"
-            title="Preview"
-            subtitle={
-              projects.length > 0
-                ? 'Ouvrir'
-                : 'Aucun projet'
-            }
-            disabled={
-              projects.length === 0
-            }
-            onPress={
-              handlePreview
-            }
-            colors={colors}
-            radius={radius}
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Rechercher un projet..."
+            placeholderTextColor={colors.muted}
+            style={[
+              styles.searchInput,
+              {
+                color: colors.text,
+              },
+            ]}
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="search"
           />
         </View>
 
-        {/* RECENT PROJECTS */}
-        <View
-          style={
-            styles.sectionHeader
-          }
+        <Pressable
+          onPress={handleCreateProject}
+          accessibilityRole="button"
+          accessibilityLabel="Créer un nouveau projet"
+          style={({ pressed }) => [
+            styles.createButton,
+            {
+              backgroundColor:
+                colors.purple,
+              opacity: pressed ? 0.75 : 1,
+            },
+          ]}
         >
+          <Text style={styles.createIcon}>
+            +
+          </Text>
+
+          <Text
+            style={[
+              styles.createText,
+              {
+                color: '#FFFFFF',
+              },
+            ]}
+          >
+            Nouveau projet
+          </Text>
+        </Pressable>
+
+        <View style={styles.sectionHeader}>
           <Text
             style={[
               styles.sectionTitle,
               {
-                color:
-                  colors.textStrong,
+                color: colors.text,
               },
             ]}
           >
             Projets récents
           </Text>
 
-          {projects.length > 0 && (
-            <Pressable
-              onPress={
-                handleViewAll
-              }
-              accessibilityRole="button"
-              accessibilityLabel="Voir tous les projets"
-              hitSlop={10}
+          <Pressable
+            onPress={handleViewAll}
+            accessibilityRole="button"
+            accessibilityLabel="Voir tous les projets"
+            hitSlop={8}
+          >
+            <Text
+              style={[
+                styles.viewAll,
+                {
+                  color: colors.purple,
+                },
+              ]}
             >
-              <Text
-                style={[
-                  styles.viewAll,
-                  {
-                    color:
-                      colors.purple,
-                  },
-                ]}
-              >
-                Voir tout
-              </Text>
-            </Pressable>
-          )}
+              Voir tout
+            </Text>
+          </Pressable>
         </View>
 
-        {recentProjects.length ===
-        0 ? (
+        {filteredProjects.length > 0 ? (
+          <View style={styles.projectsList}>
+            {filteredProjects
+              .slice(0, 5)
+              .map((project) => (
+                <ProjectCard
+                  key={project.id}
+                  project={project}
+                  onPress={
+                    handleOpenProject
+                  }
+                />
+              ))}
+          </View>
+        ) : (
           <View
             style={[
               styles.emptyCard,
@@ -460,236 +461,131 @@ export default function HomeScreen({
                   colors.panel,
                 borderColor:
                   colors.border,
-                borderRadius:
-                  radius.lg,
               },
             ]}
           >
-            <View
+            <Text
               style={[
                 styles.emptyIcon,
                 {
-                  backgroundColor:
-                    colors.panel2,
+                  color: colors.purple,
                 },
               ]}
             >
-              <Text
-                style={[
-                  styles.emptyIconText,
-                  {
-                    color:
-                      colors.purple,
-                  },
-                ]}
-              >
-                {'</>'}
-              </Text>
-            </View>
+              {'</>'}
+            </Text>
 
             <Text
               style={[
                 styles.emptyTitle,
                 {
-                  color:
-                    colors.textStrong,
+                  color: colors.text,
                 },
               ]}
             >
-              Aucun projet pour le
-              moment
+              {search.trim()
+                ? 'Aucun projet trouvé'
+                : 'Aucun projet'}
             </Text>
 
             <Text
               style={[
                 styles.emptyDescription,
                 {
-                  color:
-                    colors.muted,
+                  color: colors.muted,
                 },
               ]}
             >
-              Crée ton premier projet
-              pour commencer à coder
-              avec GCODE.
+              {search.trim()
+                ? 'Essaie une autre recherche.'
+                : 'Crée ton premier projet pour commencer à coder.'}
             </Text>
 
-            <Pressable
-              onPress={
-                onCreateProject
-              }
-              accessibilityRole="button"
-              accessibilityLabel="Créer un projet"
-              style={({
-                pressed,
-              }) => [
-                styles.emptyButton,
-                {
-                  backgroundColor:
-                    colors.panel2,
-                  borderColor:
-                    colors.border,
-                  opacity: pressed
-                    ? 0.75
-                    : 1,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.emptyButtonText,
+            {!search.trim() && (
+              <Pressable
+                onPress={handleCreateProject}
+                style={({ pressed }) => [
+                  styles.emptyButton,
                   {
-                    color:
-                      colors.purple,
+                    borderColor:
+                      colors.border,
+                    opacity: pressed
+                      ? 0.7
+                      : 1,
                   },
                 ]}
               >
-                Créer un projet
-              </Text>
-            </Pressable>
-          </View>
-        ) : (
-          <View
-            style={
-              styles.projectsList
-            }
-          >
-            {recentProjects.map(
-              (project, index) => (
-                <Pressable
-                  key={
-                    project.id ||
-                    `${getProjectName(
-                      project
-                    )}-${index}`
-                  }
-                  onPress={() =>
-                    onOpenProject?.(
-                      project
-                    )
-                  }
-                  accessibilityRole="button"
-                  accessibilityLabel={`Ouvrir ${getProjectName(
-                    project
-                  )}`}
-                  style={({
-                    pressed,
-                  }) => [
-                    styles.projectCard,
+                <Text
+                  style={[
+                    styles.emptyButtonText,
                     {
-                      backgroundColor:
-                        colors.panel,
-                      borderColor:
-                        colors.border,
-                      borderRadius:
-                        radius.md,
-                      opacity:
-                        pressed
-                          ? 0.78
-                          : 1,
+                      color:
+                        colors.purple,
                     },
                   ]}
                 >
-                  <View
-                    style={[
-                      styles.projectIcon,
-                      {
-                        backgroundColor:
-                          colors.panel2,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.projectIconText,
-                        {
-                          color:
-                            colors.purple,
-                        },
-                      ]}
-                    >
-                      {'</>'}
-                    </Text>
-                  </View>
-
-                  <View
-                    style={
-                      styles.projectInfo
-                    }
-                  >
-                    <Text
-                      numberOfLines={1}
-                      style={[
-                        styles.projectName,
-                        {
-                          color:
-                            colors.textStrong,
-                        },
-                      ]}
-                    >
-                      {getProjectName(
-                        project
-                      )}
-                    </Text>
-
-                    <Text
-                      numberOfLines={1}
-                      style={[
-                        styles.projectDescription,
-                        {
-                          color:
-                            colors.muted,
-                        },
-                      ]}
-                    >
-                      {getProjectDescription(
-                        project
-                      )}
-                    </Text>
-
-                    <Text
-                      style={[
-                        styles.projectDate,
-                        {
-                          color:
-                            colors.muted2,
-                        },
-                      ]}
-                    >
-                      {getProjectDate(
-                        project
-                      )}
-                    </Text>
-                  </View>
-
-                  <Text
-                    style={[
-                      styles.projectArrow,
-                      {
-                        color:
-                          colors.muted,
-                      },
-                    ]}
-                  >
-                    ›
-                  </Text>
-                </Pressable>
-              )
+                  Créer un projet
+                </Text>
+              </Pressable>
             )}
           </View>
         )}
 
-        {/* GCODE AI BANNER */}
+        <View style={styles.sectionHeader}>
+          <Text
+            style={[
+              styles.sectionTitle,
+              {
+                color: colors.text,
+              },
+            ]}
+          >
+            Actions rapides
+          </Text>
+        </View>
+
+        <View style={styles.quickGrid}>
+          <QuickAction
+            icon="⌘"
+            title="Commandes"
+            description="Outils du projet"
+            disabled
+          />
+
+          <QuickAction
+            icon="AI"
+            title="GCODE AI"
+            description="Assistant intelligent"
+            disabled
+          />
+
+          <QuickAction
+            icon="›_"
+            title="Terminal"
+            description="Console du projet"
+            disabled
+          />
+
+          <QuickAction
+            icon="▶"
+            title="Preview"
+            description={
+              projects.length > 0
+                ? 'Exécuter le projet'
+                : 'Crée un projet d’abord'
+            }
+            onPress={handlePreview}
+          />
+        </View>
+
         <View
           style={[
-            styles.aiCard,
+            styles.aiBanner,
             {
               backgroundColor:
                 colors.panel,
               borderColor:
                 colors.border,
-              borderRadius:
-                radius.lg,
             },
           ]}
         >
@@ -706,8 +602,7 @@ export default function HomeScreen({
               style={[
                 styles.aiIconText,
                 {
-                  color:
-                    colors.purple,
+                  color: colors.purple,
                 },
               ]}
             >
@@ -715,15 +610,12 @@ export default function HomeScreen({
             </Text>
           </View>
 
-          <View
-            style={styles.aiContent}
-          >
+          <View style={styles.aiContent}>
             <Text
               style={[
                 styles.aiTitle,
                 {
-                  color:
-                    colors.textStrong,
+                  color: colors.text,
                 },
               ]}
             >
@@ -734,15 +626,11 @@ export default function HomeScreen({
               style={[
                 styles.aiDescription,
                 {
-                  color:
-                    colors.muted,
+                  color: colors.muted,
                 },
               ]}
             >
-              Assistant IA optionnel.
-              Cette fonction sera
-              activée dans une prochaine
-              version.
+              Assistant de développement intelligent
             </Text>
           </View>
 
@@ -757,10 +645,9 @@ export default function HomeScreen({
           >
             <Text
               style={[
-                styles.comingBadgeText,
+                styles.comingText,
                 {
-                  color:
-                    colors.muted,
+                  color: colors.muted,
                 },
               ]}
             >
@@ -769,134 +656,18 @@ export default function HomeScreen({
           </View>
         </View>
 
-        {/* FOOTER */}
-        <View
-          style={styles.footer}
-        >
-          <Text
-            style={[
-              styles.footerText,
-              {
-                color:
-                  colors.muted2,
-              },
-            ]}
-          >
-            GCODE MOBILE V3
-          </Text>
-
-          <Text
-            style={[
-              styles.footerDot,
-              {
-                color:
-                  colors.borderStrong,
-              },
-            ]}
-          >
-            •
-          </Text>
-
-          <Text
-            style={[
-              styles.footerText,
-              {
-                color:
-                  colors.muted2,
-              },
-            ]}
-          >
-            Build your future
-          </Text>
-        </View>
-      </ScrollView>
-    </View>
-  );
-}
-
-function QuickAction({
-  icon,
-  title,
-  subtitle,
-  disabled = false,
-  onPress,
-  colors,
-  radius,
-}) {
-  return (
-    <Pressable
-      disabled={disabled}
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`${title} — ${subtitle}`}
-      accessibilityState={{
-        disabled,
-      }}
-      style={({ pressed }) => [
-        styles.quickCard,
-        {
-          backgroundColor:
-            colors.panel,
-          borderColor:
-            colors.border,
-          borderRadius:
-            radius.md,
-          opacity: disabled
-            ? 0.48
-            : pressed
-              ? 0.75
-              : 1,
-        },
-      ]}
-    >
-      <View
-        style={[
-          styles.quickIcon,
-          {
-            backgroundColor:
-              colors.panel2,
-          },
-        ]}
-      >
         <Text
           style={[
-            styles.quickIconText,
+            styles.footer,
             {
-              color:
-                colors.purple,
+              color: colors.muted,
             },
           ]}
         >
-          {icon}
+          GCODE Mobile V3
         </Text>
-      </View>
-
-      <Text
-        style={[
-          styles.quickTitle,
-          {
-            color:
-              colors.textStrong,
-          },
-        ]}
-      >
-        {title}
-      </Text>
-
-      <Text
-        style={[
-          styles.quickSubtitle,
-          {
-            color:
-              disabled
-                ? colors.muted2
-                : colors.muted,
-          },
-        ]}
-      >
-        {subtitle}
-      </Text>
-    </Pressable>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -905,160 +676,94 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  content: {
-    paddingTop: 18,
+  scrollContent: {
+    paddingHorizontal: 18,
+    paddingTop: 20,
+    paddingBottom: 30,
   },
 
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent:
-      'space-between',
-    marginBottom: 34,
-  },
-
-  brandContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  logo: {
-    width: 42,
-    height: 42,
-    marginRight: 11,
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 20,
   },
 
   brand: {
-    fontSize: 18,
-    fontWeight: '800',
-    letterSpacing: 1.2,
-  },
-
-  version: {
-    marginTop: 2,
-    fontSize: 9,
-    fontWeight: '600',
-    letterSpacing: 1.4,
-  },
-
-  status: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderWidth: 1,
-    borderRadius: 999,
-  },
-
-  statusDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    marginRight: 6,
-  },
-
-  statusText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-
-  hero: {
-    marginBottom: 26,
-  },
-
-  greeting: {
-    fontSize: 15,
-    fontWeight: '500',
-    marginBottom: 8,
-  },
-
-  title: {
-    fontSize: 30,
-    lineHeight: 37,
-    fontWeight: '800',
-    letterSpacing: -0.7,
+    fontSize: 28,
+    fontWeight: '900',
+    letterSpacing: 1,
   },
 
   subtitle: {
-    marginTop: 12,
-    fontSize: 14,
-    lineHeight: 21,
-    fontWeight: '400',
+    fontSize: 12,
+    marginTop: 4,
+    maxWidth: 270,
+    lineHeight: 18,
   },
 
-  createCard: {
-    minHeight: 94,
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent:
-      'space-between',
-    marginBottom: 30,
-  },
-
-  createContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-
-  createIcon: {
-    width: 54,
-    height: 54,
-    borderRadius: 16,
+  versionBadge: {
+    minWidth: 42,
+    height: 28,
+    borderRadius: 10,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14,
   },
 
-  plus: {
-    color: '#FFFFFF',
-    fontSize: 30,
-    fontWeight: '300',
-    marginTop: -2,
-  },
-
-  createTextContainer: {
-    flex: 1,
-  },
-
-  createTitle: {
-    color: '#FFFFFF',
-    fontSize: 17,
+  versionText: {
+    fontSize: 11,
     fontWeight: '800',
   },
 
-  createSubtitle: {
-    color:
-      'rgba(255,255,255,0.72)',
-    fontSize: 12,
-    marginTop: 4,
+  searchContainer: {
+    minHeight: 48,
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    marginBottom: 12,
   },
 
-  arrowContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  searchIcon: {
+    fontSize: 24,
+    marginRight: 8,
+  },
+
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    paddingVertical: 10,
+  },
+
+  createButton: {
+    minHeight: 50,
+    borderRadius: 14,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor:
-      'rgba(255,255,255,0.12)',
+    marginBottom: 28,
   },
 
-  arrow: {
+  createIcon: {
     color: '#FFFFFF',
-    fontSize: 28,
-    fontWeight: '300',
-    marginTop: -3,
+    fontSize: 24,
+    fontWeight: '400',
+    marginRight: 8,
+    marginTop: -2,
+  },
+
+  createText: {
+    fontSize: 14,
+    fontWeight: '800',
   },
 
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent:
-      'space-between',
-    marginBottom: 13,
+    justifyContent: 'space-between',
+    marginBottom: 12,
   },
 
   sectionTitle: {
@@ -1071,72 +776,32 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  quickGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent:
-      'space-between',
-    marginBottom: 30,
-  },
-
-  quickCard: {
-    width: '48.2%',
-    minHeight: 132,
-    borderWidth: 1,
-    padding: 14,
-    marginBottom: 12,
-  },
-
-  quickIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-
-  quickIconText: {
-    fontSize: 17,
-    fontWeight: '800',
-  },
-
-  quickTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-
-  quickSubtitle: {
-    marginTop: 4,
-    fontSize: 11,
-    fontWeight: '600',
-  },
-
   projectsList: {
-    marginBottom: 30,
+    gap: 9,
+    marginBottom: 26,
   },
 
   projectCard: {
-    minHeight: 82,
+    minHeight: 68,
+    borderRadius: 14,
     borderWidth: 1,
-    padding: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    paddingHorizontal: 12,
   },
 
   projectIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 13,
+    width: 42,
+    height: 42,
+    borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
 
   projectIconText: {
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 13,
+    fontWeight: '900',
   },
 
   projectInfo: {
@@ -1148,62 +813,52 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 
-  projectDescription: {
+  projectMeta: {
     fontSize: 11,
     marginTop: 4,
   },
 
-  projectDate: {
-    fontSize: 9,
-    marginTop: 5,
-  },
-
-  projectArrow: {
-    fontSize: 26,
+  arrow: {
+    fontSize: 25,
     marginLeft: 8,
   },
 
   emptyCard: {
+    borderRadius: 16,
     borderWidth: 1,
-    padding: 24,
     alignItems: 'center',
-    marginBottom: 30,
+    paddingHorizontal: 20,
+    paddingVertical: 28,
+    marginBottom: 26,
   },
 
   emptyIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 15,
-  },
-
-  emptyIconText: {
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: 25,
+    fontWeight: '900',
+    marginBottom: 10,
   },
 
   emptyTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
-    textAlign: 'center',
   },
 
   emptyDescription: {
-    marginTop: 8,
     fontSize: 12,
-    lineHeight: 18,
     textAlign: 'center',
+    lineHeight: 18,
+    marginTop: 6,
     maxWidth: 280,
   },
 
   emptyButton: {
-    marginTop: 18,
+    minHeight: 38,
+    borderRadius: 10,
     borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 18,
-    paddingVertical: 11,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 16,
   },
 
   emptyButtonText: {
@@ -1211,26 +866,69 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 
-  aiCard: {
-    minHeight: 96,
+  quickGrid: {
+    gap: 9,
+    marginBottom: 18,
+  },
+
+  quickAction: {
+    minHeight: 68,
+    borderRadius: 14,
     borderWidth: 1,
-    padding: 15,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 28,
+    paddingHorizontal: 12,
+  },
+
+  quickIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+
+  quickIconText: {
+    fontSize: 16,
+    fontWeight: '900',
+  },
+
+  quickContent: {
+    flex: 1,
+  },
+
+  quickTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+
+  quickDescription: {
+    fontSize: 11,
+    marginTop: 4,
+  },
+
+  aiBanner: {
+    minHeight: 76,
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    marginBottom: 25,
   },
 
   aiIcon: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
 
   aiIconText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '900',
   },
 
@@ -1240,42 +938,28 @@ const styles = StyleSheet.create({
 
   aiTitle: {
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: '900',
   },
 
   aiDescription: {
-    marginTop: 5,
     fontSize: 11,
-    lineHeight: 17,
-  },
-
-  comingBadge: {
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    marginLeft: 8,
-  },
-
-  comingBadgeText: {
-    fontSize: 9,
-    fontWeight: '700',
-  },
-
-  footer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
     marginTop: 4,
   },
 
-  footerText: {
-    fontSize: 9,
-    fontWeight: '600',
-    letterSpacing: 0.5,
+  comingBadge: {
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
   },
 
-  footerDot: {
-    marginHorizontal: 8,
+  comingText: {
+    fontSize: 9,
+    fontWeight: '800',
+  },
+
+  footer: {
+    textAlign: 'center',
     fontSize: 10,
+    marginTop: 4,
   },
 });
