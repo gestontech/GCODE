@@ -28,6 +28,10 @@ import {
   saveProjectFile,
 } from '../storage/projectStorage';
 
+import {
+  loadEditorSettings,
+} from '../storage/editorSettings';
+
 export default function WorkbenchScreen({
   project,
   onBack,
@@ -42,6 +46,8 @@ export default function WorkbenchScreen({
   const historyRef = useRef([]);
   const redoRef = useRef([]);
 
+  const autoSaveTimerRef = useRef(null);
+
   const [files, setFiles] = useState({});
   const [activeFile, setActiveFile] = useState(null);
   const [code, setCode] = useState('');
@@ -55,20 +61,39 @@ export default function WorkbenchScreen({
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
 
-  const [showExplorer, setShowExplorer] = useState(true);
+  const [editorSettings, setEditorSettings] =
+    useState({
+      autoSave: true,
+      lineNumbers: true,
+    });
 
-  const [showSearch, setShowSearch] = useState(false);
-  const [searchText, setSearchText] = useState('');
-  const [replaceText, setReplaceText] = useState('');
-  const [searchIndex, setSearchIndex] = useState(-1);
+  const [showExplorer, setShowExplorer] =
+    useState(true);
 
-  const [showNewFileModal, setShowNewFileModal] =
+  const [showSearch, setShowSearch] =
     useState(false);
 
-  const [newFileName, setNewFileName] = useState('');
+  const [searchText, setSearchText] =
+    useState('');
 
-  const [showRenameModal, setShowRenameModal] =
-    useState(false);
+  const [replaceText, setReplaceText] =
+    useState('');
+
+  const [searchIndex, setSearchIndex] =
+    useState(-1);
+
+  const [
+    showNewFileModal,
+    setShowNewFileModal,
+  ] = useState(false);
+
+  const [newFileName, setNewFileName] =
+    useState('');
+
+  const [
+    showRenameModal,
+    setShowRenameModal,
+  ] = useState(false);
 
   const [renameTarget, setRenameTarget] =
     useState(null);
@@ -87,13 +112,15 @@ export default function WorkbenchScreen({
         header: {
           minHeight: 62,
           paddingHorizontal: spacing.md,
-          paddingTop: Platform.OS === 'ios' ? 8 : 4,
+          paddingTop:
+            Platform.OS === 'ios' ? 8 : 4,
           paddingBottom: 8,
           flexDirection: 'row',
           alignItems: 'center',
           borderBottomWidth: 1,
           borderBottomColor: colors.border,
-          backgroundColor: colors.backgroundElevated,
+          backgroundColor:
+            colors.backgroundElevated,
         },
 
         headerButton: {
@@ -197,7 +224,8 @@ export default function WorkbenchScreen({
           width: showExplorer ? 190 : 0,
           overflow: 'hidden',
           backgroundColor: colors.panel,
-          borderRightWidth: showExplorer ? 1 : 0,
+          borderRightWidth:
+            showExplorer ? 1 : 0,
           borderRightColor: colors.border,
         },
 
@@ -298,7 +326,8 @@ export default function WorkbenchScreen({
           backgroundColor:
             colors.editorActiveLine,
           borderBottomWidth: 1,
-          borderBottomColor: colors.editorLine,
+          borderBottomColor:
+            colors.editorLine,
         },
 
         editorHeaderText: {
@@ -315,7 +344,8 @@ export default function WorkbenchScreen({
           width: 48,
           backgroundColor: colors.editor,
           borderRightWidth: 1,
-          borderRightColor: colors.editorLine,
+          borderRightColor:
+            colors.editorLine,
         },
 
         lineNumbers: {
@@ -373,7 +403,8 @@ export default function WorkbenchScreen({
           borderRadius: radius.xs,
           backgroundColor: colors.editor,
           borderWidth: 1,
-          borderColor: colors.borderStrong,
+          borderColor:
+            colors.borderStrong,
           color: colors.text,
           fontSize: 13,
         },
@@ -447,7 +478,8 @@ export default function WorkbenchScreen({
           backgroundColor: colors.panel,
           borderRadius: radius.lg,
           borderWidth: 1,
-          borderColor: colors.borderStrong,
+          borderColor:
+            colors.borderStrong,
           padding: spacing.md,
         },
 
@@ -470,7 +502,8 @@ export default function WorkbenchScreen({
           paddingHorizontal: 14,
           borderRadius: radius.sm,
           borderWidth: 1,
-          borderColor: colors.borderStrong,
+          borderColor:
+            colors.borderStrong,
           backgroundColor: colors.editor,
           color: colors.text,
           fontSize: 14,
@@ -526,6 +559,32 @@ export default function WorkbenchScreen({
   useEffect(() => {
     let mounted = true;
 
+    async function loadSettings() {
+      try {
+        const settings =
+          await loadEditorSettings();
+
+        if (mounted) {
+          setEditorSettings(settings);
+        }
+      } catch (error) {
+        console.error(
+          'Erreur de chargement des paramètres éditeur:',
+          error
+        );
+      }
+    }
+
+    loadSettings();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
     async function loadProject() {
       if (!project?.id) {
         if (mounted) {
@@ -540,44 +599,60 @@ export default function WorkbenchScreen({
 
       setLoading(true);
 
-      const storedProject =
-        await getProject(project.id);
+      try {
+        const storedProject =
+          await getProject(project.id);
 
-      if (!mounted) {
-        return;
+        if (!mounted) {
+          return;
+        }
+
+        const projectFiles =
+          storedProject?.files ||
+          project?.files ||
+          {};
+
+        const names =
+          Object.keys(projectFiles);
+
+        const initialFile =
+          storedProject?.activeFile ||
+          project?.activeFile ||
+          names[0] ||
+          null;
+
+        const initialCode = initialFile
+          ? projectFiles[initialFile] || ''
+          : '';
+
+        setFiles(projectFiles);
+        setActiveFile(initialFile);
+        setCode(initialCode);
+
+        setSelection({
+          start: initialCode.length,
+          end: initialCode.length,
+        });
+
+        historyRef.current = [];
+        redoRef.current = [];
+
+        setDirty(false);
+        setLoading(false);
+      } catch (error) {
+        console.error(
+          'Erreur de chargement du projet:',
+          error
+        );
+
+        if (mounted) {
+          setFiles({});
+          setActiveFile(null);
+          setCode('');
+          setDirty(false);
+          setLoading(false);
+        }
       }
-
-      const projectFiles =
-        storedProject?.files ||
-        project?.files ||
-        {};
-
-      const names = Object.keys(projectFiles);
-
-      const initialFile =
-        storedProject?.activeFile ||
-        project?.activeFile ||
-        names[0] ||
-        null;
-
-      const initialCode = initialFile
-        ? projectFiles[initialFile] || ''
-        : '';
-
-      setFiles(projectFiles);
-      setActiveFile(initialFile);
-      setCode(initialCode);
-
-      setSelection({
-        start: initialCode.length,
-        end: initialCode.length,
-      });
-
-      historyRef.current = [];
-      redoRef.current = [];
-
-      setDirty(false);
-      setLoading(false);
     }
 
     loadProject();
@@ -586,6 +661,18 @@ export default function WorkbenchScreen({
       mounted = false;
     };
   }, [project?.id]);
+
+  useEffect(() => {
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(
+          autoSaveTimerRef.current
+        );
+
+        autoSaveTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const lineCount = Math.max(
     code.split('\n').length,
@@ -639,12 +726,51 @@ export default function WorkbenchScreen({
       }
 
       return updatedProject;
+    } catch (error) {
+      console.error(
+        'Erreur de sauvegarde:',
+        error
+      );
+
+      return null;
     } finally {
       setSaving(false);
     }
   };
 
-  const pushHistory = (previousCode) => {
+  const scheduleAutoSave = (
+    fileName,
+    content
+  ) => {
+    if (
+      !editorSettings.autoSave ||
+      !project?.id ||
+      !fileName
+    ) {
+      return;
+    }
+
+    if (autoSaveTimerRef.current) {
+      clearTimeout(
+        autoSaveTimerRef.current
+      );
+    }
+
+    autoSaveTimerRef.current =
+      setTimeout(async () => {
+        await performSave(
+          fileName,
+          content
+        );
+
+        autoSaveTimerRef.current =
+          null;
+      }, 800);
+  };
+
+  const pushHistory = (
+    previousCode
+  ) => {
     if (
       previousCode === code
     ) {
@@ -665,7 +791,9 @@ export default function WorkbenchScreen({
     redoRef.current = [];
   };
 
-  const handleCodeChange = (value) => {
+  const handleCodeChange = (
+    value
+  ) => {
     pushHistory(code);
 
     setCode(value);
@@ -676,6 +804,11 @@ export default function WorkbenchScreen({
     }));
 
     setDirty(true);
+
+    scheduleAutoSave(
+      activeFile,
+      value
+    );
   };
 
   const handleSelectionChange = (
@@ -694,7 +827,9 @@ export default function WorkbenchScreen({
     });
   };
 
-  const insertTextAtCursor = (text) => {
+  const insertTextAtCursor = (
+    text
+  ) => {
     if (!activeFile) {
       return;
     }
@@ -714,7 +849,9 @@ export default function WorkbenchScreen({
       start
     );
 
-    const after = code.slice(end);
+    const after = code.slice(
+      end
+    );
 
     const nextCode =
       before + text + after;
@@ -737,6 +874,11 @@ export default function WorkbenchScreen({
     });
 
     setDirty(true);
+
+    scheduleAutoSave(
+      activeFile,
+      nextCode
+    );
 
     requestAnimationFrame(() => {
       editorRef.current?.focus();
@@ -772,6 +914,11 @@ export default function WorkbenchScreen({
     });
 
     setDirty(true);
+
+    scheduleAutoSave(
+      activeFile,
+      previousCode
+    );
   };
 
   const handleRedo = () => {
@@ -803,6 +950,11 @@ export default function WorkbenchScreen({
     });
 
     setDirty(true);
+
+    scheduleAutoSave(
+      activeFile,
+      nextCode
+    );
   };
 
   const handleEditorScroll = (
@@ -826,6 +978,14 @@ export default function WorkbenchScreen({
       fileName === activeFile
     ) {
       return;
+    }
+
+    if (autoSaveTimerRef.current) {
+      clearTimeout(
+        autoSaveTimerRef.current
+      );
+
+      autoSaveTimerRef.current = null;
     }
 
     if (dirty) {
@@ -954,6 +1114,17 @@ export default function WorkbenchScreen({
           text: 'Supprimer',
           style: 'destructive',
           onPress: async () => {
+            if (
+              autoSaveTimerRef.current
+            ) {
+              clearTimeout(
+                autoSaveTimerRef.current
+              );
+
+              autoSaveTimerRef.current =
+                null;
+            }
+
             const updatedProject =
               await deleteProjectFile(
                 project.id,
@@ -1044,6 +1215,16 @@ export default function WorkbenchScreen({
       );
 
       return;
+    }
+
+    if (
+      autoSaveTimerRef.current
+    ) {
+      clearTimeout(
+        autoSaveTimerRef.current
+      );
+
+      autoSaveTimerRef.current = null;
     }
 
     const updatedProject =
@@ -1152,7 +1333,10 @@ export default function WorkbenchScreen({
       selection.end;
 
     const selectedText =
-      code.slice(start, end);
+      code.slice(
+        start,
+        end
+      );
 
     if (
       selectedText !== searchText
@@ -1184,6 +1368,11 @@ export default function WorkbenchScreen({
     });
 
     setDirty(true);
+
+    scheduleAutoSave(
+      activeFile,
+      nextCode
+    );
   };
 
   const replaceAll = () => {
@@ -1203,7 +1392,8 @@ export default function WorkbenchScreen({
     }
 
     const nextCode =
-      code.split(searchText)
+      code
+        .split(searchText)
         .join(replaceText);
 
     pushHistory(code);
@@ -1221,9 +1411,24 @@ export default function WorkbenchScreen({
     });
 
     setDirty(true);
+
+    scheduleAutoSave(
+      activeFile,
+      nextCode
+    );
   };
 
   const handleSave = async () => {
+    if (
+      autoSaveTimerRef.current
+    ) {
+      clearTimeout(
+        autoSaveTimerRef.current
+      );
+
+      autoSaveTimerRef.current = null;
+    }
+
     await performSave(
       activeFile,
       code
@@ -1233,6 +1438,16 @@ export default function WorkbenchScreen({
   const handlePreview = async () => {
     if (!project?.id) {
       return;
+    }
+
+    if (
+      autoSaveTimerRef.current
+    ) {
+      clearTimeout(
+        autoSaveTimerRef.current
+      );
+
+      autoSaveTimerRef.current = null;
     }
 
     const updatedProject =
@@ -1249,6 +1464,7 @@ export default function WorkbenchScreen({
         updatedProject || {
           ...project,
           files,
+          activeFile,
         }
       );
     }
@@ -1272,12 +1488,34 @@ export default function WorkbenchScreen({
           text: 'Quitter',
           style: 'destructive',
           onPress: () => {
+            if (
+              autoSaveTimerRef.current
+            ) {
+              clearTimeout(
+                autoSaveTimerRef.current
+              );
+
+              autoSaveTimerRef.current =
+                null;
+            }
+
             onBack?.();
           },
         },
         {
           text: 'Enregistrer',
           onPress: async () => {
+            if (
+              autoSaveTimerRef.current
+            ) {
+              clearTimeout(
+                autoSaveTimerRef.current
+              );
+
+              autoSaveTimerRef.current =
+                null;
+            }
+
             await performSave(
               activeFile,
               code
@@ -1374,7 +1612,9 @@ export default function WorkbenchScreen({
           ]}
         >
           <Text
-            style={styles.headerButtonText}
+            style={
+              styles.headerButtonText
+            }
           >
             ‹
           </Text>
@@ -1732,31 +1972,37 @@ export default function WorkbenchScreen({
 
           {activeFile ? (
             <View style={styles.editor}>
-              <ScrollView
-                ref={lineScrollRef}
-                style={styles.lineScroll}
-                scrollEnabled={false}
-                showsVerticalScrollIndicator={
-                  false
-                }
-              >
-                <View
-                  style={styles.lineNumbers}
+              {editorSettings.lineNumbers && (
+                <ScrollView
+                  ref={lineScrollRef}
+                  style={
+                    styles.lineScroll
+                  }
+                  scrollEnabled={false}
+                  showsVerticalScrollIndicator={
+                    false
+                  }
                 >
-                  {lineNumbers.map(
-                    (number) => (
-                      <Text
-                        key={number}
-                        style={
-                          styles.lineNumber
-                        }
-                      >
-                        {number}
-                      </Text>
-                    )
-                  )}
-                </View>
-              </ScrollView>
+                  <View
+                    style={
+                      styles.lineNumbers
+                    }
+                  >
+                    {lineNumbers.map(
+                      (number) => (
+                        <Text
+                          key={number}
+                          style={
+                            styles.lineNumber
+                          }
+                        >
+                          {number}
+                        </Text>
+                      )
+                    )}
+                  </View>
+                </ScrollView>
+              )}
 
               <TextInput
                 ref={editorRef}
