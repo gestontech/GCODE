@@ -32,34 +32,57 @@ import {
   loadEditorSettings,
 } from '../storage/editorSettings';
 
+import {
+  createTerminalEngine,
+} from '../storage/terminalEngine';
+
 export default function WorkbenchScreen({
   project,
   onBack,
   onPreview,
   onProjectUpdated,
 }) {
-  const { colors, spacing, radius } = useTheme();
+  const {
+    colors,
+    spacing,
+    radius,
+  } = useTheme();
 
   const editorRef = useRef(null);
   const lineScrollRef = useRef(null);
 
-  const historyRef = useRef([]);
-  const redoRef = useRef([]);
-
-  const autoSaveTimerRef = useRef(null);
-
-  const [files, setFiles] = useState({});
-  const [activeFile, setActiveFile] = useState(null);
-  const [code, setCode] = useState('');
-
-  const [selection, setSelection] = useState({
+  const codeRef = useRef('');
+  const selectionRef = useRef({
     start: 0,
     end: 0,
   });
 
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [dirty, setDirty] = useState(false);
+  const historyRef = useRef([]);
+  const redoRef = useRef([]);
+
+  const suppressChangeRef = useRef(null);
+
+  const autoSaveTimerRef = useRef(null);
+
+  const [files, setFiles] = useState({});
+  const [activeFile, setActiveFile] =
+    useState(null);
+  const [code, setCode] = useState('');
+
+  const [selection, setSelection] =
+    useState({
+      start: 0,
+      end: 0,
+    });
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [saving, setSaving] =
+    useState(false);
+
+  const [dirty, setDirty] =
+    useState(false);
 
   const [editorSettings, setEditorSettings] =
     useState({
@@ -101,24 +124,47 @@ export default function WorkbenchScreen({
   const [renameFileName, setRenameFileName] =
     useState('');
 
+  const [showTerminal, setShowTerminal] =
+    useState(false);
+
+  const [terminalInput, setTerminalInput] =
+    useState('');
+
+  const [terminalLines, setTerminalLines] =
+    useState([
+      {
+        type: 'system',
+        text:
+          'GCODE Terminal V3.1 — tape "help" pour commencer.',
+      },
+    ]);
+
+  const [terminalCwd, setTerminalCwd] =
+    useState('');
+
   const styles = useMemo(
     () =>
       StyleSheet.create({
         container: {
           flex: 1,
-          backgroundColor: colors.background,
+          backgroundColor:
+            colors.background,
         },
 
         header: {
           minHeight: 62,
-          paddingHorizontal: spacing.md,
+          paddingHorizontal:
+            spacing.md,
           paddingTop:
-            Platform.OS === 'ios' ? 8 : 4,
+            Platform.OS === 'ios'
+              ? 8
+              : 4,
           paddingBottom: 8,
           flexDirection: 'row',
           alignItems: 'center',
           borderBottomWidth: 1,
-          borderBottomColor: colors.border,
+          borderBottomColor:
+            colors.border,
           backgroundColor:
             colors.backgroundElevated,
         },
@@ -129,9 +175,11 @@ export default function WorkbenchScreen({
           borderRadius: radius.sm,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: colors.panel2,
+          backgroundColor:
+            colors.panel2,
           borderWidth: 1,
-          borderColor: colors.border,
+          borderColor:
+            colors.border,
         },
 
         headerButtonText: {
@@ -142,7 +190,8 @@ export default function WorkbenchScreen({
 
         headerCenter: {
           flex: 1,
-          paddingHorizontal: spacing.sm,
+          paddingHorizontal:
+            spacing.sm,
         },
 
         projectTitle: {
@@ -164,7 +213,8 @@ export default function WorkbenchScreen({
           borderRadius: radius.sm,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: colors.purple,
+          backgroundColor:
+            colors.purple,
         },
 
         previewButtonText: {
@@ -175,12 +225,15 @@ export default function WorkbenchScreen({
 
         toolbar: {
           minHeight: 48,
-          paddingHorizontal: spacing.sm,
+          paddingHorizontal:
+            spacing.sm,
           flexDirection: 'row',
           alignItems: 'center',
           borderBottomWidth: 1,
-          borderBottomColor: colors.border,
-          backgroundColor: colors.panel,
+          borderBottomColor:
+            colors.border,
+          backgroundColor:
+            colors.panel,
         },
 
         toolbarScroll: {
@@ -195,15 +248,21 @@ export default function WorkbenchScreen({
           borderRadius: radius.xs,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: colors.panel2,
+          backgroundColor:
+            colors.panel2,
           borderWidth: 1,
-          borderColor: colors.border,
+          borderColor:
+            colors.border,
         },
 
         toolbarButtonText: {
           color: colors.text,
           fontSize: 13,
           fontWeight: '600',
+        },
+
+        disabledButton: {
+          opacity: 0.35,
         },
 
         statusText: {
@@ -221,21 +280,27 @@ export default function WorkbenchScreen({
         },
 
         explorer: {
-          width: showExplorer ? 190 : 0,
+          width: showExplorer
+            ? 190
+            : 0,
           overflow: 'hidden',
-          backgroundColor: colors.panel,
+          backgroundColor:
+            colors.panel,
           borderRightWidth:
             showExplorer ? 1 : 0,
-          borderRightColor: colors.border,
+          borderRightColor:
+            colors.border,
         },
 
         explorerHeader: {
           height: 48,
-          paddingHorizontal: spacing.sm,
+          paddingHorizontal:
+            spacing.sm,
           flexDirection: 'row',
           alignItems: 'center',
           borderBottomWidth: 1,
-          borderBottomColor: colors.border,
+          borderBottomColor:
+            colors.border,
         },
 
         explorerTitle: {
@@ -253,7 +318,8 @@ export default function WorkbenchScreen({
           borderRadius: radius.xs,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: colors.panel2,
+          backgroundColor:
+            colors.panel2,
         },
 
         addButtonText: {
@@ -279,7 +345,8 @@ export default function WorkbenchScreen({
           backgroundColor:
             colors.editorSelection,
           borderWidth: 1,
-          borderColor: colors.purpleDark,
+          borderColor:
+            colors.purpleDark,
         },
 
         fileIcon: {
@@ -315,12 +382,14 @@ export default function WorkbenchScreen({
 
         editorArea: {
           flex: 1,
-          backgroundColor: colors.editor,
+          backgroundColor:
+            colors.editor,
         },
 
         editorHeader: {
           minHeight: 36,
-          paddingHorizontal: spacing.sm,
+          paddingHorizontal:
+            spacing.sm,
           flexDirection: 'row',
           alignItems: 'center',
           backgroundColor:
@@ -342,7 +411,8 @@ export default function WorkbenchScreen({
 
         lineScroll: {
           width: 48,
-          backgroundColor: colors.editor,
+          backgroundColor:
+            colors.editor,
           borderRightWidth: 1,
           borderRightColor:
             colors.editorLine,
@@ -373,7 +443,8 @@ export default function WorkbenchScreen({
           paddingTop: 12,
           paddingBottom: 40,
           color: colors.editorText,
-          backgroundColor: colors.editor,
+          backgroundColor:
+            colors.editor,
           fontSize: 13,
           lineHeight: 22,
           fontFamily:
@@ -385,9 +456,11 @@ export default function WorkbenchScreen({
 
         searchPanel: {
           padding: spacing.sm,
-          backgroundColor: colors.panel,
+          backgroundColor:
+            colors.panel,
           borderTopWidth: 1,
-          borderTopColor: colors.border,
+          borderTopColor:
+            colors.border,
         },
 
         searchRow: {
@@ -400,8 +473,10 @@ export default function WorkbenchScreen({
           flex: 1,
           height: 40,
           paddingHorizontal: 12,
-          borderRadius: radius.xs,
-          backgroundColor: colors.editor,
+          borderRadius:
+            radius.xs,
+          backgroundColor:
+            colors.editor,
           borderWidth: 1,
           borderColor:
             colors.borderStrong,
@@ -414,12 +489,15 @@ export default function WorkbenchScreen({
           minWidth: 42,
           marginLeft: 6,
           paddingHorizontal: 10,
-          borderRadius: radius.xs,
+          borderRadius:
+            radius.xs,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: colors.panel2,
+          backgroundColor:
+            colors.panel2,
           borderWidth: 1,
-          borderColor: colors.border,
+          borderColor:
+            colors.border,
         },
 
         searchButtonText: {
@@ -432,10 +510,12 @@ export default function WorkbenchScreen({
           height: 40,
           width: 40,
           marginLeft: 6,
-          borderRadius: radius.xs,
+          borderRadius:
+            radius.xs,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: colors.panel2,
+          backgroundColor:
+            colors.panel2,
         },
 
         searchInfo: {
@@ -444,29 +524,135 @@ export default function WorkbenchScreen({
           marginTop: 2,
         },
 
-        emptyEditor: {
+        terminal: {
+          height: 250,
+          backgroundColor:
+            colors.backgroundElevated,
+          borderTopWidth: 1,
+          borderTopColor:
+            colors.borderStrong,
+        },
+
+        terminalHeader: {
+          height: 42,
+          paddingHorizontal:
+            spacing.sm,
+          flexDirection: 'row',
+          alignItems: 'center',
+          borderBottomWidth: 1,
+          borderBottomColor:
+            colors.border,
+        },
+
+        terminalTitle: {
           flex: 1,
+          color: colors.textStrong,
+          fontSize: 12,
+          fontWeight: '700',
+        },
+
+        terminalClose: {
+          width: 34,
+          height: 32,
           alignItems: 'center',
           justifyContent: 'center',
-          padding: spacing.xl,
+          borderRadius:
+            radius.xs,
+          backgroundColor:
+            colors.panel2,
         },
 
-        emptyEditorTitle: {
-          color: colors.textStrong,
-          fontSize: 18,
-          fontWeight: '700',
-          marginBottom: 8,
+        terminalCloseText: {
+          color: colors.text,
+          fontSize: 16,
         },
 
-        emptyEditorText: {
+        terminalOutput: {
+          flex: 1,
+          padding: 10,
+        },
+
+        terminalLine: {
+          color: colors.text,
+          fontSize: 12,
+          lineHeight: 18,
+          fontFamily:
+            Platform.OS === 'ios'
+              ? 'Menlo'
+              : 'monospace',
+        },
+
+        terminalSystem: {
           color: colors.muted,
-          fontSize: 13,
-          textAlign: 'center',
+        },
+
+        terminalCommand: {
+          color: colors.purpleLight,
+        },
+
+        terminalError: {
+          color: colors.red,
+        },
+
+        terminalInputRow: {
+          minHeight: 44,
+          paddingHorizontal: 8,
+          paddingBottom: 7,
+          flexDirection: 'row',
+          alignItems: 'center',
+        },
+
+        terminalPrompt: {
+          color: colors.green,
+          fontSize: 12,
+          fontFamily:
+            Platform.OS === 'ios'
+              ? 'Menlo'
+              : 'monospace',
+          marginRight: 6,
+        },
+
+        terminalInput: {
+          flex: 1,
+          height: 38,
+          paddingHorizontal: 9,
+          borderRadius:
+            radius.xs,
+          backgroundColor:
+            colors.editor,
+          borderWidth: 1,
+          borderColor:
+            colors.borderStrong,
+          color: colors.text,
+          fontSize: 12,
+          fontFamily:
+            Platform.OS === 'ios'
+              ? 'Menlo'
+              : 'monospace',
+        },
+
+        terminalSend: {
+          width: 42,
+          height: 38,
+          marginLeft: 6,
+          borderRadius:
+            radius.xs,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor:
+            colors.purple,
+        },
+
+        terminalSendText: {
+          color: '#FFFFFF',
+          fontSize: 16,
+          fontWeight: '700',
         },
 
         modalOverlay: {
           flex: 1,
-          backgroundColor: colors.overlay,
+          backgroundColor:
+            colors.overlay,
           alignItems: 'center',
           justifyContent: 'center',
           padding: spacing.lg,
@@ -475,8 +661,10 @@ export default function WorkbenchScreen({
         modalCard: {
           width: '100%',
           maxWidth: 420,
-          backgroundColor: colors.panel,
-          borderRadius: radius.lg,
+          backgroundColor:
+            colors.panel,
+          borderRadius:
+            radius.lg,
           borderWidth: 1,
           borderColor:
             colors.borderStrong,
@@ -494,24 +682,28 @@ export default function WorkbenchScreen({
           color: colors.muted,
           fontSize: 12,
           lineHeight: 18,
-          marginBottom: spacing.md,
+          marginBottom:
+            spacing.md,
         },
 
         input: {
           height: 48,
           paddingHorizontal: 14,
-          borderRadius: radius.sm,
+          borderRadius:
+            radius.sm,
           borderWidth: 1,
           borderColor:
             colors.borderStrong,
-          backgroundColor: colors.editor,
+          backgroundColor:
+            colors.editor,
           color: colors.text,
           fontSize: 14,
         },
 
         modalActions: {
           flexDirection: 'row',
-          justifyContent: 'flex-end',
+          justifyContent:
+            'flex-end',
           marginTop: spacing.md,
         },
 
@@ -520,19 +712,23 @@ export default function WorkbenchScreen({
           height: 44,
           paddingHorizontal: 14,
           marginLeft: 8,
-          borderRadius: radius.sm,
+          borderRadius:
+            radius.sm,
           alignItems: 'center',
           justifyContent: 'center',
         },
 
         cancelButton: {
-          backgroundColor: colors.panel2,
+          backgroundColor:
+            colors.panel2,
           borderWidth: 1,
-          borderColor: colors.border,
+          borderColor:
+            colors.border,
         },
 
         confirmButton: {
-          backgroundColor: colors.purple,
+          backgroundColor:
+            colors.purple,
         },
 
         cancelButtonText: {
@@ -565,11 +761,13 @@ export default function WorkbenchScreen({
           await loadEditorSettings();
 
         if (mounted) {
-          setEditorSettings(settings);
+          setEditorSettings(
+            settings
+          );
         }
       } catch (error) {
         console.error(
-          'Erreur de chargement des paramètres éditeur:',
+          'Erreur paramètres:',
           error
         );
       }
@@ -587,13 +785,11 @@ export default function WorkbenchScreen({
 
     async function loadProject() {
       if (!project?.id) {
-        if (mounted) {
-          setFiles({});
-          setActiveFile(null);
-          setCode('');
-          setLoading(false);
-        }
-
+        setFiles({});
+        setActiveFile(null);
+        setCode('');
+        codeRef.current = '';
+        setLoading(false);
         return;
       }
 
@@ -601,7 +797,9 @@ export default function WorkbenchScreen({
 
       try {
         const storedProject =
-          await getProject(project.id);
+          await getProject(
+            project.id
+          );
 
         if (!mounted) {
           return;
@@ -613,7 +811,9 @@ export default function WorkbenchScreen({
           {};
 
         const names =
-          Object.keys(projectFiles);
+          Object.keys(
+            projectFiles
+          );
 
         const initialFile =
           storedProject?.activeFile ||
@@ -621,18 +821,33 @@ export default function WorkbenchScreen({
           names[0] ||
           null;
 
-        const initialCode = initialFile
-          ? projectFiles[initialFile] || ''
-          : '';
+        const initialCode =
+          initialFile
+            ? projectFiles[
+                initialFile
+              ] || ''
+            : '';
 
         setFiles(projectFiles);
         setActiveFile(initialFile);
         setCode(initialCode);
 
+        codeRef.current =
+          initialCode;
+
         setSelection({
-          start: initialCode.length,
-          end: initialCode.length,
+          start:
+            initialCode.length,
+          end:
+            initialCode.length,
         });
+
+        selectionRef.current = {
+          start:
+            initialCode.length,
+          end:
+            initialCode.length,
+        };
 
         historyRef.current = [];
         redoRef.current = [];
@@ -641,7 +856,7 @@ export default function WorkbenchScreen({
         setLoading(false);
       } catch (error) {
         console.error(
-          'Erreur de chargement du projet:',
+          'Erreur chargement projet:',
           error
         );
 
@@ -649,6 +864,7 @@ export default function WorkbenchScreen({
           setFiles({});
           setActiveFile(null);
           setCode('');
+          codeRef.current = '';
           setDirty(false);
           setLoading(false);
         }
@@ -664,12 +880,15 @@ export default function WorkbenchScreen({
 
   useEffect(() => {
     return () => {
-      if (autoSaveTimerRef.current) {
+      if (
+        autoSaveTimerRef.current
+      ) {
         clearTimeout(
           autoSaveTimerRef.current
         );
 
-        autoSaveTimerRef.current = null;
+        autoSaveTimerRef.current =
+          null;
       }
     };
   }, []);
@@ -680,27 +899,32 @@ export default function WorkbenchScreen({
   );
 
   const lineNumbers = Array.from(
-    { length: lineCount },
+    {
+      length: lineCount,
+    },
     (_, index) => index + 1
   );
 
-  const notifyProjectUpdated = (
-    updatedProject
-  ) => {
-    if (
-      typeof onProjectUpdated ===
-      'function'
-    ) {
-      onProjectUpdated(updatedProject);
-    }
-  };
+  const notifyProjectUpdated =
+    (updatedProject) => {
+      if (
+        typeof onProjectUpdated ===
+        'function'
+      ) {
+        onProjectUpdated(
+          updatedProject
+        );
+      }
+    };
 
   const performSave = async (
-    fileName = activeFile,
-    content = code
+    nextCode = codeRef.current
   ) => {
-    if (!project?.id || !fileName) {
-      return null;
+    if (
+      !project?.id ||
+      !activeFile
+    ) {
+      return false;
     }
 
     setSaving(true);
@@ -709,105 +933,146 @@ export default function WorkbenchScreen({
       const updatedProject =
         await saveProjectFile(
           project.id,
-          fileName,
-          content
+          activeFile,
+          nextCode
         );
 
       if (updatedProject) {
         setFiles(
-          updatedProject.files || {}
+          updatedProject.files ||
+            {}
         );
-
-        setDirty(false);
 
         notifyProjectUpdated(
           updatedProject
         );
       }
 
-      return updatedProject;
+      setDirty(false);
+
+      return true;
     } catch (error) {
       console.error(
-        'Erreur de sauvegarde:',
+        'Erreur sauvegarde:',
         error
       );
 
-      return null;
+      Alert.alert(
+        'Erreur',
+        'Impossible de sauvegarder le fichier.'
+      );
+
+      return false;
     } finally {
       setSaving(false);
     }
   };
 
   const scheduleAutoSave = (
-    fileName,
-    content
+    nextCode
   ) => {
     if (
-      !editorSettings.autoSave ||
-      !project?.id ||
-      !fileName
+      !editorSettings.autoSave
     ) {
       return;
     }
 
-    if (autoSaveTimerRef.current) {
+    if (
+      autoSaveTimerRef.current
+    ) {
       clearTimeout(
         autoSaveTimerRef.current
       );
     }
 
     autoSaveTimerRef.current =
-      setTimeout(async () => {
-        await performSave(
-          fileName,
-          content
-        );
-
-        autoSaveTimerRef.current =
-          null;
-      }, 800);
+      setTimeout(
+        () => {
+          performSave(
+            nextCode
+          );
+        },
+        1200
+      );
   };
 
   const pushHistory = (
     previousCode
   ) => {
     if (
-      previousCode === code
+      typeof previousCode !==
+      'string'
     ) {
       return;
     }
 
-    historyRef.current.push(
+    const history =
+      historyRef.current;
+
+    if (
+      history.length &&
+      history[
+        history.length - 1
+      ] === previousCode
+    ) {
+      return;
+    }
+
+    history.push(
       previousCode
     );
 
     if (
-      historyRef.current.length >
-      100
+      history.length > 100
     ) {
-      historyRef.current.shift();
+      history.shift();
     }
-
-    redoRef.current = [];
   };
 
   const handleCodeChange = (
-    value
+    nextCode
   ) => {
-    pushHistory(code);
+    if (
+      suppressChangeRef.current !==
+      null
+    ) {
+      if (
+        nextCode ===
+        suppressChangeRef.current
+      ) {
+        suppressChangeRef.current =
+          null;
+        return;
+      }
 
-    setCode(value);
+      suppressChangeRef.current =
+        null;
+    }
 
-    setFiles((previous) => ({
-      ...previous,
-      [activeFile]: value,
-    }));
+    const previousCode =
+      codeRef.current;
 
+    if (
+      nextCode ===
+      previousCode
+    ) {
+      return;
+    }
+
+    pushHistory(
+      previousCode
+    );
+
+    redoRef.current = [];
+
+    codeRef.current =
+      nextCode;
+
+    setCode(nextCode);
     setDirty(true);
 
     scheduleAutoSave(
-      activeFile,
-      value
+      nextCode
     );
   };
 
@@ -815,217 +1080,221 @@ export default function WorkbenchScreen({
     event
   ) => {
     const nextSelection =
-      event?.nativeEvent?.selection;
+      event?.nativeEvent
+        ?.selection || {
+        start: 0,
+        end: 0,
+      };
 
-    if (!nextSelection) {
-      return;
-    }
+    selectionRef.current =
+      nextSelection;
 
-    setSelection({
-      start: nextSelection.start,
-      end: nextSelection.end,
-    });
+    setSelection(
+      nextSelection
+    );
   };
 
-  const insertTextAtCursor = (
-    text
+  const restoreCode = (
+    nextCode
   ) => {
-    if (!activeFile) {
-      return;
-    }
+    suppressChangeRef.current =
+      nextCode;
 
-    const start = Math.min(
-      selection.start,
-      selection.end
-    );
-
-    const end = Math.max(
-      selection.start,
-      selection.end
-    );
-
-    const before = code.slice(
-      0,
-      start
-    );
-
-    const after = code.slice(
-      end
-    );
-
-    const nextCode =
-      before + text + after;
-
-    pushHistory(code);
+    codeRef.current =
+      nextCode;
 
     setCode(nextCode);
 
-    setFiles((previous) => ({
-      ...previous,
-      [activeFile]: nextCode,
-    }));
+    const nextSelection =
+      {
+        start:
+          Math.min(
+            selectionRef.current
+              .start,
+            nextCode.length
+          ),
+        end:
+          Math.min(
+            selectionRef.current
+              .end,
+            nextCode.length
+          ),
+      };
 
-    const nextCursor =
-      start + text.length;
+    selectionRef.current =
+      nextSelection;
 
-    setSelection({
-      start: nextCursor,
-      end: nextCursor,
-    });
+    setSelection(
+      nextSelection
+    );
 
     setDirty(true);
 
     scheduleAutoSave(
-      activeFile,
       nextCode
     );
 
-    requestAnimationFrame(() => {
-      editorRef.current?.focus();
-    });
+    requestAnimationFrame(
+      () => {
+        editorRef.current?.focus();
+
+        editorRef.current?.setNativeProps?.(
+          {
+            selection:
+              nextSelection,
+          }
+        );
+      }
+    );
   };
 
   const handleUndo = () => {
-    const history =
-      historyRef.current;
-
-    if (!history.length) {
+    if (
+      !historyRef.current.length
+    ) {
       return;
     }
 
+    const currentCode =
+      codeRef.current;
+
     const previousCode =
-      history.pop();
+      historyRef.current.pop();
 
-    redoRef.current.push(code);
+    redoRef.current.push(
+      currentCode
+    );
 
-    setCode(previousCode);
-
-    setFiles((previous) => ({
-      ...previous,
-      [activeFile]: previousCode,
-    }));
-
-    const cursor =
-      previousCode.length;
-
-    setSelection({
-      start: cursor,
-      end: cursor,
-    });
-
-    setDirty(true);
-
-    scheduleAutoSave(
-      activeFile,
+    restoreCode(
       previousCode
     );
   };
 
   const handleRedo = () => {
-    const redo =
-      redoRef.current;
-
-    if (!redo.length) {
+    if (
+      !redoRef.current.length
+    ) {
       return;
     }
 
+    const currentCode =
+      codeRef.current;
+
     const nextCode =
-      redo.pop();
+      redoRef.current.pop();
 
-    historyRef.current.push(code);
+    historyRef.current.push(
+      currentCode
+    );
 
-    setCode(nextCode);
+    restoreCode(
+      nextCode
+    );
+  };
 
-    setFiles((previous) => ({
-      ...previous,
-      [activeFile]: nextCode,
-    }));
+  const insertTextAtCursor = (
+    text
+  ) => {
+    const current =
+      codeRef.current;
+
+    const start =
+      selectionRef.current
+        .start;
+
+    const end =
+      selectionRef.current
+        .end;
+
+    const nextCode =
+      current.slice(0, start) +
+      text +
+      current.slice(end);
 
     const cursor =
-      nextCode.length;
+      start + text.length;
+
+    selectionRef.current = {
+      start: cursor,
+      end: cursor,
+    };
 
     setSelection({
       start: cursor,
       end: cursor,
     });
 
-    setDirty(true);
-
-    scheduleAutoSave(
-      activeFile,
+    handleCodeChange(
       nextCode
+    );
+
+    requestAnimationFrame(
+      () => {
+        editorRef.current?.focus();
+      }
     );
   };
 
-  const handleEditorScroll = (
-    event
-  ) => {
-    const offsetY =
-      event?.nativeEvent?.contentOffset
-        ?.y || 0;
-
-    lineScrollRef.current?.scrollTo({
-      y: offsetY,
-      animated: false,
-    });
-  };
-
-  const handleSelectFile = async (
+  const switchFile = async (
     fileName
   ) => {
     if (
-      !fileName ||
       fileName === activeFile
     ) {
       return;
     }
 
-    if (autoSaveTimerRef.current) {
-      clearTimeout(
-        autoSaveTimerRef.current
-      );
-
-      autoSaveTimerRef.current = null;
-    }
-
     if (dirty) {
-      await performSave(
-        activeFile,
-        code
-      );
+      const saved =
+        await performSave();
+
+      if (!saved) {
+        return;
+      }
     }
 
     const nextCode =
       files[fileName] || '';
 
-    setActiveFile(fileName);
-    setCode(nextCode);
+    setActiveFile(
+      fileName
+    );
 
-    setSelection({
-      start: 0,
-      end: 0,
-    });
+    codeRef.current =
+      nextCode;
+
+    setCode(nextCode);
 
     historyRef.current = [];
     redoRef.current = [];
 
-    setDirty(false);
-
-    requestAnimationFrame(() => {
-      editorRef.current?.focus();
+    setSelection({
+      start:
+        nextCode.length,
+      end:
+        nextCode.length,
     });
+
+    selectionRef.current = {
+      start:
+        nextCode.length,
+      end:
+        nextCode.length,
+    };
+
+    setDirty(false);
   };
+
+  const handleManualSave =
+    async () => {
+      await performSave();
+    };
 
   const handleAddFile = async () => {
     const name =
       newFileName.trim();
 
     if (!name) {
-      Alert.alert(
-        'Nom requis',
-        'Entre un nom de fichier.'
-      );
-
       return;
     }
 
@@ -1037,438 +1306,439 @@ export default function WorkbenchScreen({
     ) {
       Alert.alert(
         'Fichier existant',
-        'Un fichier avec ce nom existe déjà.'
+        'Ce fichier existe déjà.'
       );
-
       return;
     }
 
-    const updatedProject =
-      await addProjectFile(
-        project.id,
-        name,
-        ''
+    try {
+      const updatedProject =
+        await addProjectFile(
+          project.id,
+          name,
+          ''
+        );
+
+      setFiles(
+        updatedProject?.files ||
+          {}
       );
 
-    if (!updatedProject) {
+      notifyProjectUpdated(
+        updatedProject
+      );
+
+      setShowNewFileModal(
+        false
+      );
+
+      setNewFileName('');
+
+      if (
+        !activeFile
+      ) {
+        await switchFile(
+          name
+        );
+      }
+    } catch (error) {
+      console.error(
+        'Erreur création fichier:',
+        error
+      );
+
       Alert.alert(
         'Erreur',
         'Impossible de créer le fichier.'
       );
-
-      return;
     }
-
-    setFiles(
-      updatedProject.files || {}
-    );
-
-    setActiveFile(name);
-    setCode('');
-
-    setSelection({
-      start: 0,
-      end: 0,
-    });
-
-    historyRef.current = [];
-    redoRef.current = [];
-
-    setDirty(false);
-    setNewFileName('');
-    setShowNewFileModal(false);
-
-    notifyProjectUpdated(
-      updatedProject
-    );
   };
 
-  const handleDeleteFile = (
-    fileName
-  ) => {
-    if (!fileName) {
-      return;
-    }
+  const handleDeleteFile =
+    async (fileName) => {
+      if (
+        Object.keys(files)
+          .length <= 1
+      ) {
+        Alert.alert(
+          'Action impossible',
+          'Le projet doit conserver au moins un fichier.'
+        );
+        return;
+      }
 
-    const fileNames =
-      Object.keys(files);
-
-    if (fileNames.length <= 1) {
       Alert.alert(
-        'Action impossible',
-        'Un projet doit conserver au moins un fichier.'
-      );
-
-      return;
-    }
-
-    Alert.alert(
-      'Supprimer le fichier',
-      `Supprimer « ${fileName} » ?`,
-      [
-        {
-          text: 'Annuler',
-          style: 'cancel',
-        },
-        {
-          text: 'Supprimer',
-          style: 'destructive',
-          onPress: async () => {
-            if (
-              autoSaveTimerRef.current
-            ) {
-              clearTimeout(
-                autoSaveTimerRef.current
-              );
-
-              autoSaveTimerRef.current =
-                null;
-            }
-
-            const updatedProject =
-              await deleteProjectFile(
-                project.id,
-                fileName
-              );
-
-            if (!updatedProject) {
-              return;
-            }
-
-            const updatedFiles =
-              updatedProject.files || {};
-
-            const nextFile =
-              updatedProject.activeFile ||
-              Object.keys(
-                updatedFiles
-              )[0] ||
-              null;
-
-            const nextCode =
-              nextFile
-                ? updatedFiles[nextFile] ||
-                  ''
-                : '';
-
-            setFiles(updatedFiles);
-            setActiveFile(nextFile);
-            setCode(nextCode);
-
-            setSelection({
-              start: 0,
-              end: 0,
-            });
-
-            historyRef.current = [];
-            redoRef.current = [];
-
-            setDirty(false);
-
-            notifyProjectUpdated(
-              updatedProject
-            );
+        'Supprimer le fichier',
+        `Voulez-vous supprimer ${fileName} ?`,
+        [
+          {
+            text: 'Annuler',
+            style: 'cancel',
           },
-        },
-      ]
-    );
-  };
+          {
+            text: 'Supprimer',
+            style: 'destructive',
+            onPress:
+              async () => {
+                try {
+                  if (
+                    fileName ===
+                    activeFile
+                  ) {
+                    const names =
+                      Object.keys(
+                        files
+                      ).filter(
+                        (item) =>
+                          item !==
+                          fileName
+                      );
 
-  const openRenameModal = (
-    fileName
-  ) => {
-    setRenameTarget(fileName);
-    setRenameFileName(fileName);
-    setShowRenameModal(true);
-  };
+                    if (
+                      dirty
+                    ) {
+                      await performSave();
+                    }
 
-  const handleRenameFile = async () => {
-    const oldName =
-      renameTarget;
+                    const nextFile =
+                      names[0];
 
-    const newName =
-      renameFileName.trim();
+                    const nextCode =
+                      files[
+                        nextFile
+                      ] || '';
 
-    if (!oldName) {
-      return;
-    }
+                    setActiveFile(
+                      nextFile
+                    );
 
-    if (!newName) {
-      Alert.alert(
-        'Nom requis',
-        'Entre un nouveau nom de fichier.'
+                    codeRef.current =
+                      nextCode;
+
+                    setCode(
+                      nextCode
+                    );
+
+                    historyRef.current =
+                      [];
+
+                    redoRef.current =
+                      [];
+
+                    setDirty(false);
+                  }
+
+                  const updatedProject =
+                    await deleteProjectFile(
+                      project.id,
+                      fileName
+                    );
+
+                  setFiles(
+                    updatedProject?.files ||
+                      {}
+                  );
+
+                  notifyProjectUpdated(
+                    updatedProject
+                  );
+                } catch (error) {
+                  console.error(
+                    'Erreur suppression fichier:',
+                    error
+                  );
+
+                  Alert.alert(
+                    'Erreur',
+                    'Impossible de supprimer le fichier.'
+                  );
+                }
+              },
+          },
+        ]
+      );
+    };
+
+  const openRenameFile =
+    (fileName) => {
+      setRenameTarget(
+        fileName
       );
 
-      return;
-    }
+      setRenameFileName(
+        fileName
+      );
 
+      setShowRenameModal(
+        true
+      );
+    };
+
+  const handleRenameFile =
+    async () => {
+      const nextName =
+        renameFileName.trim();
+
+      if (
+        !renameTarget ||
+        !nextName
+      ) {
+        return;
+      }
+
+      if (
+        nextName !==
+          renameTarget &&
+        Object.prototype.hasOwnProperty.call(
+          files,
+          nextName
+        )
+      ) {
+        Alert.alert(
+          'Fichier existant',
+          'Ce nom est déjà utilisé.'
+        );
+        return;
+      }
+
+      try {
+        const updatedProject =
+          await renameProjectFile(
+            project.id,
+            renameTarget,
+            nextName
+          );
+
+        const updatedFiles =
+          updatedProject?.files ||
+          {};
+
+        setFiles(
+          updatedFiles
+        );
+
+        if (
+          activeFile ===
+          renameTarget
+        ) {
+          setActiveFile(
+            nextName
+          );
+
+          const nextCode =
+            updatedFiles[
+              nextName
+            ] || '';
+
+          codeRef.current =
+            nextCode;
+
+          setCode(
+            nextCode
+          );
+        }
+
+        notifyProjectUpdated(
+          updatedProject
+        );
+
+        setShowRenameModal(
+          false
+        );
+
+        setRenameTarget(
+          null
+        );
+      } catch (error) {
+        console.error(
+          'Erreur renommage:',
+          error
+        );
+
+        Alert.alert(
+          'Erreur',
+          'Impossible de renommer le fichier.'
+        );
+      }
+    };
+
+  const getMatches = () => {
     if (
-      newName !== oldName &&
-      Object.prototype.hasOwnProperty.call(
-        files,
-        newName
-      )
+      !searchText ||
+      !code
     ) {
-      Alert.alert(
-        'Fichier existant',
-        'Un fichier avec ce nom existe déjà.'
-      );
-
-      return;
+      return [];
     }
 
-    if (
-      autoSaveTimerRef.current
-    ) {
-      clearTimeout(
-        autoSaveTimerRef.current
-      );
+    const matches = [];
+    let start = 0;
 
-      autoSaveTimerRef.current = null;
-    }
-
-    const updatedProject =
-      await renameProjectFile(
-        project.id,
-        oldName,
-        newName
-      );
-
-    if (!updatedProject) {
-      Alert.alert(
-        'Erreur',
-        'Impossible de renommer le fichier.'
-      );
-
-      return;
-    }
-
-    const updatedFiles =
-      updatedProject.files || {};
-
-    setFiles(updatedFiles);
-
-    if (
-      activeFile === oldName
-    ) {
-      setActiveFile(newName);
-      setCode(
-        updatedFiles[newName] || ''
-      );
-
-      setSelection({
-        start: 0,
-        end: 0,
-      });
-    }
-
-    setRenameTarget(null);
-    setRenameFileName('');
-    setShowRenameModal(false);
-    setDirty(false);
-
-    notifyProjectUpdated(
-      updatedProject
-    );
-  };
-
-  const findNext = () => {
-    if (!searchText) {
-      return;
-    }
-
-    const startFrom =
-      searchIndex >= 0
-        ? searchIndex +
-          searchText.length
-        : selection.end;
-
-    let index =
-      code.indexOf(
-        searchText,
-        startFrom
-      );
-
-    if (index === -1) {
-      index =
+    while (true) {
+      const index =
         code.indexOf(
           searchText,
-          0
+          start
+        );
+
+      if (index === -1) {
+        break;
+      }
+
+      matches.push(index);
+
+      start =
+        index +
+        Math.max(
+          searchText.length,
+          1
         );
     }
 
-    if (index === -1) {
-      Alert.alert(
-        'Recherche',
-        'Aucune occurrence trouvée.'
-      );
-
-      return;
-    }
-
-    const nextEnd =
-      index + searchText.length;
-
-    setSearchIndex(index);
-
-    setSelection({
-      start: index,
-      end: nextEnd,
-    });
-
-    requestAnimationFrame(() => {
-      editorRef.current?.focus();
-    });
+    return matches;
   };
 
-  const replaceCurrent = () => {
-    if (!searchText) {
+  const handleFindNext = () => {
+    const matches =
+      getMatches();
+
+    if (!matches.length) {
+      setSearchIndex(-1);
       return;
     }
 
-    const start =
-      selection.start;
+    const nextIndex =
+      (searchIndex + 1) %
+      matches.length;
 
-    const end =
-      selection.end;
+    const position =
+      matches[nextIndex];
 
-    const selectedText =
-      code.slice(
-        start,
-        end
-      );
+    setSearchIndex(
+      nextIndex
+    );
 
-    if (
-      selectedText !== searchText
-    ) {
-      findNext();
-      return;
-    }
+    selectionRef.current = {
+      start: position,
+      end:
+        position +
+        searchText.length,
+    };
 
-    const nextCode =
-      code.slice(0, start) +
-      replaceText +
-      code.slice(end);
+    setSelection(
+      selectionRef.current
+    );
 
-    pushHistory(code);
-
-    setCode(nextCode);
-
-    setFiles((previous) => ({
-      ...previous,
-      [activeFile]: nextCode,
-    }));
-
-    const nextCursor =
-      start + replaceText.length;
-
-    setSelection({
-      start: nextCursor,
-      end: nextCursor,
-    });
-
-    setDirty(true);
-
-    scheduleAutoSave(
-      activeFile,
-      nextCode
+    requestAnimationFrame(
+      () => {
+        editorRef.current?.focus();
+      }
     );
   };
 
-  const replaceAll = () => {
-    if (!searchText) {
-      return;
-    }
+  const handleReplaceCurrent =
+    () => {
+      if (
+        !searchText
+      ) {
+        return;
+      }
 
-    if (
-      !code.includes(searchText)
-    ) {
-      Alert.alert(
-        'Remplacement',
-        'Aucune occurrence trouvée.'
+      const start =
+        selectionRef.current
+          .start;
+
+      const end =
+        selectionRef.current
+          .end;
+
+      const selected =
+        code.slice(
+          start,
+          end
+        );
+
+      if (
+        selected !==
+        searchText
+      ) {
+        handleFindNext();
+        return;
+      }
+
+      const nextCode =
+        code.slice(
+          0,
+          start
+        ) +
+        replaceText +
+        code.slice(end);
+
+      const cursor =
+        start +
+        replaceText.length;
+
+      selectionRef.current = {
+        start: cursor,
+        end: cursor,
+      };
+
+      setSelection(
+        selectionRef.current
       );
 
-      return;
-    }
+      handleCodeChange(
+        nextCode
+      );
+    };
 
-    const nextCode =
-      code
-        .split(searchText)
-        .join(replaceText);
+  const handleReplaceAll =
+    () => {
+      if (
+        !searchText
+      ) {
+        return;
+      }
 
-    pushHistory(code);
+      if (
+        !code.includes(
+          searchText
+        )
+      ) {
+        return;
+      }
 
-    setCode(nextCode);
+      const nextCode =
+        code.split(
+          searchText
+        ).join(
+          replaceText
+        );
 
-    setFiles((previous) => ({
-      ...previous,
-      [activeFile]: nextCode,
-    }));
-
-    setSelection({
-      start: 0,
-      end: 0,
-    });
-
-    setDirty(true);
-
-    scheduleAutoSave(
-      activeFile,
-      nextCode
-    );
-  };
-
-  const handleSave = async () => {
-    if (
-      autoSaveTimerRef.current
-    ) {
-      clearTimeout(
-        autoSaveTimerRef.current
+      handleCodeChange(
+        nextCode
       );
 
-      autoSaveTimerRef.current = null;
-    }
+      setSearchIndex(-1);
+    };
 
-    await performSave(
-      activeFile,
-      code
-    );
-  };
+  const handlePreview =
+    async () => {
+      if (dirty) {
+        const saved =
+          await performSave();
 
-  const handlePreview = async () => {
-    if (!project?.id) {
-      return;
-    }
-
-    if (
-      autoSaveTimerRef.current
-    ) {
-      clearTimeout(
-        autoSaveTimerRef.current
-      );
-
-      autoSaveTimerRef.current = null;
-    }
-
-    const updatedProject =
-      await performSave(
-        activeFile,
-        code
-      );
-
-    if (
-      typeof onPreview ===
-      'function'
-    ) {
-      onPreview(
-        updatedProject || {
-          ...project,
-          files,
-          activeFile,
+        if (!saved) {
+          return;
         }
-      );
-    }
-  };
+      }
+
+      if (
+        typeof onPreview ===
+        'function'
+      ) {
+        onPreview();
+      }
+    };
 
   const handleBack = async () => {
     if (!dirty) {
@@ -1477,8 +1747,8 @@ export default function WorkbenchScreen({
     }
 
     Alert.alert(
-      'Modifications non enregistrées',
-      'Voulez-vous enregistrer avant de quitter ?',
+      'Modifications non sauvegardées',
+      'Voulez-vous sauvegarder avant de quitter ?',
       [
         {
           text: 'Annuler',
@@ -1487,48 +1757,285 @@ export default function WorkbenchScreen({
         {
           text: 'Quitter',
           style: 'destructive',
-          onPress: () => {
-            if (
-              autoSaveTimerRef.current
-            ) {
-              clearTimeout(
-                autoSaveTimerRef.current
-              );
-
-              autoSaveTimerRef.current =
-                null;
-            }
-
-            onBack?.();
-          },
+          onPress: () =>
+            onBack?.(),
         },
         {
-          text: 'Enregistrer',
-          onPress: async () => {
-            if (
-              autoSaveTimerRef.current
-            ) {
-              clearTimeout(
-                autoSaveTimerRef.current
-              );
+          text: 'Sauvegarder',
+          onPress:
+            async () => {
+              const saved =
+                await performSave();
 
-              autoSaveTimerRef.current =
-                null;
-            }
-
-            await performSave(
-              activeFile,
-              code
-            );
-
-            onBack?.();
-          },
+              if (saved) {
+                onBack?.();
+              }
+            },
         },
       ]
     );
   };
 
-  const getFileIcon = (
+  const handleTerminalCreate =
+    async (
+      fileName,
+      content
+    ) => {
+      const updatedProject =
+        await addProjectFile(
+          project.id,
+          fileName,
+          content
+        );
+
+      const updatedFiles =
+        updatedProject?.files ||
+        {};
+
+      setFiles(
+        updatedFiles
+      );
+
+      notifyProjectUpdated(
+        updatedProject
+      );
+    };
+
+  const handleTerminalDelete =
+    async (
+      fileName
+    ) => {
+      if (
+        Object.keys(files)
+          .length <= 1
+      ) {
+        throw new Error(
+          'Le projet doit conserver au moins un fichier.'
+        );
+      }
+
+      const updatedProject =
+        await deleteProjectFile(
+          project.id,
+          fileName
+        );
+
+      const updatedFiles =
+        updatedProject?.files ||
+        {};
+
+      setFiles(
+        updatedFiles
+      );
+
+      if (
+        activeFile ===
+        fileName
+      ) {
+        const nextFile =
+          Object.keys(
+            updatedFiles
+          )[0] || null;
+
+        setActiveFile(
+          nextFile
+        );
+
+        const nextCode =
+          nextFile
+            ? updatedFiles[
+                nextFile
+              ] || ''
+            : '';
+
+        codeRef.current =
+          nextCode;
+
+        setCode(
+          nextCode
+        );
+
+        historyRef.current =
+          [];
+
+        redoRef.current =
+          [];
+
+        setDirty(false);
+      }
+
+      notifyProjectUpdated(
+        updatedProject
+      );
+    };
+
+  const handleTerminalWrite =
+    async (
+      fileName,
+      content
+    ) => {
+      const updatedProject =
+        await saveProjectFile(
+          project.id,
+          fileName,
+          content
+        );
+
+      const updatedFiles =
+        updatedProject?.files ||
+        {};
+
+      setFiles(
+        updatedFiles
+      );
+
+      if (
+        activeFile ===
+        fileName
+      ) {
+        codeRef.current =
+          content;
+
+        setCode(
+          content
+        );
+
+        historyRef.current =
+          [];
+
+        redoRef.current =
+          [];
+
+        setDirty(false);
+      }
+
+      notifyProjectUpdated(
+        updatedProject
+      );
+    };
+
+  const terminalEngine =
+    useMemo(
+      () =>
+        createTerminalEngine({
+          project,
+          files,
+          cwd: terminalCwd,
+          onCreateFile:
+            handleTerminalCreate,
+          onDeleteFile:
+            handleTerminalDelete,
+          onWriteFile:
+            handleTerminalWrite,
+        }),
+      [
+        project,
+        files,
+        terminalCwd,
+      ]
+    );
+
+  const executeTerminal =
+    async () => {
+      const command =
+        terminalInput.trim();
+
+      if (!command) {
+        return;
+      }
+
+      setTerminalInput('');
+
+      setTerminalLines(
+        (current) => [
+          ...current,
+          {
+            type: 'command',
+            text:
+              `$ ${command}`,
+          },
+        ]
+      );
+
+      try {
+        const result =
+          await terminalEngine.execute(
+            command
+          );
+
+        if (
+          result.output ===
+          '__CLEAR__'
+        ) {
+          setTerminalLines([]);
+        } else if (
+          result.output
+        ) {
+          setTerminalLines(
+            (current) => [
+              ...current,
+              {
+                type: 'output',
+                text:
+                  result.output,
+              },
+            ]
+          );
+        }
+
+        setTerminalCwd(
+          result.nextCwd ||
+            ''
+        );
+
+        await refreshFilesAfterTerminal();
+      } catch (error) {
+        setTerminalLines(
+          (current) => [
+            ...current,
+            {
+              type: 'error',
+              text:
+                error?.message ||
+                'Erreur terminal.',
+            },
+          ]
+        );
+      }
+    };
+
+  const refreshFilesAfterTerminal =
+    async () => {
+      try {
+        const latestProject =
+          await getProject(
+            project.id
+          );
+
+        if (!latestProject) {
+          return;
+        }
+
+        const latestFiles =
+          latestProject.files ||
+          {};
+
+        setFiles(
+          latestFiles
+        );
+
+        notifyProjectUpdated(
+          latestProject
+        );
+      } catch (error) {
+        console.error(
+          'Erreur actualisation terminal:',
+          error
+        );
+      }
+    };
+
+  const fileIcon = (
     fileName
   ) => {
     const extension =
@@ -1537,79 +2044,94 @@ export default function WorkbenchScreen({
         .pop()
         ?.toLowerCase();
 
-    if (extension === 'html') {
-      return '◇';
-    }
-
-    if (extension === 'css') {
-      return '#';
+    if (
+      extension === 'html'
+    ) {
+      return 'HTML';
     }
 
     if (
-      extension === 'js' ||
-      extension === 'jsx' ||
-      extension === 'ts' ||
-      extension === 'tsx'
+      extension === 'css'
+    ) {
+      return 'CSS';
+    }
+
+    if (
+      extension === 'js'
     ) {
       return 'JS';
     }
 
-    if (extension === 'json') {
+    if (
+      extension === 'json'
+    ) {
       return '{}';
     }
 
-    if (extension === 'md') {
-      return 'M';
+    if (
+      extension === 'md'
+    ) {
+      return 'MD';
     }
 
-    return '•';
+    return 'FILE';
   };
 
   if (loading) {
     return (
       <View
-        style={[
-          styles.container,
-          {
-            alignItems: 'center',
-            justifyContent: 'center',
-          },
-        ]}
+        style={
+          styles.container
+        }
       >
-        <Text
-          style={{
-            color: colors.muted,
-            fontSize: 13,
-          }}
+        <View
+          style={
+            styles.emptyEditor
+          }
         >
-          Chargement du projet…
-        </Text>
+          <Text
+            style={
+              styles.emptyEditorTitle
+            }
+          >
+            Chargement...
+          </Text>
+
+          <Text
+            style={
+              styles.emptyEditorText
+            }
+          >
+            Ouverture du projet
+          </Text>
+        </View>
       </View>
     );
   }
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={
+        styles.container
+      }
       behavior={
         Platform.OS === 'ios'
           ? 'padding'
           : undefined
       }
     >
-      <View style={styles.header}>
+      <View
+        style={
+          styles.header
+        }
+      >
         <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Retour"
-          onPress={handleBack}
-          style={({ pressed }) => [
-            styles.headerButton,
-            {
-              opacity: pressed
-                ? 0.65
-                : 1,
-            },
-          ]}
+          style={
+            styles.headerButton
+          }
+          onPress={
+            handleBack
+          }
         >
           <Text
             style={
@@ -1621,19 +2143,25 @@ export default function WorkbenchScreen({
         </Pressable>
 
         <View
-          style={styles.headerCenter}
+          style={
+            styles.headerCenter
+          }
         >
           <Text
+            style={
+              styles.projectTitle
+            }
             numberOfLines={1}
-            style={styles.projectTitle}
           >
             {project?.name ||
-              'Projet GCODE'}
+              'Projet'}
           </Text>
 
           <Text
+            style={
+              styles.fileTitle
+            }
             numberOfLines={1}
-            style={styles.fileTitle}
           >
             {activeFile ||
               'Aucun fichier'}
@@ -1641,74 +2169,51 @@ export default function WorkbenchScreen({
         </View>
 
         <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Preview"
-          onPress={handlePreview}
-          style={({ pressed }) => [
-            styles.previewButton,
-            {
-              opacity: pressed
-                ? 0.75
-                : 1,
-            },
-          ]}
+          style={
+            styles.previewButton
+          }
+          onPress={
+            handlePreview
+          }
         >
           <Text
             style={
               styles.previewButtonText
             }
           >
-            ▶ Preview
+            PREVIEW
           </Text>
         </Pressable>
       </View>
 
-      <View style={styles.toolbar}>
+      <View
+        style={
+          styles.toolbar
+        }
+      >
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={
             false
           }
-          style={styles.toolbarScroll}
+          style={
+            styles.toolbarScroll
+          }
           contentContainerStyle={{
-            alignItems: 'center',
+            alignItems:
+              'center',
           }}
         >
           <Pressable
-            onPress={() =>
-              setShowExplorer(
-                (value) => !value
-              )
+            style={[
+              styles.toolbarButton,
+              historyRef.current
+                .length === 0 &&
+                styles.disabledButton,
+            ]}
+            onPress={
+              handleUndo
             }
-            style={styles.toolbarButton}
-          >
-            <Text
-              style={
-                styles.toolbarButtonText
-              }
-            >
-              ☰
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() =>
-              setShowSearch(true)
-            }
-            style={styles.toolbarButton}
-          >
-            <Text
-              style={
-                styles.toolbarButtonText
-              }
-            >
-              🔍
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={handleUndo}
-            style={styles.toolbarButton}
           >
             <Text
               style={
@@ -1720,8 +2225,15 @@ export default function WorkbenchScreen({
           </Pressable>
 
           <Pressable
-            onPress={handleRedo}
-            style={styles.toolbarButton}
+            style={[
+              styles.toolbarButton,
+              redoRef.current
+                .length === 0 &&
+                styles.disabledButton,
+            ]}
+            onPress={
+              handleRedo
+            }
           >
             <Text
               style={
@@ -1733,254 +2245,287 @@ export default function WorkbenchScreen({
           </Pressable>
 
           <Pressable
+            style={
+              styles.toolbarButton
+            }
             onPress={() =>
-              insertTextAtCursor(
-                '  '
+              setShowExplorer(
+                (value) =>
+                  !value
               )
             }
-            style={styles.toolbarButton}
           >
             <Text
               style={
                 styles.toolbarButtonText
               }
             >
-              Tab
+              FILES
             </Text>
           </Pressable>
 
           <Pressable
+            style={
+              styles.toolbarButton
+            }
             onPress={() =>
-              insertTextAtCursor(
-                '// '
+              setShowSearch(
+                (value) =>
+                  !value
               )
             }
-            style={styles.toolbarButton}
           >
             <Text
               style={
                 styles.toolbarButtonText
               }
             >
-              //
+              SEARCH
             </Text>
           </Pressable>
 
           <Pressable
+            style={
+              styles.toolbarButton
+            }
             onPress={() =>
-              insertTextAtCursor(
-                'console.log();'
+              setShowTerminal(
+                (value) =>
+                  !value
               )
             }
-            style={styles.toolbarButton}
           >
             <Text
               style={
                 styles.toolbarButtonText
               }
             >
-              log
+              TERMINAL
             </Text>
           </Pressable>
 
           <Pressable
-            onPress={() =>
-              insertTextAtCursor(
-                'function name() {\n  \n}'
-              )
+            style={
+              styles.toolbarButton
             }
-            style={styles.toolbarButton}
+            onPress={
+              handleManualSave
+            }
           >
             <Text
               style={
                 styles.toolbarButtonText
               }
             >
-              fn
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={handleSave}
-            style={styles.toolbarButton}
-          >
-            <Text
-              style={
-                styles.toolbarButtonText
-              }
-            >
-              💾
+              SAVE
             </Text>
           </Pressable>
 
           <Text
-            style={styles.statusText}
+            style={
+              styles.statusText
+            }
           >
             {saving
-              ? 'Sauvegarde…'
+              ? 'Saving...'
               : dirty
-                ? 'Modifié'
-                : 'Enregistré'}
+              ? 'Unsaved'
+              : 'Saved'}
           </Text>
         </ScrollView>
       </View>
 
-      <View style={styles.workspace}>
-        <View style={styles.explorer}>
-          <View
-            style={styles.explorerHeader}
-          >
-            <Text
-              style={styles.explorerTitle}
-            >
-              Explorateur
-            </Text>
-
-            <Pressable
-              onPress={() =>
-                setShowNewFileModal(
-                  true
-                )
-              }
-              style={styles.addButton}
-            >
-              <Text
+      <View
+        style={
+          styles.workspace
+        }
+      >
+        <View
+          style={
+            styles.explorer
+          }
+        >
+          {showExplorer && (
+            <>
+              <View
                 style={
-                  styles.addButtonText
+                  styles.explorerHeader
                 }
               >
-                +
-              </Text>
-            </Pressable>
-          </View>
+                <Text
+                  style={
+                    styles.explorerTitle
+                  }
+                >
+                  Explorer
+                </Text>
 
-          <ScrollView
-            contentContainerStyle={
-              styles.fileList
-            }
-          >
-            {Object.keys(files).map(
-              (fileName) => {
-                const selected =
-                  fileName ===
-                  activeFile;
-
-                return (
-                  <Pressable
-                    key={fileName}
-                    onPress={() =>
-                      handleSelectFile(
-                        fileName
-                      )
+                <Pressable
+                  style={
+                    styles.addButton
+                  }
+                  onPress={() =>
+                    setShowNewFileModal(
+                      true
+                    )
+                  }
+                >
+                  <Text
+                    style={
+                      styles.addButtonText
                     }
-                    onLongPress={() =>
-                      openRenameModal(
-                        fileName
-                      )
-                    }
-                    style={[
-                      styles.fileItem,
-                      selected &&
-                        styles.activeFileItem,
-                    ]}
                   >
-                    <Text
-                      style={
-                        styles.fileIcon
-                      }
-                    >
-                      {getFileIcon(
-                        fileName
-                      )}
-                    </Text>
+                    +
+                  </Text>
+                </Pressable>
+              </View>
 
-                    <Text
-                      numberOfLines={1}
-                      style={[
-                        styles.fileName,
-                        selected &&
-                          styles.activeFileName,
-                      ]}
-                    >
-                      {fileName}
-                    </Text>
-
+              <ScrollView
+                contentContainerStyle={
+                  styles.fileList
+                }
+              >
+                {Object.keys(
+                  files
+                ).map(
+                  (fileName) => (
                     <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={`Options ${fileName}`}
-                      onPress={() =>
-                        Alert.alert(
-                          fileName,
-                          'Choisis une action.',
-                          [
-                            {
-                              text: 'Annuler',
-                              style: 'cancel',
-                            },
-                            {
-                              text: 'Renommer',
-                              onPress: () =>
-                                openRenameModal(
-                                  fileName
-                                ),
-                            },
-                            {
-                              text: 'Supprimer',
-                              style: 'destructive',
-                              onPress: () =>
-                                handleDeleteFile(
-                                  fileName
-                                ),
-                            },
-                          ]
-                        )
+                      key={
+                        fileName
                       }
-                      style={
-                        styles.fileMenuButton
+                      style={[
+                        styles.fileItem,
+                        activeFile ===
+                          fileName &&
+                          styles.activeFileItem,
+                      ]}
+                      onPress={() =>
+                        switchFile(
+                          fileName
+                        )
                       }
                     >
                       <Text
                         style={
-                          styles.fileMenuText
+                          styles.fileIcon
                         }
                       >
-                        ⋯
+                        {fileIcon(
+                          fileName
+                        )}
                       </Text>
+
+                      <Text
+                        numberOfLines={
+                          1
+                        }
+                        style={[
+                          styles.fileName,
+                          activeFile ===
+                            fileName &&
+                            styles.activeFileName,
+                        ]}
+                      >
+                        {
+                          fileName
+                        }
+                      </Text>
+
+                      <Pressable
+                        style={
+                          styles.fileMenuButton
+                        }
+                        onPress={() =>
+                          Alert.alert(
+                            fileName,
+                            'Choisir une action',
+                            [
+                              {
+                                text:
+                                  'Annuler',
+                                style:
+                                  'cancel',
+                              },
+                              {
+                                text:
+                                  'Renommer',
+                                onPress:
+                                  () =>
+                                    openRenameFile(
+                                      fileName
+                                    ),
+                              },
+                              {
+                                text:
+                                  'Supprimer',
+                                style:
+                                  'destructive',
+                                onPress:
+                                  () =>
+                                    handleDeleteFile(
+                                      fileName
+                                    ),
+                              },
+                            ]
+                          )
+                        }
+                      >
+                        <Text
+                          style={
+                            styles.fileMenuText
+                          }
+                        >
+                          ⋮
+                        </Text>
+                      </Pressable>
                     </Pressable>
-                  </Pressable>
-                );
-              }
-            )}
-          </ScrollView>
+                  )
+                )}
+              </ScrollView>
+            </>
+          )}
         </View>
 
         <View
-          style={styles.editorArea}
+          style={
+            styles.editorArea
+          }
         >
           <View
-            style={styles.editorHeader}
+            style={
+              styles.editorHeader
+            }
           >
             <Text
               style={
                 styles.editorHeaderText
               }
             >
-              {activeFile ||
-                'Aucun fichier ouvert'}
+              {activeFile
+                ? `${activeFile}  •  ${lineCount} lignes`
+                : 'Aucun fichier'}
             </Text>
           </View>
 
           {activeFile ? (
-            <View style={styles.editor}>
+            <View
+              style={
+                styles.editor
+              }
+            >
               {editorSettings.lineNumbers && (
                 <ScrollView
-                  ref={lineScrollRef}
-                  style={
-                    styles.lineScroll
+                  ref={
+                    lineScrollRef
                   }
-                  scrollEnabled={false}
+                  scrollEnabled={
+                    false
+                  }
                   showsVerticalScrollIndicator={
                     false
+                  }
+                  style={
+                    styles.lineScroll
                   }
                 >
                   <View
@@ -1991,12 +2536,16 @@ export default function WorkbenchScreen({
                     {lineNumbers.map(
                       (number) => (
                         <Text
-                          key={number}
+                          key={
+                            number
+                          }
                           style={
                             styles.lineNumber
                           }
                         >
-                          {number}
+                          {
+                            number
+                          }
                         </Text>
                       )
                     )}
@@ -2005,34 +2554,57 @@ export default function WorkbenchScreen({
               )}
 
               <TextInput
-                ref={editorRef}
-                value={code}
+                ref={
+                  editorRef
+                }
+                value={
+                  code
+                }
                 onChangeText={
                   handleCodeChange
                 }
                 onSelectionChange={
                   handleSelectionChange
                 }
-                onScroll={
-                  handleEditorScroll
-                }
-                selection={selection}
                 multiline
                 autoCapitalize="none"
-                autoCorrect={false}
-                spellCheck={false}
+                autoCorrect={
+                  false
+                }
+                spellCheck={
+                  false
+                }
                 textAlignVertical="top"
-                scrollEnabled
-                style={styles.codeInput}
-                placeholder="Commence à écrire ton code…"
-                placeholderTextColor={
-                  colors.muted2
+                scrollEventThrottle={
+                  16
+                }
+                onScroll={
+                  (event) => {
+                    const y =
+                      event
+                        ?.nativeEvent
+                        ?.contentOffset
+                        ?.y || 0;
+
+                    lineScrollRef.current?.scrollTo(
+                      {
+                        y,
+                        animated:
+                          false,
+                      }
+                    );
+                  }
+                }
+                style={
+                  styles.codeInput
                 }
               />
             </View>
           ) : (
             <View
-              style={styles.emptyEditor}
+              style={
+                styles.emptyEditor
+              }
             >
               <Text
                 style={
@@ -2048,76 +2620,51 @@ export default function WorkbenchScreen({
                 }
               >
                 Crée un fichier pour
-                commencer à coder.
+                commencer.
               </Text>
             </View>
           )}
 
           {showSearch && (
             <View
-              style={styles.searchPanel}
+              style={
+                styles.searchPanel
+              }
             >
               <View
-                style={styles.searchRow}
+                style={
+                  styles.searchRow
+                }
               >
                 <TextInput
-                  value={searchText}
-                  onChangeText={(value) => {
-                    setSearchText(value);
-                    setSearchIndex(-1);
-                  }}
-                  placeholder="Rechercher…"
-                  placeholderTextColor={
-                    colors.muted2
+                  value={
+                    searchText
                   }
-                  style={
-                    styles.searchInput
-                  }
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-
-                <Pressable
-                  onPress={findNext}
-                  style={
-                    styles.searchButton
-                  }
-                >
-                  <Text
-                    style={
-                      styles.searchButtonText
-                    }
-                  >
-                    Suivant
-                  </Text>
-                </Pressable>
-              </View>
-
-              <View
-                style={styles.searchRow}
-              >
-                <TextInput
-                  value={replaceText}
                   onChangeText={
-                    setReplaceText
+                    (value) => {
+                      setSearchText(
+                        value
+                      );
+                      setSearchIndex(
+                        -1
+                      );
+                    }
                   }
-                  placeholder="Remplacer par…"
+                  placeholder="Rechercher..."
                   placeholderTextColor={
-                    colors.muted2
+                    colors.muted
                   }
                   style={
                     styles.searchInput
                   }
-                  autoCapitalize="none"
-                  autoCorrect={false}
                 />
 
                 <Pressable
+                  style={
+                    styles.searchButton
+                  }
                   onPress={
-                    replaceCurrent
-                  }
-                  style={
-                    styles.searchButton
+                    handleFindNext
                   }
                 >
                   <Text
@@ -2125,32 +2672,18 @@ export default function WorkbenchScreen({
                       styles.searchButtonText
                     }
                   >
-                    Remplacer
+                    Find
                   </Text>
                 </Pressable>
 
                 <Pressable
-                  onPress={replaceAll}
-                  style={
-                    styles.searchButton
-                  }
-                >
-                  <Text
-                    style={
-                      styles.searchButtonText
-                    }
-                  >
-                    Tout
-                  </Text>
-                </Pressable>
-
-                <Pressable
-                  onPress={() => {
-                    setShowSearch(false);
-                    setSearchIndex(-1);
-                  }}
                   style={
                     styles.searchClose
+                  }
+                  onPress={() =>
+                    setShowSearch(
+                      false
+                    )
                   }
                 >
                   <Text
@@ -2163,72 +2696,284 @@ export default function WorkbenchScreen({
                 </Pressable>
               </View>
 
-              <Text
-                style={styles.searchInfo}
+              <View
+                style={
+                  styles.searchRow
+                }
               >
-                La recherche fonctionne
-                directement dans le fichier
-                actuellement ouvert.
+                <TextInput
+                  value={
+                    replaceText
+                  }
+                  onChangeText={
+                    setReplaceText
+                  }
+                  placeholder="Remplacer par..."
+                  placeholderTextColor={
+                    colors.muted
+                  }
+                  style={
+                    styles.searchInput
+                  }
+                />
+
+                <Pressable
+                  style={
+                    styles.searchButton
+                  }
+                  onPress={
+                    handleReplaceCurrent
+                  }
+                >
+                  <Text
+                    style={
+                      styles.searchButtonText
+                    }
+                  >
+                    One
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  style={
+                    styles.searchButton
+                  }
+                  onPress={
+                    handleReplaceAll
+                  }
+                >
+                  <Text
+                    style={
+                      styles.searchButtonText
+                    }
+                  >
+                    All
+                  </Text>
+                </Pressable>
+              </View>
+
+              <Text
+                style={
+                  styles.searchInfo
+                }
+              >
+                {getMatches().length
+                  ? `${getMatches().length} résultat(s)`
+                  : 'Aucun résultat'}
               </Text>
             </View>
           )}
         </View>
       </View>
 
+      {showTerminal && (
+        <View
+          style={
+            styles.terminal
+          }
+        >
+          <View
+            style={
+              styles.terminalHeader
+            }
+          >
+            <Text
+              style={
+                styles.terminalTitle
+              }
+            >
+              TERMINAL
+            </Text>
+
+            <Pressable
+              style={
+                styles.terminalClose
+              }
+              onPress={() =>
+                setShowTerminal(
+                  false
+                )
+              }
+            >
+              <Text
+                style={
+                  styles.terminalCloseText
+                }
+              >
+                ×
+              </Text>
+            </Pressable>
+          </View>
+
+          <ScrollView
+            style={
+              styles.terminalOutput
+            }
+            contentContainerStyle={{
+              paddingBottom: 8,
+            }}
+          >
+            {terminalLines.map(
+              (line, index) => (
+                <Text
+                  key={
+                    `${index}-${line.text}`
+                  }
+                  style={[
+                    styles.terminalLine,
+                    line.type ===
+                      'system' &&
+                      styles.terminalSystem,
+                    line.type ===
+                      'command' &&
+                      styles.terminalCommand,
+                    line.type ===
+                      'error' &&
+                      styles.terminalError,
+                  ]}
+                >
+                  {
+                    line.text
+                  }
+                </Text>
+              )
+            )}
+          </ScrollView>
+
+          <View
+            style={
+              styles.terminalInputRow
+            }
+          >
+            <Text
+              style={
+                styles.terminalPrompt
+              }
+            >
+              $
+            </Text>
+
+            <TextInput
+              value={
+                terminalInput
+              }
+              onChangeText={
+                setTerminalInput
+              }
+              onSubmitEditing={
+                executeTerminal
+              }
+              returnKeyType="send"
+              autoCapitalize="none"
+              autoCorrect={
+                false
+              }
+              spellCheck={
+                false
+              }
+              placeholder="help"
+              placeholderTextColor={
+                colors.muted
+              }
+              style={
+                styles.terminalInput
+              }
+            />
+
+            <Pressable
+              style={
+                styles.terminalSend
+              }
+              onPress={
+                executeTerminal
+              }
+            >
+              <Text
+                style={
+                  styles.terminalSendText
+                }
+              >
+                ›
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
+
       <Modal
-        visible={showNewFileModal}
+        visible={
+          showNewFileModal
+        }
         transparent
         animationType="fade"
         onRequestClose={() =>
-          setShowNewFileModal(false)
+          setShowNewFileModal(
+            false
+          )
         }
       >
         <View
-          style={styles.modalOverlay}
+          style={
+            styles.modalOverlay
+          }
         >
-          <View style={styles.modalCard}>
+          <View
+            style={
+              styles.modalCard
+            }
+          >
             <Text
-              style={styles.modalTitle}
+              style={
+                styles.modalTitle
+              }
             >
               Nouveau fichier
             </Text>
 
             <Text
-              style={styles.modalSubtitle}
+              style={
+                styles.modalSubtitle
+              }
             >
-              Exemple : index.html,
-              styles.css ou app.js
+              Exemple : components/App.js
             </Text>
 
             <TextInput
-              value={newFileName}
+              value={
+                newFileName
+              }
               onChangeText={
                 setNewFileName
               }
-              placeholder="nom-du-fichier.ext"
-              placeholderTextColor={
-                colors.muted2
-              }
-              autoCapitalize="none"
-              autoCorrect={false}
-              style={styles.input}
               autoFocus
+              autoCapitalize="none"
+              placeholder="nom-du-fichier.js"
+              placeholderTextColor={
+                colors.muted
+              }
+              style={
+                styles.input
+              }
             />
 
             <View
-              style={styles.modalActions}
+              style={
+                styles.modalActions
+              }
             >
               <Pressable
-                onPress={() => {
-                  setNewFileName('');
-                  setShowNewFileModal(
-                    false
-                  );
-                }}
                 style={[
                   styles.modalButton,
                   styles.cancelButton,
                 ]}
+                onPress={() => {
+                  setShowNewFileModal(
+                    false
+                  );
+                  setNewFileName(
+                    ''
+                  );
+                }}
               >
                 <Text
                   style={
@@ -2240,11 +2985,13 @@ export default function WorkbenchScreen({
               </Pressable>
 
               <Pressable
-                onPress={handleAddFile}
                 style={[
                   styles.modalButton,
                   styles.confirmButton,
                 ]}
+                onPress={
+                  handleAddFile
+                }
               >
                 <Text
                   style={
@@ -2260,57 +3007,72 @@ export default function WorkbenchScreen({
       </Modal>
 
       <Modal
-        visible={showRenameModal}
+        visible={
+          showRenameModal
+        }
         transparent
         animationType="fade"
         onRequestClose={() =>
-          setShowRenameModal(false)
+          setShowRenameModal(
+            false
+          )
         }
       >
         <View
-          style={styles.modalOverlay}
+          style={
+            styles.modalOverlay
+          }
         >
-          <View style={styles.modalCard}>
+          <View
+            style={
+              styles.modalCard
+            }
+          >
             <Text
-              style={styles.modalTitle}
+              style={
+                styles.modalTitle
+              }
             >
-              Renommer le fichier
+              Renommer
             </Text>
 
             <Text
-              style={styles.modalSubtitle}
+              style={
+                styles.modalSubtitle
+              }
             >
-              Le contenu du fichier sera
-              conservé.
+              Nouveau nom du fichier
             </Text>
 
             <TextInput
-              value={renameFileName}
+              value={
+                renameFileName
+              }
               onChangeText={
                 setRenameFileName
               }
-              autoCapitalize="none"
-              autoCorrect={false}
-              style={styles.input}
               autoFocus
-              selectTextOnFocus
+              autoCapitalize="none"
+              style={
+                styles.input
+              }
             />
 
             <View
-              style={styles.modalActions}
+              style={
+                styles.modalActions
+              }
             >
               <Pressable
-                onPress={() => {
-                  setRenameTarget(null);
-                  setRenameFileName('');
-                  setShowRenameModal(
-                    false
-                  );
-                }}
                 style={[
                   styles.modalButton,
                   styles.cancelButton,
                 ]}
+                onPress={() =>
+                  setShowRenameModal(
+                    false
+                  )
+                }
               >
                 <Text
                   style={
@@ -2322,13 +3084,13 @@ export default function WorkbenchScreen({
               </Pressable>
 
               <Pressable
-                onPress={
-                  handleRenameFile
-                }
                 style={[
                   styles.modalButton,
                   styles.confirmButton,
                 ]}
+                onPress={
+                  handleRenameFile
+                }
               >
                 <Text
                   style={
