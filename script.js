@@ -1,7 +1,8 @@
 /* =========================================================
    GCODE
    REAL EDITOR CONTROLLER
-   Interface conservée — fonctionnalités branchées
+   iOS / Android / Desktop
+   Interface conservée
 ========================================================= */
 
 (() => {
@@ -26,7 +27,7 @@
     const closeWindow = document.getElementById("closeWindow");
 
     if (!codeDisplay || !editorTabs || !lineNumbers) {
-        console.error("GCODE: éléments principaux introuvables.");
+        console.error("GCODE : éléments principaux introuvables.");
         return;
     }
 
@@ -143,15 +144,15 @@ build/
     ===================================================== */
 
     let files = loadFiles();
-
     let openTabs = loadOpenTabs();
 
-    let activeFile = localStorage.getItem(ACTIVE_FILE_KEY);
+    let activeFile =
+        localStorage.getItem(ACTIVE_FILE_KEY);
 
     let history = [];
     let historyIndex = -1;
 
-    let suppressHistory = false;
+    let isEditing = false;
 
     /* =====================================================
        HELPERS
@@ -161,9 +162,17 @@ build/
         return JSON.parse(JSON.stringify(value));
     }
 
+    function filesExist(fileName) {
+        return Object.prototype.hasOwnProperty.call(
+            files,
+            fileName
+        );
+    }
+
     function loadFiles() {
         try {
-            const saved = localStorage.getItem(STORAGE_KEY);
+            const saved =
+                localStorage.getItem(STORAGE_KEY);
 
             if (!saved) {
                 return clone(defaultFiles);
@@ -180,16 +189,27 @@ build/
                 ...parsed
             };
         } catch (error) {
-            console.warn("GCODE: impossible de charger le workspace.", error);
+            console.warn(
+                "GCODE : impossible de charger le workspace.",
+                error
+            );
+
             return clone(defaultFiles);
         }
     }
 
     function saveFiles() {
-        localStorage.setItem(
-            STORAGE_KEY,
-            JSON.stringify(files)
-        );
+        try {
+            localStorage.setItem(
+                STORAGE_KEY,
+                JSON.stringify(files)
+            );
+        } catch (error) {
+            console.warn(
+                "GCODE : impossible de sauvegarder.",
+                error
+            );
+        }
     }
 
     function loadOpenTabs() {
@@ -198,14 +218,26 @@ build/
                 localStorage.getItem(OPEN_TABS_KEY)
             );
 
-            if (Array.isArray(saved) && saved.length) {
-                return saved.filter(name => filesExist(name));
+            if (
+                Array.isArray(saved) &&
+                saved.length > 0
+            ) {
+                const valid = saved.filter(
+                    fileName => filesExist(fileName)
+                );
+
+                if (valid.length > 0) {
+                    return valid;
+                }
             }
         } catch (error) {
             console.warn(error);
         }
 
-        return ["style.css", "index.html"];
+        return [
+            "style.css",
+            "index.html"
+        ];
     }
 
     function saveOpenTabs() {
@@ -215,45 +247,31 @@ build/
         );
     }
 
-    function filesExist(fileName) {
-        return Object.prototype.hasOwnProperty.call(
-            files,
-            fileName
-        );
-    }
-
     function getLanguage(fileName) {
-        const extension =
-            fileName.split(".").pop().toLowerCase();
+        const lower =
+            fileName.toLowerCase();
 
-        const map = {
-            html: "HTML",
-            htm: "HTML",
-            css: "CSS",
-            js: "JavaScript",
-            jsx: "JavaScript React",
-            ts: "TypeScript",
-            tsx: "TypeScript React",
-            json: "JSON",
-            md: "Markdown",
-            txt: "Plain Text",
-            xml: "XML",
-            svg: "SVG",
-            py: "Python",
-            java: "Java",
-            c: "C",
-            cpp: "C++",
-            h: "C/C++",
-            php: "PHP",
-            sql: "SQL",
-            sh: "Shell",
-            yml: "YAML",
-            yaml: "YAML",
-            gitignore: "Git",
-            env: "Environment"
-        };
+        if (lower.endsWith(".html")) return "HTML";
+        if (lower.endsWith(".htm")) return "HTML";
+        if (lower.endsWith(".css")) return "CSS";
+        if (lower.endsWith(".js")) return "JavaScript";
+        if (lower.endsWith(".jsx")) return "JavaScript React";
+        if (lower.endsWith(".ts")) return "TypeScript";
+        if (lower.endsWith(".tsx")) return "TypeScript React";
+        if (lower.endsWith(".json")) return "JSON";
+        if (lower.endsWith(".md")) return "Markdown";
+        if (lower.endsWith(".py")) return "Python";
+        if (lower.endsWith(".php")) return "PHP";
+        if (lower.endsWith(".sql")) return "SQL";
+        if (lower.endsWith(".xml")) return "XML";
+        if (lower.endsWith(".svg")) return "SVG";
+        if (lower.endsWith(".yml")) return "YAML";
+        if (lower.endsWith(".yaml")) return "YAML";
+        if (lower.endsWith(".sh")) return "Shell";
+        if (lower === ".env") return "Environment";
+        if (lower === ".gitignore") return "Git";
 
-        return map[extension] || "Plain Text";
+        return "Plain Text";
     }
 
     function escapeHtml(value) {
@@ -272,10 +290,11 @@ build/
     function highlightCode(code, fileName) {
         const lang = getLanguage(fileName);
 
-        let escaped = escapeHtml(code);
+        let text = escapeHtml(code);
 
         if (lang === "HTML" || lang === "XML") {
-            escaped = escaped
+
+            text = text
                 .replace(
                     /(&lt;!--[\s\S]*?--&gt;)/g,
                     '<span class="comment">$1</span>'
@@ -295,7 +314,8 @@ build/
         }
 
         else if (lang === "CSS") {
-            escaped = escaped
+
+            text = text
                 .replace(
                     /(\/\*[\s\S]*?\*\/)/g,
                     '<span class="comment">$1</span>'
@@ -319,7 +339,8 @@ build/
             lang === "TypeScript" ||
             lang.includes("React")
         ) {
-            escaped = escaped
+
+            text = text
                 .replace(
                     /(\/\/.*)$/gm,
                     '<span class="comment">$1</span>'
@@ -331,15 +352,12 @@ build/
                 .replace(
                     /\b(const|let|var|function|return|if|else|for|while|class|new|import|from|export|default|async|await)\b/g,
                     '<span class="selector">$1</span>'
-                )
-                .replace(
-                    /\b([a-zA-Z_$][\w$]*)\s*(?=\()/g,
-                    '<span class="property">$1</span>'
                 );
         }
 
         else if (lang === "JSON") {
-            escaped = escaped
+
+            text = text
                 .replace(
                     /(&quot;.*?&quot;)(\s*:)/g,
                     '<span class="property">$1</span>$2'
@@ -351,7 +369,8 @@ build/
         }
 
         else if (lang === "Markdown") {
-            escaped = escaped
+
+            text = text
                 .replace(
                     /^(#{1,6} .*)$/gm,
                     '<span class="selector">$1</span>'
@@ -362,298 +381,650 @@ build/
                 );
         }
 
-        return escaped;
+        return text;
     }
 
     /* =====================================================
-       EDITOR
+       IOS EDITOR FIX
     ===================================================== */
 
-    function makeEditorEditable() {
-        codeDisplay.setAttribute("contenteditable", "true");
-        codeDisplay.setAttribute("spellcheck", "false");
-        codeDisplay.setAttribute("autocorrect", "off");
-        codeDisplay.setAttribute("autocapitalize", "off");
+    function configureEditor() {
+
+        codeDisplay.setAttribute(
+            "contenteditable",
+            "true"
+        );
+
+        codeDisplay.setAttribute(
+            "spellcheck",
+            "false"
+        );
+
+        codeDisplay.setAttribute(
+            "autocorrect",
+            "off"
+        );
+
+        codeDisplay.setAttribute(
+            "autocapitalize",
+            "off"
+        );
+
+        codeDisplay.setAttribute(
+            "autocomplete",
+            "off"
+        );
+
+        codeDisplay.setAttribute(
+            "inputmode",
+            "text"
+        );
+
+        codeDisplay.setAttribute(
+            "tabindex",
+            "0"
+        );
+
+        codeDisplay.setAttribute(
+            "role",
+            "textbox"
+        );
+
+        codeDisplay.setAttribute(
+            "aria-multiline",
+            "true"
+        );
 
         codeDisplay.style.outline = "none";
         codeDisplay.style.whiteSpace = "pre";
+        codeDisplay.style.webkitUserModify =
+            "read-write";
+        codeDisplay.style.webkitUserSelect =
+            "text";
+        codeDisplay.style.userSelect =
+            "text";
+        codeDisplay.style.touchAction =
+            "manipulation";
     }
 
-    function getEditorText() {
-        return codeDisplay.innerText
-            .replace(/\r\n/g, "\n");
-    }
+    /*
+       IMPORTANT :
 
-    function renderEditor(fileName, moveCaret = false) {
-        if (!filesExist(fileName)) {
+       Quand l'utilisateur commence à écrire,
+       on retire temporairement les <span>
+       de coloration syntaxique.
+
+       Cela donne à iOS un vrai texte éditable.
+    */
+
+    function enterEditMode() {
+
+        if (isEditing) {
             return;
         }
 
-        const file = files[fileName];
+        isEditing = true;
 
-        activeFile = fileName;
+        const currentText =
+            getEditorText();
 
-        breadcrumbFile.textContent = fileName;
+        codeDisplay.textContent =
+            currentText;
 
-        language.textContent =
-            file.language || getLanguage(fileName);
+        codeDisplay.focus();
+
+        moveCaretToEnd();
+    }
+
+    function leaveEditMode() {
+
+        if (!isEditing) {
+            return;
+        }
+
+        isEditing = false;
+
+        if (!activeFile) {
+            return;
+        }
+
+        const content =
+            getEditorText();
+
+        files[activeFile].content =
+            content;
+
+        saveFiles();
 
         codeDisplay.innerHTML =
-            highlightCode(file.content, fileName);
+            highlightCode(
+                content,
+                activeFile
+            );
 
-        updateLineNumbers(file.content);
-
-        updateActiveTab(fileName);
-
-        updateSelectedTreeItem(fileName);
-
-        updateCursor();
-
-        if (moveCaret) {
-            placeCaretAtEnd();
-        }
+        updateLineNumbers(content);
     }
 
-    function updateLineNumbers(content) {
-        const lines =
-            String(content).split("\n").length;
+    /* =====================================================
+       TEXT / CARET
+    ===================================================== */
 
-        lineNumbers.innerHTML = "";
+    function getEditorText() {
 
-        for (
-            let index = 1;
-            index <= Math.max(lines, 20);
-            index++
-        ) {
-            const span =
-                document.createElement("span");
-
-            span.textContent = index;
-
-            lineNumbers.appendChild(span);
-        }
+        return codeDisplay.innerText
+            .replace(/\r\n/g, "\n")
+            .replace(/\u00a0/g, " ");
     }
 
-    function updateCursor() {
-        const selection =
-            window.getSelection();
+    function moveCaretToEnd() {
 
-        if (!selection || !selection.rangeCount) {
-            return;
-        }
-
-        const range =
-            selection.getRangeAt(0);
-
-        if (!codeDisplay.contains(range.startContainer)) {
-            return;
-        }
-
-        const textBefore =
-            getTextBeforeCaret(range);
-
-        const line =
-            textBefore.split("\n").length;
-
-        const lastLine =
-            textBefore.split("\n").pop() || "";
-
-        const column =
-            lastLine.length + 1;
-
-        if (cursorPosition) {
-            cursorPosition.textContent =
-                `Ln ${line}, Col ${column}`;
-        }
-    }
-
-    function getTextBeforeCaret(range) {
-        const cloned =
-            range.cloneRange();
-
-        cloned.selectNodeContents(codeDisplay);
-        cloned.setEnd(
-            range.startContainer,
-            range.startOffset
-        );
-
-        return cloned.toString();
-    }
-
-    function placeCaretAtEnd() {
         try {
+
             const range =
                 document.createRange();
 
-            range.selectNodeContents(codeDisplay);
+            range.selectNodeContents(
+                codeDisplay
+            );
+
             range.collapse(false);
 
             const selection =
                 window.getSelection();
 
             selection.removeAllRanges();
+
             selection.addRange(range);
 
+        } catch (error) {
+            console.warn(
+                "GCODE caret error:",
+                error
+            );
+        }
+    }
+
+    function focusEditor() {
+
+        enterEditMode();
+
+        setTimeout(() => {
+
+            try {
+                codeDisplay.focus();
+            } catch (error) {
+                console.warn(error);
+            }
+
+        }, 20);
+    }
+
+    /* =====================================================
+       RENDER EDITOR
+    ===================================================== */
+
+    function renderEditor(
+        fileName,
+        focus = false
+    ) {
+
+        if (!filesExist(fileName)) {
+            return;
+        }
+
+        activeFile =
+            fileName;
+
+        localStorage.setItem(
+            ACTIVE_FILE_KEY,
+            fileName
+        );
+
+        const file =
+            files[fileName];
+
+        breadcrumbFile.textContent =
+            fileName;
+
+        language.textContent =
+            file.language ||
+            getLanguage(fileName);
+
+        isEditing = false;
+
+        codeDisplay.innerHTML =
+            highlightCode(
+                file.content,
+                fileName
+            );
+
+        updateLineNumbers(
+            file.content
+        );
+
+        updateActiveTab(
+            fileName
+        );
+
+        updateSelectedTreeItem(
+            fileName
+        );
+
+        updateCursor();
+
+        if (focus) {
+            setTimeout(
+                focusEditor,
+                50
+            );
+        }
+    }
+
+    /* =====================================================
+       LINE NUMBERS
+    ===================================================== */
+
+    function updateLineNumbers(
+        content
+    ) {
+
+        const total =
+            Math.max(
+                String(content).split("\n").length,
+                20
+            );
+
+        lineNumbers.innerHTML = "";
+
+        for (
+            let i = 1;
+            i <= total;
+            i++
+        ) {
+
+            const span =
+                document.createElement("span");
+
+            span.textContent =
+                i;
+
+            lineNumbers.appendChild(
+                span
+            );
+        }
+    }
+
+    /* =====================================================
+       CURSOR
+    ===================================================== */
+
+    function updateCursor() {
+
+        const selection =
+            window.getSelection();
+
+        if (
+            !selection ||
+            !selection.rangeCount
+        ) {
+            return;
+        }
+
+        const range =
+            selection.getRangeAt(0);
+
+        if (
+            !codeDisplay.contains(
+                range.startContainer
+            )
+        ) {
+            return;
+        }
+
+        const before =
+            range.cloneRange();
+
+        before.selectNodeContents(
+            codeDisplay
+        );
+
+        before.setEnd(
+            range.startContainer,
+            range.startOffset
+        );
+
+        const text =
+            before.toString();
+
+        const lines =
+            text.split("\n");
+
+        const line =
+            lines.length;
+
+        const column =
+            lines[lines.length - 1].length + 1;
+
+        if (cursorPosition) {
+
+            cursorPosition.textContent =
+                `Ln ${line}, Col ${column}`;
+        }
+    }
+
+    /* =====================================================
+       EDITOR INPUT
+    ===================================================== */
+
+    codeDisplay.addEventListener(
+        "focus",
+        () => {
+
+            if (!isEditing) {
+                enterEditMode();
+            }
+
+        }
+    );
+
+    codeDisplay.addEventListener(
+        "click",
+        () => {
+
+            if (!isEditing) {
+                enterEditMode();
+            }
+
+        }
+    );
+
+    codeDisplay.addEventListener(
+        "touchstart",
+        () => {
+
+            if (!isEditing) {
+                enterEditMode();
+            }
+
+        },
+        {
+            passive: true
+        }
+    );
+
+    codeDisplay.addEventListener(
+        "touchend",
+        () => {
+
+            setTimeout(() => {
+
+                try {
+                    codeDisplay.focus();
+                } catch (error) {
+                    console.warn(error);
+                }
+
+            }, 50);
+
+        },
+        {
+            passive: true
+        }
+    );
+
+    codeDisplay.addEventListener(
+        "input",
+        () => {
+
+            if (
+                !activeFile ||
+                !filesExist(activeFile)
+            ) {
+                return;
+            }
+
+            const content =
+                getEditorText();
+
+            files[activeFile].content =
+                content;
+
+            saveFiles();
+
+            updateLineNumbers(
+                content
+            );
+
+            markTabModified(
+                activeFile
+            );
+
             updateCursor();
+        }
+    );
+
+    codeDisplay.addEventListener(
+        "keyup",
+        updateCursor
+    );
+
+    codeDisplay.addEventListener(
+        "mouseup",
+        updateCursor
+    );
+
+    codeDisplay.addEventListener(
+        "touchend",
+        updateCursor
+    );
+
+    /* =====================================================
+       KEYBOARD
+    ===================================================== */
+
+    codeDisplay.addEventListener(
+        "keydown",
+        event => {
+
+            if (event.key === "Tab") {
+
+                event.preventDefault();
+
+                insertText("    ");
+
+                return;
+            }
+
+            if (
+                (event.ctrlKey ||
+                 event.metaKey) &&
+                event.key.toLowerCase() === "s"
+            ) {
+
+                event.preventDefault();
+
+                saveCurrentEditor();
+
+                showNotification(
+                    `${activeFile} enregistré`
+                );
+
+                return;
+            }
+
+            if (
+                (event.ctrlKey ||
+                 event.metaKey) &&
+                event.key.toLowerCase() === "f"
+            ) {
+
+                event.preventDefault();
+
+                openSearch();
+
+                return;
+            }
+
+            if (
+                (event.ctrlKey ||
+                 event.metaKey) &&
+                event.key.toLowerCase() === "p"
+            ) {
+
+                event.preventDefault();
+
+                openCommandPalette();
+
+                return;
+            }
+        }
+    );
+
+    function insertText(text) {
+
+        try {
+
+            const selection =
+                window.getSelection();
+
+            if (
+                !selection ||
+                !selection.rangeCount
+            ) {
+                return;
+            }
+
+            const range =
+                selection.getRangeAt(0);
+
+            range.deleteContents();
+
+            const node =
+                document.createTextNode(
+                    text
+                );
+
+            range.insertNode(node);
+
+            range.setStartAfter(node);
+            range.collapse(true);
+
+            selection.removeAllRanges();
+            selection.addRange(range);
+
+            codeDisplay.dispatchEvent(
+                new Event("input", {
+                    bubbles: true
+                })
+            );
+
         } catch (error) {
             console.warn(error);
         }
     }
 
     /* =====================================================
-       SAVE CURRENT EDIT
+       SAVE
     ===================================================== */
 
     function saveCurrentEditor() {
-        if (!activeFile || !filesExist(activeFile)) {
+
+        if (
+            !activeFile ||
+            !filesExist(activeFile)
+        ) {
             return;
         }
 
-        const newContent = getEditorText();
+        const content =
+            getEditorText();
 
-        if (files[activeFile].content === newContent) {
-            return;
-        }
-
-        files[activeFile].content = newContent;
+        files[activeFile].content =
+            content;
 
         saveFiles();
 
-        updateLineNumbers(newContent);
-
-        updateHistory(activeFile, newContent);
-
-        markTabSaved(activeFile);
-    }
-
-    function markTabSaved(fileName) {
-        const tab =
-            document.querySelector(
-                `.editor-tab[data-file="${CSS.escape(fileName)}"]`
-            );
-
-        if (!tab) {
-            return;
-        }
-
-        const close =
-            tab.querySelector(".tab-close");
-
-        if (close) {
-            close.textContent = "×";
-        }
-
-        tab.classList.remove("modified");
-    }
-
-    /* =====================================================
-       INPUT
-    ===================================================== */
-
-    codeDisplay.addEventListener("input", () => {
-        if (!activeFile || !filesExist(activeFile)) {
-            return;
-        }
-
-        const content = getEditorText();
-
-        files[activeFile].content = content;
-
-        saveFiles();
-
-        updateLineNumbers(content);
-
-        markTabModified(activeFile);
-
-        updateCursor();
-    });
-
-    codeDisplay.addEventListener("keyup", updateCursor);
-    codeDisplay.addEventListener("mouseup", updateCursor);
-
-    codeDisplay.addEventListener("keydown", event => {
-        if (event.key === "Tab") {
-            event.preventDefault();
-
-            document.execCommand(
-                "insertText",
-                false,
-                "    "
-            );
-
-            return;
-        }
-
-        if (
-            (event.ctrlKey || event.metaKey) &&
-            event.key.toLowerCase() === "s"
-        ) {
-            event.preventDefault();
-
-            saveCurrentEditor();
-
-            showNotification(
-                `${activeFile} enregistré`
-            );
-        }
-    });
-
-    function markTabModified(fileName) {
-        const tab =
-            document.querySelector(
-                `.editor-tab[data-file="${CSS.escape(fileName)}"]`
-            );
-
-        if (!tab) {
-            return;
-        }
-
-        tab.classList.add("modified");
-
-        const close =
-            tab.querySelector(".tab-close");
-
-        if (close) {
-            close.textContent = "●";
-        }
-    }
-
-    /* =====================================================
-       OPEN FILE
-    ===================================================== */
-
-    function openFile(fileName, addHistory = true) {
-        if (!filesExist(fileName)) {
-            return;
-        }
-
-        if (!openTabs.includes(fileName)) {
-            openTabs.push(fileName);
-        }
-
-        saveOpenTabs();
-
-        if (
-            addHistory &&
-            !suppressHistory
-        ) {
-            history =
-                history.slice(0, historyIndex + 1);
-
-            history.push(fileName);
-
-            historyIndex =
-                history.length - 1;
-        }
-
-        renderTabs();
-
-        renderEditor(fileName);
-
-        localStorage.setItem(
-            ACTIVE_FILE_KEY,
-            fileName
+        updateLineNumbers(
+            content
         );
+
+        isEditing = false;
+
+        codeDisplay.innerHTML =
+            highlightCode(
+                content,
+                activeFile
+            );
+
+        markTabSaved(
+            activeFile
+        );
+    }
+
+    function markTabModified(
+        fileName
+    ) {
+
+        const tabs =
+            document.querySelectorAll(
+                ".editor-tab"
+            );
+
+        tabs.forEach(tab => {
+
+            if (
+                tab.dataset.file ===
+                fileName
+            ) {
+
+                tab.classList.add(
+                    "modified"
+                );
+
+                const close =
+                    tab.querySelector(
+                        ".tab-close"
+                    );
+
+                if (close) {
+                    close.textContent =
+                        "●";
+                }
+            }
+        });
+    }
+
+    function markTabSaved(
+        fileName
+    ) {
+
+        const tabs =
+            document.querySelectorAll(
+                ".editor-tab"
+            );
+
+        tabs.forEach(tab => {
+
+            if (
+                tab.dataset.file ===
+                fileName
+            ) {
+
+                tab.classList.remove(
+                    "modified"
+                );
+
+                const close =
+                    tab.querySelector(
+                        ".tab-close"
+                    );
+
+                if (close) {
+                    close.textContent =
+                        "×";
+                }
+            }
+        });
     }
 
     /* =====================================================
@@ -661,175 +1032,284 @@ build/
     ===================================================== */
 
     function renderTabs() {
+
         editorTabs.innerHTML = "";
 
-        openTabs.forEach(fileName => {
-            if (!filesExist(fileName)) {
-                return;
-            }
+        openTabs.forEach(
+            fileName => {
 
-            const tab =
-                document.createElement("div");
-
-            tab.className =
-                "editor-tab";
-
-            if (fileName === activeFile) {
-                tab.classList.add("active");
-            }
-
-            tab.dataset.file = fileName;
-
-            const icon =
-                document.createElement("span");
-
-            icon.className =
-                "tab-file-icon " +
-                getIconClass(fileName);
-
-            icon.textContent =
-                getFileIcon(fileName);
-
-            const name =
-                document.createElement("span");
-
-            name.className = "tab-name";
-            name.textContent = fileName;
-
-            const close =
-                document.createElement("button");
-
-            close.className = "tab-close";
-            close.type = "button";
-            close.textContent = "×";
-
-            tab.appendChild(icon);
-            tab.appendChild(name);
-            tab.appendChild(close);
-
-            tab.addEventListener(
-                "click",
-                event => {
-                    if (
-                        event.target === close
-                    ) {
-                        closeTab(fileName);
-                        return;
-                    }
-
-                    openFile(fileName);
+                if (!filesExist(fileName)) {
+                    return;
                 }
-            );
 
-            editorTabs.appendChild(tab);
-        });
+                const tab =
+                    document.createElement(
+                        "div"
+                    );
+
+                tab.className =
+                    "editor-tab";
+
+                tab.dataset.file =
+                    fileName;
+
+                if (
+                    fileName ===
+                    activeFile
+                ) {
+
+                    tab.classList.add(
+                        "active"
+                    );
+                }
+
+                const icon =
+                    document.createElement(
+                        "span"
+                    );
+
+                icon.className =
+                    "tab-icon";
+
+                icon.textContent =
+                    getFileIcon(
+                        fileName
+                    );
+
+                const name =
+                    document.createElement(
+                        "span"
+                    );
+
+                name.className =
+                    "tab-name";
+
+                name.textContent =
+                    fileName;
+
+                const close =
+                    document.createElement(
+                        "span"
+                    );
+
+                close.className =
+                    "tab-close";
+
+                close.textContent =
+                    "×";
+
+                tab.appendChild(icon);
+                tab.appendChild(name);
+                tab.appendChild(close);
+
+                tab.addEventListener(
+                    "click",
+                    event => {
+
+                        if (
+                            event.target ===
+                            close
+                        ) {
+
+                            closeTab(
+                                fileName
+                            );
+
+                            return;
+                        }
+
+                        openFile(
+                            fileName
+                        );
+                    }
+                );
+
+                editorTabs.appendChild(
+                    tab
+                );
+            }
+        );
     }
 
-    function closeTab(fileName) {
+    function updateActiveTab(
+        fileName
+    ) {
+
+        document
+            .querySelectorAll(
+                ".editor-tab"
+            )
+            .forEach(tab => {
+
+                tab.classList.toggle(
+                    "active",
+                    tab.dataset.file ===
+                    fileName
+                );
+
+            });
+    }
+
+    function getFileIcon(
+        fileName
+    ) {
+
+        const lower =
+            fileName.toLowerCase();
+
+        if (lower.endsWith(".html"))
+            return "◇";
+
+        if (lower.endsWith(".css"))
+            return "◇";
+
+        if (lower.endsWith(".js"))
+            return "◇";
+
+        if (lower.endsWith(".json"))
+            return "{}";
+
+        if (lower.endsWith(".md"))
+            return "M";
+
+        return "•";
+    }
+
+    function openFile(
+        fileName,
+        addHistory = true
+    ) {
+
+        if (!filesExist(fileName)) {
+            return;
+        }
+
+        if (
+            !openTabs.includes(
+                fileName
+            )
+        ) {
+
+            openTabs.push(
+                fileName
+            );
+        }
+
+        saveOpenTabs();
+
+        if (addHistory) {
+
+            history =
+                history.slice(
+                    0,
+                    historyIndex + 1
+                );
+
+            history.push(
+                fileName
+            );
+
+            historyIndex =
+                history.length - 1;
+        }
+
+        renderTabs();
+
+        renderEditor(
+            fileName
+        );
+    }
+
+    function closeTab(
+        fileName
+    ) {
+
         const index =
-            openTabs.indexOf(fileName);
+            openTabs.indexOf(
+                fileName
+            );
 
         if (index === -1) {
             return;
         }
 
-        openTabs.splice(index, 1);
+        openTabs.splice(
+            index,
+            1
+        );
 
-        saveOpenTabs();
+        if (
+            activeFile ===
+            fileName
+        ) {
 
-        if (activeFile === fileName) {
-            const nextFile =
+            const next =
                 openTabs[index] ||
                 openTabs[index - 1] ||
-                openTabs[0];
+                null;
 
-            if (nextFile) {
-                openFile(nextFile);
+            activeFile =
+                next;
+
+            if (next) {
+
+                renderEditor(
+                    next
+                );
+
             } else {
-                activeFile = null;
 
-                codeDisplay.innerHTML = "";
+                codeDisplay.innerHTML =
+                    "";
 
-                breadcrumbFile.textContent = "";
+                breadcrumbFile.textContent =
+                    "";
 
                 language.textContent =
                     "Plain Text";
-
-                updateLineNumbers("");
             }
         }
 
-        renderTabs();
-    }
+        saveOpenTabs();
 
-    function updateActiveTab(fileName) {
-        document
-            .querySelectorAll(".editor-tab")
-            .forEach(tab => {
-                tab.classList.toggle(
-                    "active",
-                    tab.dataset.file === fileName
-                );
-            });
+        renderTabs();
     }
 
     /* =====================================================
        FILE TREE
     ===================================================== */
 
-    function updateSelectedTreeItem(fileName) {
-        document
-            .querySelectorAll(".tree-item.file")
-            .forEach(item => {
-                item.classList.toggle(
-                    "selected",
-                    item.dataset.file === fileName
-                );
-            });
-    }
-
-    document
-        .querySelectorAll(".tree-item.file")
-        .forEach(item => {
-            item.addEventListener(
-                "click",
-                () => {
-                    const fileName =
-                        item.dataset.file;
-
-                    if (fileName) {
-                        openFile(fileName);
-                    }
-                }
-            );
-        });
-
     function rebuildFileTree() {
-        const tree =
-            document.querySelector(".file-tree");
 
-        if (!tree) {
+        if (!sidebar) {
             return;
         }
 
         const existing =
-            Array.from(
-                tree.querySelectorAll(
-                    ".tree-item.file"
-                )
+            sidebar.querySelector(
+                ".file-tree"
             );
 
-        existing.forEach(item => {
-            item.remove();
-        });
+        if (!existing) {
+            return;
+        }
+
+        existing
+            .querySelectorAll(
+                ".tree-item.file"
+            )
+            .forEach(
+                element =>
+                    element.remove()
+            );
 
         Object.keys(files)
-            .sort((a, b) =>
-                a.localeCompare(b)
-            )
             .forEach(fileName => {
+
                 const item =
-                    document.createElement("div");
+                    document.createElement(
+                        "div"
+                    );
 
                 item.className =
                     "tree-item file";
@@ -837,451 +1317,46 @@ build/
                 item.dataset.file =
                     fileName;
 
-                const indent =
-                    document.createElement("span");
-
-                indent.className =
-                    "file-indent";
-
-                const icon =
-                    document.createElement("span");
-
-                icon.className =
-                    "file-symbol " +
-                    getIconClass(fileName);
-
-                icon.textContent =
-                    getFileIcon(fileName);
-
-                const label =
-                    document.createElement("span");
-
-                label.textContent =
-                    fileName;
-
-                item.appendChild(indent);
-                item.appendChild(icon);
-                item.appendChild(label);
+                item.innerHTML = `
+                    <span class="file-symbol">
+                        ${getFileIcon(fileName)}
+                    </span>
+                    <span>${escapeHtml(fileName)}</span>
+                `;
 
                 item.addEventListener(
                     "click",
-                    () => openFile(fileName)
-                );
+                    () => {
 
-                tree.appendChild(item);
-            });
-
-        updateSelectedTreeItem(activeFile);
-    }
-
-    function getIconClass(fileName) {
-        const ext =
-            fileName.includes(".")
-                ? fileName.split(".").pop().toLowerCase()
-                : "";
-
-        if (fileName === "index.html" || ext === "html") {
-            return "html-symbol";
-        }
-
-        if (ext === "css") {
-            return "css-symbol";
-        }
-
-        if (ext === "js") {
-            return "js-symbol";
-        }
-
-        if (ext === "json") {
-            return "json-symbol";
-        }
-
-        if (ext === "md") {
-            return "md-symbol";
-        }
-
-        return "file-symbol";
-    }
-
-    function getFileIcon(fileName) {
-        const ext =
-            fileName.includes(".")
-                ? fileName.split(".").pop().toLowerCase()
-                : "";
-
-        if (ext === "html") return "</>";
-        if (ext === "css") return "#";
-        if (ext === "js") return "JS";
-        if (ext === "json") return "{ }";
-        if (ext === "md") return "▤";
-
-        return "◇";
-    }
-
-    /* =====================================================
-       FOLDERS
-    ===================================================== */
-
-    document
-        .querySelectorAll(".tree-item.folder")
-        .forEach(folder => {
-            folder.addEventListener(
-                "click",
-                event => {
-                    event.stopPropagation();
-
-                    const arrow =
-                        folder.querySelector(
-                            ".arrow"
+                        openFile(
+                            fileName
                         );
-
-                    if (!arrow) {
-                        return;
-                    }
-
-                    arrow.textContent =
-                        arrow.textContent === "›"
-                            ? "⌄"
-                            : "›";
-                }
-            );
-        });
-
-    /* =====================================================
-       ACTIVITY BAR
-    ===================================================== */
-
-    document
-        .querySelectorAll(".activity-item")
-        .forEach(item => {
-            item.addEventListener(
-                "click",
-                () => {
-                    document
-                        .querySelectorAll(
-                            ".activity-item"
-                        )
-                        .forEach(button => {
-                            button.classList.remove(
-                                "active"
-                            );
-                        });
-
-                    item.classList.add("active");
-
-                    const panel =
-                        item.dataset.panel;
-
-                    if (panel === "explorer") {
-                        restoreExplorer();
-                    }
-
-                    if (
-                        panel === "search" ||
-                        panel === "source" ||
-                        panel === "run" ||
-                        panel === "extensions"
-                    ) {
-                        showPanel(panel);
-                    }
-                }
-            );
-        });
-
-    function restoreExplorer() {
-        if (!sidebar) {
-            return;
-        }
-
-        sidebar.innerHTML = `
-            <div class="sidebar-header">
-                <span>EXPLORER</span>
-                <button class="sidebar-more">•••</button>
-            </div>
-
-            <div class="workspace-section">
-                <div class="workspace-title">
-                    <span class="arrow opened">›</span>
-                    <span class="workspace-name">GCODE</span>
-                </div>
-
-                <div class="file-tree"></div>
-            </div>
-
-            <div class="sidebar-bottom">
-                <div class="sidebar-section-title">
-                    <span>›</span>
-                    OUTLINE
-                </div>
-
-                <div class="sidebar-section-title">
-                    <span>›</span>
-                    TIMELINE
-                </div>
-            </div>
-        `;
-
-        rebuildFileTree();
-    }
-
-    function showPanel(type) {
-        const titles = {
-            search: "SEARCH",
-            source: "SOURCE CONTROL",
-            run: "RUN AND DEBUG",
-            extensions: "EXTENSIONS"
-        };
-
-        const messages = {
-            search: "Rechercher dans les fichiers",
-            source: "Contrôle de source — Git sera connecté dans l'étape suivante.",
-            run: "Exécution et débogage",
-            extensions: "Extensions GCODE"
-        };
-
-        if (!sidebar || !titles[type]) {
-            return;
-        }
-
-        sidebar.innerHTML = `
-            <div class="sidebar-header">
-                <span>${titles[type]}</span>
-                <button class="sidebar-more">•••</button>
-            </div>
-
-            <div style="
-                padding:20px;
-                color:#888;
-                font-size:12px;
-            ">
-                ${messages[type]}
-            </div>
-        `;
-
-        if (type === "search") {
-            createSearchPanel();
-        }
-    }
-
-    /* =====================================================
-       SEARCH
-    ===================================================== */
-
-    function createSearchPanel() {
-        const container =
-            sidebar.querySelector(
-                "div[style]"
-            );
-
-        if (!container) {
-            return;
-        }
-
-        container.innerHTML = `
-            <input
-                id="gcodeSearchInput"
-                type="text"
-                placeholder="Rechercher..."
-                style="
-                    width:100%;
-                    box-sizing:border-box;
-                    background:#252526;
-                    color:#ddd;
-                    border:1px solid #444;
-                    padding:8px;
-                    outline:none;
-                "
-            >
-
-            <div
-                id="gcodeSearchResults"
-                style="margin-top:12px;"
-            ></div>
-        `;
-
-        const input =
-            document.getElementById(
-                "gcodeSearchInput"
-            );
-
-        input.addEventListener(
-            "input",
-            () => searchFiles(input.value)
-        );
-    }
-
-    function searchFiles(query) {
-        const results =
-            document.getElementById(
-                "gcodeSearchResults"
-            );
-
-        if (!results) {
-            return;
-        }
-
-        results.innerHTML = "";
-
-        query = query.trim();
-
-        if (!query) {
-            return;
-        }
-
-        const lower =
-            query.toLowerCase();
-
-        Object.entries(files).forEach(
-            ([fileName, file]) => {
-                const lines =
-                    file.content.split("\n");
-
-                lines.forEach(
-                    (line, index) => {
-                        if (
-                            line
-                                .toLowerCase()
-                                .includes(lower)
-                        ) {
-                            const result =
-                                document.createElement(
-                                    "div"
-                                );
-
-                            result.style.padding =
-                                "6px 0";
-
-                            result.style.cursor =
-                                "pointer";
-
-                            result.innerHTML =
-                                `<strong>${escapeHtml(fileName)}</strong>
-                                <br>
-                                <span style="color:#777;">
-                                    ${index + 1}: ${escapeHtml(line.trim())}
-                                </span>`;
-
-                            result.addEventListener(
-                                "click",
-                                () => {
-                                    openFile(fileName);
-                                }
-                            );
-
-                            results.appendChild(
-                                result
-                            );
-                        }
                     }
                 );
-            }
-        );
-    }
 
-    /* =====================================================
-       COMMAND PALETTE
-    ===================================================== */
-
-    const commandSearch =
-        document.querySelector(
-            ".command-search"
-        );
-
-    if (commandSearch) {
-        commandSearch.addEventListener(
-            "click",
-            openCommandPalette
-        );
-    }
-
-    function openCommandPalette() {
-        const command =
-            prompt(
-                "GCODE — Command Palette\n\n" +
-                "Commandes disponibles :\n" +
-                "• save\n" +
-                "• new\n" +
-                "• open\n" +
-                "• delete\n" +
-                "• search\n" +
-                "• preview\n" +
-                "• export\n" +
-                "• terminal"
-            );
-
-        if (!command) {
-            return;
-        }
-
-        executeCommand(command.trim());
-    }
-
-    function executeCommand(command) {
-        const normalized =
-            command.toLowerCase();
-
-        if (
-            normalized === "save"
-        ) {
-            saveCurrentEditor();
-            showNotification("Fichier enregistré.");
-            return;
-        }
-
-        if (
-            normalized === "new"
-        ) {
-            createNewFile();
-            return;
-        }
-
-        if (
-            normalized === "open"
-        ) {
-            openFilePrompt();
-            return;
-        }
-
-        if (
-            normalized === "delete"
-        ) {
-            deleteCurrentFile();
-            return;
-        }
-
-        if (
-            normalized === "search"
-        ) {
-            activateSearch();
-            return;
-        }
-
-        if (
-            normalized === "preview"
-        ) {
-            previewHtml();
-            return;
-        }
-
-        if (
-            normalized === "export"
-        ) {
-            exportCurrentFile();
-            return;
-        }
-
-        if (
-            normalized === "terminal"
-        ) {
-            terminal?.scrollIntoView({
-                behavior: "smooth"
+                existing.appendChild(
+                    item
+                );
             });
-            return;
-        }
+    }
 
-        showNotification(
-            `Commande inconnue : ${command}`
-        );
+    function updateSelectedTreeItem(
+        fileName
+    ) {
+
+        document
+            .querySelectorAll(
+                ".tree-item.file"
+            )
+            .forEach(item => {
+
+                item.classList.toggle(
+                    "active",
+                    item.dataset.file ===
+                    fileName
+                );
+
+            });
     }
 
     /* =====================================================
@@ -1289,49 +1364,52 @@ build/
     ===================================================== */
 
     function createNewFile() {
-        const fileName =
-            prompt(
+
+        const name =
+            window.prompt(
                 "Nom du nouveau fichier :",
                 "nouveau.html"
             );
 
-        if (!fileName) {
+        if (!name) {
             return;
         }
 
-        const cleanName =
-            fileName.trim();
+        const clean =
+            name.trim();
 
-        if (!cleanName) {
+        if (!clean) {
             return;
         }
 
-        if (filesExist(cleanName)) {
+        if (filesExist(clean)) {
+
             showNotification(
                 "Ce fichier existe déjà."
             );
-            openFile(cleanName);
+
+            openFile(clean);
+
             return;
         }
 
-        files[cleanName] = {
-            language: getLanguage(cleanName),
-            content: ""
+        files[clean] = {
+
+            language:
+                getLanguage(clean),
+
+            content:
+                ""
         };
 
         saveFiles();
 
-        openTabs.push(cleanName);
-
-        saveOpenTabs();
-
         rebuildFileTree();
-        renderTabs();
 
-        openFile(cleanName);
+        openFile(clean);
 
         showNotification(
-            `${cleanName} créé.`
+            `${clean} créé`
         );
     }
 
@@ -1340,113 +1418,128 @@ build/
     ===================================================== */
 
     function deleteCurrentFile() {
+
         if (!activeFile) {
             return;
         }
 
-        const confirmation =
-            confirm(
-                `Supprimer "${activeFile}" ?`
+        const confirmed =
+            window.confirm(
+                `Supprimer ${activeFile} ?`
             );
 
-        if (!confirmation) {
+        if (!confirmed) {
             return;
         }
 
-        delete files[activeFile];
+        delete files[
+            activeFile
+        ];
 
         openTabs =
             openTabs.filter(
-                name =>
-                    name !== activeFile
+                file =>
+                    file !==
+                    activeFile
             );
 
         saveFiles();
         saveOpenTabs();
 
-        const nextFile =
+        rebuildFileTree();
+
+        const next =
             openTabs[0];
 
-        if (nextFile) {
-            openFile(nextFile);
+        if (next) {
+
+            openFile(
+                next
+            );
+
         } else {
-            activeFile = null;
-            codeDisplay.innerHTML = "";
-            breadcrumbFile.textContent = "";
-            updateLineNumbers("");
+
+            activeFile =
+                null;
+
+            codeDisplay.innerHTML =
+                "";
+
+            breadcrumbFile.textContent =
+                "";
+
+            language.textContent =
+                "Plain Text";
         }
 
-        rebuildFileTree();
         renderTabs();
-
-        showNotification(
-            "Fichier supprimé."
-        );
     }
 
     /* =====================================================
-       IMPORT FILE
+       IMPORT
     ===================================================== */
 
     function importFile() {
-        const input =
-            document.createElement("input");
 
-        input.type = "file";
-        input.multiple = true;
+        const input =
+            document.createElement(
+                "input"
+            );
+
+        input.type =
+            "file";
+
+        input.accept =
+            ".html,.css,.js,.jsx,.ts,.tsx,.json,.md,.txt,.xml,.svg,.py,.php,.sql,.yml,.yaml,.sh";
 
         input.addEventListener(
             "change",
-            async () => {
-                const selected =
-                    Array.from(
-                        input.files || []
-                    );
+            async event => {
 
-                for (const file of selected) {
-                    try {
-                        const content =
-                            await file.text();
+                const file =
+                    event.target.files[0];
 
-                        files[file.name] = {
-                            language:
-                                getLanguage(
-                                    file.name
-                                ),
-                            content
-                        };
-
-                        if (
-                            !openTabs.includes(
-                                file.name
-                            )
-                        ) {
-                            openTabs.push(
-                                file.name
-                            );
-                        }
-                    } catch (error) {
-                        console.error(
-                            error
-                        );
-                    }
+                if (!file) {
+                    return;
                 }
 
-                saveFiles();
-                saveOpenTabs();
+                try {
 
-                rebuildFileTree();
-                renderTabs();
+                    const content =
+                        await file.text();
 
-                if (selected[0]) {
+                    files[file.name] = {
+
+                        language:
+                            getLanguage(
+                                file.name
+                            ),
+
+                        content
+                    };
+
+                    saveFiles();
+
+                    rebuildFileTree();
+
                     openFile(
-                        selected[0].name
+                        file.name
+                    );
+
+                    showNotification(
+                        `${file.name} importé`
+                    );
+
+                } catch (error) {
+
+                    console.error(
+                        error
+                    );
+
+                    showNotification(
+                        "Erreur d'importation"
                     );
                 }
-
-                showNotification(
-                    `${selected.length} fichier(s) importé(s).`
-                );
             }
         );
 
@@ -1454,176 +1547,315 @@ build/
     }
 
     /* =====================================================
-       EXPORT CURRENT FILE
+       EXPORT
     ===================================================== */
 
     function exportCurrentFile() {
+
         if (!activeFile) {
             return;
         }
 
-        saveCurrentEditor();
-
-        const file =
-            files[activeFile];
+        const content =
+            files[activeFile].content;
 
         const blob =
             new Blob(
-                [file.content],
+                [content],
                 {
-                    type: "text/plain;charset=utf-8"
+                    type:
+                        "text/plain;charset=utf-8"
                 }
             );
 
         const url =
-            URL.createObjectURL(blob);
+            URL.createObjectURL(
+                blob
+            );
 
         const link =
-            document.createElement("a");
+            document.createElement(
+                "a"
+            );
 
-        link.href = url;
-        link.download = activeFile;
+        link.href =
+            url;
 
-        document.body.appendChild(link);
+        link.download =
+            activeFile;
+
+        document.body.appendChild(
+            link
+        );
+
         link.click();
+
         link.remove();
 
-        URL.revokeObjectURL(url);
-
-        showNotification(
-            `${activeFile} exporté.`
+        URL.revokeObjectURL(
+            url
         );
     }
 
     /* =====================================================
-       OPEN FILE PROMPT
+       SEARCH
     ===================================================== */
 
-    function openFilePrompt() {
-        const names =
-            Object.keys(files);
+    function openSearch() {
 
-        const fileName =
-            prompt(
-                "Fichier à ouvrir :\n\n" +
-                names.join("\n")
+        const query =
+            window.prompt(
+                "Rechercher dans GCODE :"
             );
 
-        if (
-            fileName &&
-            filesExist(fileName.trim())
-        ) {
-            openFile(fileName.trim());
-        }
-    }
-
-    /* =====================================================
-       HTML PREVIEW
-    ===================================================== */
-
-    function previewHtml() {
-        saveCurrentEditor();
-
-        const html =
-            files["index.html"]
-                ? files["index.html"].content
-                : "";
-
-        const css =
-            files["style.css"]
-                ? files["style.css"].content
-                : "";
-
-        const js =
-            files["script.js"]
-                ? files["script.js"].content
-                : "";
-
-        const preview =
-            window.open(
-                "",
-                "_blank",
-                "width=1200,height=800"
-            );
-
-        if (!preview) {
-            showNotification(
-                "Le navigateur a bloqué la fenêtre de prévisualisation."
-            );
+        if (!query) {
             return;
         }
 
-        preview.document.open();
+        const results = [];
 
-        preview.document.write(`
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<style>
-${css}
-</style>
-</head>
-<body>
-${extractBody(html)}
-<script>
-${js.replace(/<\/script>/gi, "<\\/script>")}
-<\/script>
-</body>
-</html>
-        `);
+        Object.entries(files)
+            .forEach(
+                ([fileName, file]) => {
 
-        preview.document.close();
-    }
+                    if (
+                        file.content
+                            .toLowerCase()
+                            .includes(
+                                query.toLowerCase()
+                            )
+                    ) {
 
-    function extractBody(html) {
-        const match =
-            html.match(
-                /<body[^>]*>([\s\S]*?)<\/body>/i
+                        results.push(
+                            fileName
+                        );
+                    }
+                }
             );
 
-        if (match) {
-            return match[1];
+        if (!results.length) {
+
+            showNotification(
+                "Aucun résultat"
+            );
+
+            return;
         }
 
-        return html;
+        const first =
+            results[0];
+
+        openFile(first);
+
+        showNotification(
+            `${results.length} fichier(s) trouvé(s)`
+        );
+    }
+
+    /* =====================================================
+       COMMAND PALETTE
+    ===================================================== */
+
+    function openCommandPalette() {
+
+        const command =
+            window.prompt(
+                "Commande GCODE :\n\n" +
+                "new - nouveau fichier\n" +
+                "import - importer\n" +
+                "export - exporter\n" +
+                "delete - supprimer\n" +
+                "search - rechercher\n" +
+                "preview - aperçu HTML\n" +
+                "clear - vider terminal"
+            );
+
+        if (!command) {
+            return;
+        }
+
+        executeCommand(
+            command.trim()
+        );
     }
 
     /* =====================================================
        TERMINAL
     ===================================================== */
 
-    function getTerminalInput() {
-        return document.querySelector(
-            ".terminal-input"
-        );
-    }
+    function writeTerminal(
+        text
+    ) {
 
-    function reconnectTerminal() {
-        const input =
-            getTerminalInput();
-
-        if (!input) {
+        if (!terminal) {
             return;
         }
 
-        input.addEventListener(
+        const line =
+            document.createElement(
+                "div"
+            );
+
+        line.textContent =
+            text;
+
+        terminal.appendChild(
+            line
+        );
+
+        terminal.scrollTop =
+            terminal.scrollHeight;
+    }
+
+    function clearTerminal() {
+
+        if (terminal) {
+            terminal.innerHTML =
+                "";
+        }
+    }
+
+    function executeCommand(
+        command
+    ) {
+
+        const cmd =
+            command
+                .toLowerCase()
+                .trim();
+
+        if (!cmd) {
+            return;
+        }
+
+        writeTerminal(
+            `> ${command}`
+        );
+
+        if (cmd === "help") {
+
+            writeTerminal(
+                "Commandes : help, clear, ls, pwd, version, new, import, export, preview"
+            );
+
+            return;
+        }
+
+        if (cmd === "clear") {
+
+            clearTerminal();
+
+            return;
+        }
+
+        if (cmd === "ls") {
+
+            Object.keys(files)
+                .forEach(
+                    file =>
+                        writeTerminal(
+                            file
+                        )
+                );
+
+            return;
+        }
+
+        if (cmd === "pwd") {
+
+            writeTerminal(
+                "/GCODE"
+            );
+
+            return;
+        }
+
+        if (cmd === "version") {
+
+            writeTerminal(
+                "GCODE 3.0.0"
+            );
+
+            return;
+        }
+
+        if (cmd === "new") {
+
+            createNewFile();
+
+            return;
+        }
+
+        if (cmd === "import") {
+
+            importFile();
+
+            return;
+        }
+
+        if (cmd === "export") {
+
+            exportCurrentFile();
+
+            return;
+        }
+
+        if (cmd === "preview") {
+
+            previewHtml();
+
+            return;
+        }
+
+        if (cmd === "delete") {
+
+            deleteCurrentFile();
+
+            return;
+        }
+
+        if (cmd === "search") {
+
+            openSearch();
+
+            return;
+        }
+
+        writeTerminal(
+            `Commande inconnue : ${command}`
+        );
+    }
+
+    /* =====================================================
+       TERMINAL INPUT
+    ===================================================== */
+
+    const terminalInput =
+        document.querySelector(
+            ".terminal-input"
+        );
+
+    if (terminalInput) {
+
+        terminalInput.addEventListener(
             "keydown",
             event => {
-                if (event.key !== "Enter") {
-                    return;
-                }
 
-                event.preventDefault();
+                if (
+                    event.key ===
+                    "Enter"
+                ) {
 
-                const command =
-                    input.innerText.trim();
+                    event.preventDefault();
 
-                input.innerText = "";
+                    const command =
+                        terminalInput.textContent
+                            .trim();
 
-                if (command) {
-                    executeTerminalCommand(
+                    terminalInput.textContent =
+                        "";
+
+                    executeCommand(
                         command
                     );
                 }
@@ -1631,427 +1863,380 @@ ${js.replace(/<\/script>/gi, "<\\/script>")}
         );
     }
 
-    function executeTerminalCommand(
-        command
-    ) {
-        if (!terminal) {
-            return;
-        }
+    /* =====================================================
+       HTML PREVIEW
+    ===================================================== */
 
-        const commandLine =
-            document.createElement("div");
+    function previewHtml() {
 
-        commandLine.style.marginTop =
-            "8px";
+        const html =
+            files["index.html"]?.content ||
+            "";
 
-        commandLine.innerHTML = `
-            <span style="color:#569cd6;">PS</span>
-            <span style="margin-left:7px;">
-                D:\\GCODE&gt;
-            </span>
-            <span style="margin-left:5px;">
-                ${escapeHtml(command)}
-            </span>
-        `;
+        const css =
+            files["style.css"]?.content ||
+            "";
 
-        const currentLine =
-            terminal.querySelector(
-                ".terminal-line"
+        const js =
+            files["script.js"]?.content ||
+            "";
+
+        const preview =
+            window.open(
+                "",
+                "_blank"
             );
 
-        terminal.insertBefore(
-            commandLine,
-            currentLine
-        );
+        if (!preview) {
 
-        const response =
-            document.createElement("div");
-
-        response.style.marginTop =
-            "3px";
-
-        const normalized =
-            command.trim().toLowerCase();
-
-        if (normalized === "help") {
-            response.textContent =
-                "Commandes : help, clear, ls, pwd, version, open, save, new, delete, preview, export";
-        }
-
-        else if (normalized === "clear") {
-            clearTerminal();
-            return;
-        }
-
-        else if (normalized === "ls") {
-            response.textContent =
-                Object.keys(files).join(
-                    "    "
-                );
-        }
-
-        else if (normalized === "pwd") {
-            response.textContent =
-                "GCODE workspace";
-        }
-
-        else if (normalized === "version") {
-            response.textContent =
-                "GCODE 3.0.0";
-        }
-
-        else if (normalized === "save") {
-            saveCurrentEditor();
-            response.textContent =
-                "Fichier enregistré.";
-        }
-
-        else if (normalized === "new") {
-            createNewFile();
-            response.textContent =
-                "Création du fichier demandée.";
-        }
-
-        else if (normalized === "open") {
-            openFilePrompt();
-            response.textContent =
-                "Ouverture demandée.";
-        }
-
-        else if (normalized === "delete") {
-            deleteCurrentFile();
-            response.textContent =
-                "Suppression demandée.";
-        }
-
-        else if (normalized === "preview") {
-            previewHtml();
-            response.textContent =
-                "Prévisualisation ouverte.";
-        }
-
-        else if (normalized === "export") {
-            exportCurrentFile();
-            response.textContent =
-                "Export demandé.";
-        }
-
-        else {
-            response.textContent =
-                `'${command}' n'est pas une commande GCODE locale.`;
-        }
-
-        terminal.insertBefore(
-            response,
-            currentLine
-        );
-    }
-
-    function clearTerminal() {
-        if (!terminal) {
-            return;
-        }
-
-        terminal.innerHTML = `
-            <div class="terminal-line">
-                <span class="terminal-prompt">PS</span>
-                <span class="terminal-path">D:\\GCODE&gt;</span>
-                <span
-                    class="terminal-input"
-                    contenteditable="true"
-                    spellcheck="false"
-                ></span>
-                <span class="terminal-cursor">█</span>
-            </div>
-        `;
-
-        reconnectTerminal();
-
-        const input =
-            getTerminalInput();
-
-        input?.focus();
-    }
-
-    reconnectTerminal();
-
-    /* =====================================================
-       BACK / FORWARD
-    ===================================================== */
-
-    function navigateHistory(direction) {
-        if (!history.length) {
-            return;
-        }
-
-        const newIndex =
-            historyIndex + direction;
-
-        if (
-            newIndex < 0 ||
-            newIndex >= history.length
-        ) {
-            return;
-        }
-
-        historyIndex = newIndex;
-
-        const fileName =
-            history[historyIndex];
-
-        suppressHistory = true;
-
-        openFile(fileName, false);
-
-        suppressHistory = false;
-    }
-
-    if (backBtn) {
-        backBtn.addEventListener(
-            "click",
-            () => navigateHistory(-1)
-        );
-    }
-
-    if (forwardBtn) {
-        forwardBtn.addEventListener(
-            "click",
-            () => navigateHistory(1)
-        );
-    }
-
-    /* =====================================================
-       KEYBOARD SHORTCUTS
-    ===================================================== */
-
-    document.addEventListener(
-        "keydown",
-        event => {
-            const modifier =
-                event.ctrlKey ||
-                event.metaKey;
-
-            if (
-                modifier &&
-                event.key.toLowerCase() === "s"
-            ) {
-                event.preventDefault();
-
-                saveCurrentEditor();
-
-                showNotification(
-                    "Fichier enregistré."
-                );
-            }
-
-            if (
-                modifier &&
-                event.key.toLowerCase() === "p"
-            ) {
-                event.preventDefault();
-
-                previewHtml();
-            }
-
-            if (
-                modifier &&
-                event.key.toLowerCase() === "f"
-            ) {
-                event.preventDefault();
-
-                activateSearch();
-            }
-
-            if (
-                modifier &&
-                event.key.toLowerCase() === "n"
-            ) {
-                event.preventDefault();
-
-                createNewFile();
-            }
-
-            if (
-                modifier &&
-                event.key.toLowerCase() === "o"
-            ) {
-                event.preventDefault();
-
-                importFile();
-            }
-
-            if (
-                modifier &&
-                event.key.toLowerCase() === "w"
-            ) {
-                event.preventDefault();
-
-                if (activeFile) {
-                    closeTab(activeFile);
-                }
-            }
-
-            if (
-                modifier &&
-                event.key === "ArrowLeft"
-            ) {
-                event.preventDefault();
-
-                navigateHistory(-1);
-            }
-
-            if (
-                modifier &&
-                event.key === "ArrowRight"
-            ) {
-                event.preventDefault();
-
-                navigateHistory(1);
-            }
-        }
-    );
-
-    /* =====================================================
-       SEARCH ACTIVATION
-    ===================================================== */
-
-    function activateSearch() {
-        const searchButton =
-            document.querySelector(
-                '.activity-item[data-panel="search"]'
+            showNotification(
+                "Le navigateur a bloqué l'aperçu."
             );
 
-        if (searchButton) {
-            searchButton.click();
+            return;
         }
+
+        const finalHtml =
+            html
+                .replace(
+                    "</head>",
+                    `<style>${css}</style></head>`
+                )
+                .replace(
+                    "</body>",
+                    `<script>${js}<\/script></body>`
+                );
+
+        preview.document.open();
+
+        preview.document.write(
+            finalHtml
+        );
+
+        preview.document.close();
     }
 
     /* =====================================================
-       FILE MENU
+       ACTIVITY BAR
     ===================================================== */
 
     document
-        .querySelectorAll(".menu-button")
+        .querySelectorAll(
+            ".activity-item"
+        )
+        .forEach(item => {
+
+            item.addEventListener(
+                "click",
+                () => {
+
+                    const panel =
+                        item.dataset.panel;
+
+                    if (!panel) {
+                        return;
+                    }
+
+                    if (
+                        panel ===
+                        "search"
+                    ) {
+
+                        openSearch();
+
+                        return;
+                    }
+
+                    document
+                        .querySelectorAll(
+                            ".activity-item"
+                        )
+                        .forEach(
+                            other =>
+                                other.classList.remove(
+                                    "active"
+                                )
+                        );
+
+                    item.classList.add(
+                        "active"
+                    );
+
+                    showNotification(
+                        panel
+                    );
+                }
+            );
+        });
+
+    /* =====================================================
+       MENU BUTTONS
+    ===================================================== */
+
+    document
+        .querySelectorAll(
+            ".menu-button"
+        )
         .forEach(button => {
+
             button.addEventListener(
                 "click",
                 () => {
-                    const name =
+
+                    const label =
                         button.textContent
                             .trim()
                             .toLowerCase();
 
-                    if (name === "file") {
-                        showFileMenu();
-                    }
+                    if (
+                        label ===
+                        "file"
+                    ) {
 
-                    else if (name === "edit") {
-                        showEditMenu();
-                    }
+                        createNewFile();
 
-                    else if (name === "selection") {
+                    } else if (
+                        label ===
+                        "edit"
+                    ) {
+
+                        focusEditor();
+
+                    } else if (
+                        label ===
+                        "selection"
+                    ) {
+
                         showNotification(
-                            "Sélection : utilisez les fonctions natives du navigateur."
+                            "Sélection active"
                         );
-                    }
 
-                    else if (name === "view") {
+                    } else if (
+                        label ===
+                        "view"
+                    ) {
+
                         showNotification(
-                            "Vue : interface conservée."
+                            "Vue GCODE"
                         );
-                    }
 
-                    else if (name === "go") {
-                        showNotification(
-                            "Navigation GCODE disponible avec Alt/⌘ + ← →."
-                        );
-                    }
+                    } else if (
+                        label ===
+                        "go"
+                    ) {
 
-                    else if (name === "•••") {
+                        openSearch();
+
+                    } else {
+
                         openCommandPalette();
                     }
                 }
             );
         });
 
-    function showFileMenu() {
-        const action =
-            prompt(
-                "FILE\n\n" +
-                "1 = Nouveau fichier\n" +
-                "2 = Importer\n" +
-                "3 = Enregistrer\n" +
-                "4 = Exporter\n" +
-                "5 = Supprimer\n" +
-                "6 = Prévisualiser"
-            );
+    /* =====================================================
+       COMMAND SEARCH
+    ===================================================== */
 
-        switch (action) {
-            case "1":
-                createNewFile();
-                break;
+    const commandSearch =
+        document.querySelector(
+            ".command-search"
+        );
 
-            case "2":
-                importFile();
-                break;
+    if (commandSearch) {
 
-            case "3":
-                saveCurrentEditor();
-                break;
+        commandSearch.addEventListener(
+            "keydown",
+            event => {
 
-            case "4":
-                exportCurrentFile();
-                break;
+                if (
+                    event.key ===
+                    "Enter"
+                ) {
 
-            case "5":
-                deleteCurrentFile();
-                break;
+                    const value =
+                        commandSearch.value.trim();
 
-            case "6":
-                previewHtml();
-                break;
-        }
+                    if (value) {
+
+                        openFile(
+                            value
+                        );
+                    }
+                }
+            }
+        );
     }
 
-    function showEditMenu() {
-        const action =
-            prompt(
-                "EDIT\n\n" +
-                "1 = Annuler\n" +
-                "2 = Rétablir\n" +
-                "3 = Rechercher"
-            );
+    /* =====================================================
+       BACK / FORWARD
+    ===================================================== */
 
-        if (action === "1") {
-            document.execCommand(
-                "undo"
-            );
-        }
+    if (backBtn) {
 
-        if (action === "2") {
-            document.execCommand(
-                "redo"
-            );
-        }
+        backBtn.addEventListener(
+            "click",
+            () => {
 
-        if (action === "3") {
-            activateSearch();
+                if (
+                    historyIndex <= 0
+                ) {
+                    return;
+                }
+
+                historyIndex--;
+
+                const file =
+                    history[
+                        historyIndex
+                    ];
+
+                openFile(
+                    file,
+                    false
+                );
+            }
+        );
+    }
+
+    if (forwardBtn) {
+
+        forwardBtn.addEventListener(
+            "click",
+            () => {
+
+                if (
+                    historyIndex >=
+                    history.length - 1
+                ) {
+                    return;
+                }
+
+                historyIndex++;
+
+                const file =
+                    history[
+                        historyIndex
+                    ];
+
+                openFile(
+                    file,
+                    false
+                );
+            }
+        );
+    }
+
+    /* =====================================================
+       KEYBOARD GLOBAL
+    ===================================================== */
+
+    document.addEventListener(
+        "keydown",
+        event => {
+
+            const key =
+                event.key.toLowerCase();
+
+            if (
+                (event.ctrlKey ||
+                 event.metaKey) &&
+                key === "n"
+            ) {
+
+                event.preventDefault();
+
+                createNewFile();
+            }
+
+            if (
+                (event.ctrlKey ||
+                 event.metaKey) &&
+                key === "o"
+            ) {
+
+                event.preventDefault();
+
+                importFile();
+            }
+
+            if (
+                (event.ctrlKey ||
+                 event.metaKey) &&
+                key === "w"
+            ) {
+
+                event.preventDefault();
+
+                if (activeFile) {
+                    closeTab(
+                        activeFile
+                    );
+                }
+            }
         }
+    );
+
+    /* =====================================================
+       CLOSE WINDOW
+    ===================================================== */
+
+    if (closeWindow) {
+
+        closeWindow.addEventListener(
+            "click",
+            () => {
+
+                try {
+
+                    window.close();
+
+                } catch (error) {
+
+                    document.body.innerHTML = `
+                        <div style="
+                            height:100vh;
+                            display:flex;
+                            align-items:center;
+                            justify-content:center;
+                            background:#1e1e1e;
+                            color:#cccccc;
+                            font-family:Arial,sans-serif;
+                        ">
+                            <div style="text-align:center">
+                                <h2>GCODE</h2>
+                                <p>Fenêtre fermée.</p>
+                                <button onclick="location.reload()">
+                                    Revenir à GCODE
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+        );
     }
 
     /* =====================================================
        NOTIFICATION
     ===================================================== */
 
-    function showNotification(message) {
+    function showNotification(
+        message
+    ) {
+
         let notification =
             document.getElementById(
                 "gcodeNotification"
             );
 
         if (!notification) {
+
             notification =
-                document.createElement("div");
+                document.createElement(
+                    "div"
+                );
 
             notification.id =
                 "gcodeNotification";
@@ -2060,7 +2245,7 @@ ${js.replace(/<\/script>/gi, "<\\/script>")}
                 "fixed";
 
             notification.style.bottom =
-                "35px";
+                "45px";
 
             notification.style.right =
                 "20px";
@@ -2069,19 +2254,25 @@ ${js.replace(/<\/script>/gi, "<\\/script>")}
                 "99999";
 
             notification.style.padding =
-                "9px 14px";
+                "10px 14px";
 
             notification.style.background =
                 "#252526";
 
             notification.style.color =
-                "#cccccc";
+                "#ffffff";
 
             notification.style.border =
-                "1px solid #444";
+                "1px solid #3e3e42";
+
+            notification.style.borderRadius =
+                "6px";
 
             notification.style.fontSize =
-                "12px";
+                "13px";
+
+            notification.style.boxShadow =
+                "0 4px 15px rgba(0,0,0,.35)";
 
             document.body.appendChild(
                 notification
@@ -2099,112 +2290,51 @@ ${js.replace(/<\/script>/gi, "<\\/script>")}
         );
 
         notification._timer =
-            setTimeout(() => {
-                notification.style.display =
-                    "none";
-            }, 2200);
+            setTimeout(
+                () => {
+
+                    notification.style.display =
+                        "none";
+
+                },
+                2200
+            );
     }
 
     /* =====================================================
-       WINDOW CLOSE
+       INITIALISATION
     ===================================================== */
 
-    if (closeWindow) {
-        closeWindow.addEventListener(
-            "click",
-            () => {
-                const confirmation =
-                    confirm(
-                        "Fermer GCODE ?"
-                    );
-
-                if (confirmation) {
-                    window.close();
-
-                    showNotification(
-                        "GCODE ne peut pas fermer l'onglet automatiquement dans un navigateur."
-                    );
-                }
-            }
-        );
-    }
-
-    /* =====================================================
-       HISTORY
-    ===================================================== */
-
-    function updateHistory(
-        fileName,
-        content
-    ) {
-        if (
-            history.length === 0 ||
-            history[history.length - 1] !==
-                fileName
-        ) {
-            history =
-                history.slice(
-                    0,
-                    historyIndex + 1
-                );
-
-            history.push(fileName);
-
-            historyIndex =
-                history.length - 1;
-        }
-
-        void content;
-    }
-
-    /* =====================================================
-       INITIALIZATION
-    ===================================================== */
-
-    makeEditorEditable();
+    configureEditor();
 
     rebuildFileTree();
 
+    if (
+        !activeFile ||
+        !filesExist(activeFile)
+    ) {
+
+        activeFile =
+            openTabs[0] ||
+            "style.css";
+    }
+
     renderTabs();
 
-    if (
-        activeFile &&
-        filesExist(activeFile)
-    ) {
-        openFile(
-            activeFile,
-            false
-        );
-    } else {
-        const firstFile =
-            openTabs.find(
-                name => filesExist(name)
-            ) ||
-            "style.css";
-
-        openFile(
-            firstFile,
-            false
-        );
-    }
+    renderEditor(
+        activeFile
+    );
 
     history = [
         activeFile
-    ].filter(Boolean);
+    ];
 
-    historyIndex =
-        history.length - 1;
+    historyIndex = 0;
 
-    saveFiles();
     saveOpenTabs();
 
     console.log(
-        "%cGCODE 3.0.0",
-        "color:#4daafc;font-size:20px;font-weight:bold;"
-    );
-
-    console.log(
-        "GCODE Editor initialized — functional mode."
+        "GCODE Editor V3 chargé."
     );
 
 })();
