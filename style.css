@@ -1,0 +1,987 @@
+/* =========================================================
+   GCODE
+   VS CODE STYLE INTERFACE
+========================================================= */
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    font-family:
+        "Segoe UI",
+        Arial,
+        sans-serif;
+    background: #1e1e1e;
+    color: #cccccc;
+}
+
+button {
+    font-family: inherit;
+    border: 0;
+    background: transparent;
+    color: inherit;
+}
+
+
+/* =========================================================
+   APP
+========================================================= */
+
+#app {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+
+/* =========================================================
+   TOP BAR
+========================================================= */
+
+.top-bar {
+    height: 34px;
+    min-height: 34px;
+
+    display: flex;
+    align-items: center;
+
+    background: #181818;
+    border-bottom: 1px solid #101010;
+
+    user-select: none;
+}
+
+.top-left {
+    display: flex;
+    align-items: center;
+    height: 100%;
+}
+
+.gcode-logo {
+    width: 44px;
+    height: 100%;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    color: #4daafc;
+    font-size: 15px;
+    font-weight: bold;
+}
+
+.menu-button {
+    height: 100%;
+    padding: 0 9px;
+
+    color: #cccccc;
+    font-size: 12px;
+
+    cursor: pointer;
+}
+
+.menu-button:hover {
+    background: #2a2d2e;
+}
+
+.more-button {
+    letter-spacing: 1px;
+}
+
+.navigation {
+    display: flex;
+    margin-left: 12px;
+}
+
+.navigation button {
+    width: 30px;
+    height: 30px;
+
+    font-size: 22px;
+    color: #858585;
+
+    cursor: pointer;
+}
+
+.navigation button:hover {
+    color: #cccccc;
+}
+
+.command-search {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+
+    width: 360px;
+    height: 25px;
+
+    display: flex;
+    align-items: center;
+
+    padding: 0 10px;
+
+    background: #252526;
+    border: 1px solid #3b3b3b;
+    border-radius: 5px;
+
+    color: #8c8c8c;
+    font-size: 12px;
+
+    cursor: pointer;
+}
+
+.command-search:hover {
+    background: #2d2d2d;
+}
+
+.command-icon {
+    margin-right: 8px;
+    font-size: 17px;
+}
+
+.top-actions {
+    margin-left: auto;
+
+    display: flex;
+    align-items: center;
+}
+
+.top-actions button {
+    width: 30px;
+    height: 30px;
+
+    color: #999999;
+    cursor: pointer;
+}
+
+.top-actions button:hover {
+    color: #dddddd;
+    background: #2a2d2e;
+}
+
+.window-controls {
+    height: 100%;
+    display: flex;
+}
+
+.window-controls button {
+    width: 45px;
+    height: 100%;
+
+    font-size: 13px;
+    color: #aaaaaa;
+
+    cursor: pointer;
+}
+
+.window-controls button:hover {
+    background: #2a2d2e;
+}
+
+.window-controls button:last-child:hover {
+    background: #c42b1c;
+    color: white;
+}
+
+
+/* =========================================================
+   MAIN
+========================================================= */
+
+.main-container {
+    flex: 1;
+
+    display: flex;
+
+    min-height: 0;
+}
+
+
+/* =========================================================
+   ACTIVITY BAR
+========================================================= */
+
+.activity-bar {
+    width: 48px;
+    min-width: 48px;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+    background: #181818;
+
+    border-right: 1px solid #252525;
+}
+
+.activity-item {
+    position: relative;
+
+    width: 48px;
+    height: 48px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    color: #858585;
+
+    cursor: pointer;
+}
+
+.activity-item:hover {
+    color: #cccccc;
+}
+
+.activity-item.active {
+    color: #ffffff;
+}
+
+.activity-item.active::before {
+    content: "";
+
+    position: absolute;
+    left: 0;
+    top: 7px;
+    bottom: 7px;
+
+    width: 2px;
+
+    background: #ffffff;
+}
+
+.activity-icon {
+    font-size: 22px;
+    line-height: 1;
+}
+
+.activity-label {
+    position: absolute;
+
+    left: 55px;
+
+    display: none;
+
+    z-index: 100;
+
+    padding: 5px 8px;
+
+    background: #252526;
+    border: 1px solid #454545;
+
+    color: #ffffff;
+    font-size: 11px;
+
+    white-space: nowrap;
+}
+
+.activity-item:hover .activity-label {
+    display: block;
+}
+
+.activity-spacer {
+    flex: 1;
+}
+
+
+/* =========================================================
+   SIDEBAR
+========================================================= */
+
+.sidebar {
+    width: 250px;
+    min-width: 250px;
+
+    display: flex;
+    flex-direction: column;
+
+    background: #181818;
+
+    border-right: 1px solid #303030;
+
+    position: relative;
+}
+
+.sidebar-header {
+    height: 35px;
+    min-height: 35px;
+
+    padding: 0 12px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    color: #bbbbbb;
+
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.sidebar-more {
+    color: #999999;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.sidebar-more:hover {
+    color: white;
+}
+
+
+/* Workspace */
+
+.workspace-section {
+    width: 100%;
+}
+
+.workspace-title {
+    height: 25px;
+
+    display: flex;
+    align-items: center;
+
+    padding-left: 8px;
+
+    color: #cccccc;
+
+    font-size: 12px;
+}
+
+.workspace-title .arrow {
+    margin-right: 5px;
+
+    font-size: 17px;
+
+    transform: rotate(90deg);
+}
+
+.workspace-name {
+    font-weight: 600;
+}
+
+
+/* File tree */
+
+.file-tree {
+    padding-top: 3px;
+}
+
+.tree-item {
+    height: 22px;
+
+    display: flex;
+    align-items: center;
+
+    padding-left: 10px;
+
+    font-size: 12px;
+
+    color: #cccccc;
+
+    cursor: pointer;
+
+    white-space: nowrap;
+}
+
+.tree-item:hover {
+    background: #2a2d2e;
+}
+
+.tree-item.selected {
+    background: #37373d;
+    color: #ffffff;
+}
+
+.tree-item .arrow {
+    width: 16px;
+
+    color: #aaaaaa;
+
+    font-size: 15px;
+}
+
+.tree-item.folder .arrow {
+    transform: rotate(0deg);
+}
+
+.file-symbol {
+    width: 20px;
+
+    margin-right: 2px;
+
+    font-size: 11px;
+    text-align: center;
+}
+
+.folder-symbol {
+    color: #c5c5c5;
+}
+
+.html-symbol {
+    color: #e37933;
+}
+
+.css-symbol {
+    color: #519aba;
+}
+
+.js-symbol {
+    color: #f0db4f;
+}
+
+.json-symbol {
+    color: #cbcb41;
+    font-size: 10px;
+}
+
+.md-symbol {
+    color: #519aba;
+}
+
+.env-symbol {
+    color: #cccccc;
+}
+
+.git-symbol {
+    color: #f14e32;
+}
+
+.file-indent {
+    width: 16px;
+}
+
+
+/* Sidebar bottom */
+
+.sidebar-bottom {
+    margin-top: auto;
+
+    border-top: 1px solid #2b2b2b;
+}
+
+.sidebar-section-title {
+    height: 30px;
+
+    display: flex;
+    align-items: center;
+
+    padding-left: 10px;
+
+    color: #bbbbbb;
+
+    font-size: 11px;
+
+    border-bottom: 1px solid #252525;
+
+    cursor: pointer;
+}
+
+.sidebar-section-title:hover {
+    background: #252525;
+}
+
+.sidebar-section-title span {
+    width: 18px;
+    font-size: 16px;
+}
+
+
+/* =========================================================
+   WORKSPACE AREA
+========================================================= */
+
+.workspace-area {
+    flex: 1;
+
+    min-width: 0;
+    min-height: 0;
+
+    display: flex;
+    flex-direction: column;
+
+    background: #1e1e1e;
+}
+
+
+/* =========================================================
+   EDITOR
+========================================================= */
+
+.editor-area {
+    flex: 1;
+
+    min-height: 0;
+
+    display: flex;
+    flex-direction: column;
+}
+
+
+/* Tabs */
+
+.editor-tabs {
+    height: 36px;
+    min-height: 36px;
+
+    display: flex;
+
+    background: #181818;
+
+    border-bottom: 1px solid #252525;
+}
+
+.editor-tab {
+    min-width: 150px;
+    max-width: 220px;
+
+    height: 36px;
+
+    display: flex;
+    align-items: center;
+
+    padding: 0 10px;
+
+    background: #181818;
+
+    border-right: 1px solid #252525;
+
+    color: #858585;
+
+    font-size: 12px;
+
+    cursor: pointer;
+}
+
+.editor-tab.active {
+    background: #1e1e1e;
+    color: #ffffff;
+
+    border-top: 1px solid #3f3f46;
+}
+
+.editor-tab:hover {
+    color: #dddddd;
+}
+
+.tab-file-icon {
+    margin-right: 7px;
+
+    font-size: 11px;
+}
+
+.tab-name {
+    flex: 1;
+}
+
+.tab-close {
+    width: 20px;
+    height: 20px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    color: #888888;
+
+    cursor: pointer;
+}
+
+.tab-close:hover {
+    color: white;
+    background: #3a3a3a;
+}
+
+
+/* Breadcrumb */
+
+.breadcrumb {
+    height: 28px;
+    min-height: 28px;
+
+    display: flex;
+    align-items: center;
+
+    gap: 7px;
+
+    padding-left: 16px;
+
+    background: #1e1e1e;
+
+    color: #999999;
+
+    font-size: 11px;
+}
+
+.breadcrumb span:nth-child(2) {
+    color: #555555;
+}
+
+
+/* =========================================================
+   CODE EDITOR
+========================================================= */
+
+.code-editor {
+    flex: 1;
+
+    min-height: 0;
+
+    display: flex;
+
+    overflow: auto;
+
+    background: #1e1e1e;
+
+    font-family:
+        Consolas,
+        "Courier New",
+        monospace;
+
+    font-size: 13px;
+
+    line-height: 20px;
+}
+
+.line-numbers {
+    width: 55px;
+    min-width: 55px;
+
+    padding-top: 10px;
+
+    text-align: right;
+
+    padding-right: 15px;
+
+    color: #5a5a5a;
+
+    user-select: none;
+}
+
+.line-numbers span {
+    display: block;
+    height: 20px;
+}
+
+.code-content {
+    flex: 1;
+
+    min-width: max-content;
+
+    padding: 10px 25px 40px 0;
+
+    color: #d4d4d4;
+}
+
+.code-content pre {
+    margin: 0;
+}
+
+.code-content code {
+    font-family: inherit;
+}
+
+.selector {
+    color: #dcdcaa;
+}
+
+.property {
+    color: #9cdcfe;
+}
+
+.value {
+    color: #ce9178;
+}
+
+.comment {
+    color: #6a9955;
+}
+
+.code-content::selection,
+.code-content *::selection {
+    background: #264f78;
+}
+
+
+/* =========================================================
+   BOTTOM PANEL
+========================================================= */
+
+.bottom-panel {
+    height: 220px;
+    min-height: 160px;
+
+    display: flex;
+    flex-direction: column;
+
+    background: #181818;
+
+    border-top: 1px solid #303030;
+}
+
+
+/* Panel header */
+
+.panel-header {
+    height: 35px;
+    min-height: 35px;
+
+    display: flex;
+    align-items: center;
+
+    border-bottom: 1px solid #252525;
+}
+
+.panel-tabs {
+    display: flex;
+    height: 100%;
+}
+
+.panel-tab {
+    height: 100%;
+
+    padding: 0 12px;
+
+    color: #858585;
+
+    font-size: 11px;
+
+    cursor: pointer;
+}
+
+.panel-tab:hover {
+    color: #cccccc;
+}
+
+.panel-tab.active {
+    color: #ffffff;
+
+    border-bottom: 1px solid #ffffff;
+}
+
+.count {
+    display: inline-flex;
+
+    min-width: 15px;
+    height: 15px;
+
+    margin-left: 4px;
+
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 8px;
+
+    background: #333333;
+
+    font-size: 9px;
+}
+
+
+/* Panel actions */
+
+.panel-actions {
+    margin-left: auto;
+
+    display: flex;
+    align-items: center;
+
+    height: 100%;
+
+    padding-right: 8px;
+
+    gap: 10px;
+
+    color: #aaaaaa;
+
+    font-size: 11px;
+}
+
+.panel-actions button {
+    color: #999999;
+    cursor: pointer;
+}
+
+.panel-actions button:hover {
+    color: white;
+}
+
+
+/* Terminal */
+
+.terminal-content {
+    flex: 1;
+
+    overflow: auto;
+
+    padding: 12px 15px;
+
+    background: #181818;
+
+    font-family:
+        Consolas,
+        "Courier New",
+        monospace;
+
+    font-size: 12px;
+
+    color: #cccccc;
+}
+
+.terminal-line {
+    display: flex;
+    align-items: center;
+}
+
+.terminal-prompt {
+    color: #569cd6;
+    margin-right: 7px;
+}
+
+.terminal-path {
+    color: #cccccc;
+}
+
+.terminal-input {
+    min-width: 2px;
+
+    margin-left: 4px;
+
+    outline: none;
+}
+
+.terminal-cursor {
+    margin-left: 2px;
+
+    color: #cccccc;
+
+    animation: cursorBlink 1s infinite;
+}
+
+@keyframes cursorBlink {
+
+    0%,
+    49% {
+        opacity: 1;
+    }
+
+    50%,
+    100% {
+        opacity: 0;
+    }
+}
+
+
+/* =========================================================
+   STATUS BAR
+========================================================= */
+
+.status-bar {
+    height: 22px;
+    min-height: 22px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 0 8px;
+
+    background: #007acc;
+
+    color: #ffffff;
+
+    font-size: 10px;
+
+    user-select: none;
+}
+
+.status-left,
+.status-right {
+    display: flex;
+    align-items: center;
+
+    height: 100%;
+
+    gap: 12px;
+}
+
+.status-left span,
+.status-right span {
+    white-space: nowrap;
+}
+
+
+/* =========================================================
+   SCROLLBARS
+========================================================= */
+
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: #1e1e1e;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #424242;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #4f4f4f;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+
+@media (max-width: 900px) {
+
+    .sidebar {
+        width: 220px;
+        min-width: 220px;
+    }
+
+    .command-search {
+        width: 250px;
+    }
+
+    .top-actions {
+        display: none;
+    }
+}
+
+
+@media (max-width: 650px) {
+
+    .sidebar {
+        display: none;
+    }
+
+    .command-search {
+        width: 200px;
+    }
+
+    .menu-button {
+        display: none;
+    }
+
+    .gcode-logo {
+        width: 40px;
+    }
+
+    .panel-tab {
+        padding: 0 7px;
+    }
+}
