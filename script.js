@@ -1,602 +1,529 @@
 /* =========================================================
-   GCODE V3
-   REAL VS CODE STYLE CONTROLLER
-   iPHONE / iPAD / ANDROID / DESKTOP
-
-   IMPORTANT :
-   - Ne modifie pas le thème
-   - Ne modifie pas le HTML
-   - Contrôle uniquement le comportement
-========================================================= */
+   GCODE V4
+   VS CODE STYLE EDITOR
+   Editor + Explorer + Terminal + npm + Git + Syntax
+   ========================================================= */
 
 (() => {
     "use strict";
 
     /* =====================================================
-       DOM
+       CONFIGURATION
     ===================================================== */
 
-    const sidebar = document.getElementById("sidebar");
-    const editorTabs = document.getElementById("editorTabs");
-    const codeEditor = document.getElementById("codeEditor");
-    const codeDisplay = document.getElementById("codeDisplay");
-    const lineNumbers = document.getElementById("lineNumbers");
-    const breadcrumbFile = document.getElementById("breadcrumbFile");
-    const language = document.getElementById("language");
-    const cursorPosition = document.getElementById("cursorPosition");
-    const terminal = document.getElementById("terminal");
-    const bottomPanel = document.getElementById("bottomPanel");
+    const STORAGE_KEY = "gcode-v4-workspace";
+    const TABS_KEY = "gcode-v4-tabs";
+    const HISTORY_KEY = "gcode-v4-terminal-history";
 
-    const backBtn = document.getElementById("backBtn");
-    const forwardBtn = document.getElementById("forwardBtn");
-    const closeWindow = document.getElementById("closeWindow");
-
-    const fileTree =
-        document.querySelector(".file-tree");
-
-    const commandSearch =
-        document.querySelector(".command-search");
-
-    /* =====================================================
-       FILE SYSTEM
-    ===================================================== */
-
-    const FS = window.GCODEFileSystem || null;
-
-    /* =====================================================
-       CONSTANTES
-    ===================================================== */
-
-    const OPEN_TABS_KEY =
-        "GCODE_OPEN_TABS_V3";
-
-    const ACTIVE_FILE_KEY =
-        "GCODE_ACTIVE_FILE_V3";
-
-    const EDITOR_HISTORY_KEY =
-        "GCODE_EDITOR_HISTORY_V3";
-
-    /* =====================================================
-       ETAT
-    ===================================================== */
-
-    const defaultFiles = {
-        "/index.html": {
-            language: "HTML",
-            content: `<!DOCTYPE html>
-<html lang="fr">
+    const DEFAULT_FILES = {
+        "index.html": `<!DOCTYPE html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GCODE</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="app">
-        GCODE Editor
-    </div>
-</body>
-</html>`
-        },
 
-        "/style.css": {
-            language: "CSS",
-            content: `/* GCODE Editor */
+    <h1>Hello GCODE</h1>
+
+    <script src="script.js"></script>
+</body>
+</html>`,
+
+        "style.css": `* {
+    box-sizing: border-box;
+}
 
 body {
     margin: 0;
-    padding: 0;
-    background: #1e1e1e;
-    color: #cccccc;
+    font-family: Arial, sans-serif;
 }
 
-.editor {
-    display: flex;
-    height: 100vh;
-}
+h1 {
+    text-align: center;
+}`,
 
-/* Terminal */
-
-.terminal {
-    height: 240px;
-}
-
-/* End */`
-        },
-
-        "/script.js": {
-            language: "JavaScript",
-            content: `// GCODE JavaScript
+        "script.js": `import { example } from "./example.js";
 
 const app = {
     name: "GCODE",
-    version: "3.0.0",
-
-    start() {
-        console.log("GCODE started");
-    }
+    version: "4.0.0"
 };
 
-app.start();`
-        },
+function startApp() {
+    console.log("GCODE started");
+}
 
-        "/package.json": {
-            language: "JSON",
-            content: `{
-    "name": "gcode",
-    "version": "3.0.0",
-    "private": true
-}`
-        },
+export default app;`,
 
-        "/README.md": {
-            language: "Markdown",
-            content: `# GCODE
+        "package.json": `{
+    "name": "gcode-project",
+    "version": "1.0.0",
+    "description": "GCODE project",
+    "main": "script.js",
+    "scripts": {
+        "start": "node script.js",
+        "dev": "node script.js",
+        "build": "echo Building project...",
+        "test": "echo Running tests..."
+    },
+    "dependencies": {},
+    "devDependencies": {}
+}`,
 
-GCODE est un éditeur de code.
+        "README.md": `# GCODE
 
-## Version
+A VS Code style code editor.
 
-3.0.0`
-        },
+## Commands
 
-        "/.env": {
-            language: "Environment",
-            content: `# Variables locales GCODE`
-        },
+npm install
+npm run dev
+npm run build
+npm test
+`,
 
-        "/.gitignore": {
-            language: "Git",
-            content: `node_modules/
+        ".env": `APP_NAME=GCODE
+NODE_ENV=development`,
+
+        ".gitignore": `node_modules/
 dist/
-build/
-.env.local`
-        }
+.env`
     };
 
-    let files = {};
-    let openTabs = [];
-    let activeFile = null;
+    /* =====================================================
+       STATE
+    ===================================================== */
+
+    let files = loadFiles();
+    let openTabs = loadTabs();
+    let activeFile = openTabs[0] || "index.html";
+
+    let terminalHistory = loadHistory();
+    let historyIndex = terminalHistory.length;
+
+    let currentDirectory = "/";
+    let terminalBusy = false;
 
     let undoStack = [];
     let redoStack = [];
 
-    let currentDirectory = "/";
-    let projectOpened = false;
-    let projectName = "GCODE";
-
-    let terminalHistory = [];
-    let terminalHistoryIndex = -1;
-
-    let terminalInput = null;
-
-    let menuOverlay = null;
-    let searchOverlay = null;
-
-    let editorFocused = false;
     let saveTimer = null;
 
     /* =====================================================
-       OUTILS
+       DOM
     ===================================================== */
 
-    function normalizePath(path) {
-        if (FS?.normalizePath) {
-            return FS.normalizePath(path);
+    const $ = (selector, parent = document) =>
+        parent.querySelector(selector);
+
+    const $$ = (selector, parent = document) =>
+        [...parent.querySelectorAll(selector)];
+
+    const sidebar = $("#sidebar");
+    const editorTabs = $("#editorTabs");
+    const codeEditor = $("#codeEditor");
+    const codeContent = $(".code-content", codeEditor);
+    const codeDisplay = $("#codeDisplay");
+    const lineNumbers = $("#lineNumbers");
+    const breadcrumbFile = $("#breadcrumbFile");
+
+    const terminal = $("#terminal");
+    const terminalInput = $(".terminal-input", terminal);
+    const terminalPath = $(".terminal-path", terminal);
+
+    const bottomPanel = $("#bottomPanel");
+
+    const cursorPosition = $("#cursorPosition");
+    const languageLabel = $("#language");
+
+    /* =====================================================
+       SAFE STORAGE
+    ===================================================== */
+
+    function safeJSONParse(value, fallback) {
+        try {
+            return JSON.parse(value);
+        } catch {
+            return fallback;
         }
-
-        let value = String(path || "/")
-            .replace(/\\/g, "/")
-            .replace(/\/+/g, "/");
-
-        if (!value.startsWith("/")) {
-            value = "/" + value;
-        }
-
-        if (
-            value.length > 1 &&
-            value.endsWith("/")
-        ) {
-            value = value.slice(0, -1);
-        }
-
-        return value;
     }
 
-    function fileName(path) {
-        return normalizePath(path)
-            .split("/")
-            .pop() || "";
-    }
+    function loadFiles() {
+        const saved = localStorage.getItem(STORAGE_KEY);
 
-    function parentPath(path) {
-        const normalized =
-            normalizePath(path);
-
-        if (normalized === "/") {
-            return "/";
+        if (!saved) {
+            return { ...DEFAULT_FILES };
         }
 
-        const parts =
-            normalized.split("/");
+        const parsed = safeJSONParse(saved, null);
 
-        parts.pop();
-
-        return parts.join("/") || "/";
-    }
-
-    function joinPath(parent, name) {
-        if (FS?.joinPath) {
-            return FS.joinPath(parent, name);
+        if (!parsed || typeof parsed !== "object") {
+            return { ...DEFAULT_FILES };
         }
 
-        const base =
-            normalizePath(parent);
-
-        const clean =
-            String(name || "")
-                .replace(/^\/+/, "")
-                .replace(/\/+$/, "");
-
-        return base === "/"
-            ? "/" + clean
-            : base + "/" + clean;
+        return {
+            ...DEFAULT_FILES,
+            ...parsed
+        };
     }
 
-    function escapeHTML(value) {
-        return String(value ?? "")
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
-    }
-
-    function getLanguage(name) {
-        const lower =
-            String(name)
-                .toLowerCase();
-
-        if (lower.endsWith(".html")) return "HTML";
-        if (lower.endsWith(".htm")) return "HTML";
-        if (lower.endsWith(".css")) return "CSS";
-        if (lower.endsWith(".js")) return "JavaScript";
-        if (lower.endsWith(".jsx")) return "JavaScript React";
-        if (lower.endsWith(".ts")) return "TypeScript";
-        if (lower.endsWith(".tsx")) return "TypeScript React";
-        if (lower.endsWith(".json")) return "JSON";
-        if (lower.endsWith(".md")) return "Markdown";
-        if (lower.endsWith(".py")) return "Python";
-        if (lower.endsWith(".php")) return "PHP";
-        if (lower.endsWith(".sql")) return "SQL";
-        if (lower.endsWith(".xml")) return "XML";
-        if (lower.endsWith(".svg")) return "SVG";
-        if (lower.endsWith(".yml")) return "YAML";
-        if (lower.endsWith(".yaml")) return "YAML";
-        if (lower.endsWith(".sh")) return "Shell";
-        if (lower.endsWith(".env")) return "Environment";
-        if (lower === ".gitignore") return "Git";
-
-        return "Plain Text";
-    }
-
-    function setStatus(text) {
-        const existing =
-            document.querySelector(
-                ".status-message"
-            );
-
-        if (existing) {
-            existing.textContent = text;
-        }
-
-        console.log(
-            "[GCODE]",
-            text
+    function saveFiles() {
+        localStorage.setItem(
+            STORAGE_KEY,
+            JSON.stringify(files)
         );
     }
 
-    /* =====================================================
-       STORAGE LOCAL
-    ===================================================== */
-
-    function loadLocalFiles() {
-        try {
-            const saved =
-                localStorage.getItem(
-                    "GCODE_LOCAL_FILES_V3"
-                );
-
-            if (saved) {
-                const parsed =
-                    JSON.parse(saved);
-
-                if (
-                    parsed &&
-                    typeof parsed === "object"
-                ) {
-                    return parsed;
-                }
-            }
-        } catch (error) {
-            console.warn(error);
-        }
-
-        return structuredClone
-            ? structuredClone(defaultFiles)
-            : JSON.parse(
-                JSON.stringify(defaultFiles)
-            );
-    }
-
-    function saveLocalFiles() {
-        try {
-            localStorage.setItem(
-                "GCODE_LOCAL_FILES_V3",
-                JSON.stringify(files)
-            );
-        } catch (error) {
-            console.warn(
-                "GCODE local storage:",
-                error
-            );
-        }
-    }
-
     function loadTabs() {
-        try {
-            const value =
-                localStorage.getItem(
-                    OPEN_TABS_KEY
-                );
+        const saved = localStorage.getItem(TABS_KEY);
 
-            if (!value) {
-                return [
-                    "/style.css",
-                    "/index.html"
-                ];
-            }
-
-            const parsed =
-                JSON.parse(value);
-
-            return Array.isArray(parsed)
-                ? parsed
-                : [];
-        } catch {
-            return [];
+        if (!saved) {
+            return ["style.css", "index.html"];
         }
+
+        const parsed = safeJSONParse(saved, []);
+
+        return Array.isArray(parsed) && parsed.length
+            ? parsed
+            : ["style.css", "index.html"];
     }
 
     function saveTabs() {
         localStorage.setItem(
-            OPEN_TABS_KEY,
+            TABS_KEY,
             JSON.stringify(openTabs)
         );
+    }
 
-        if (activeFile) {
-            localStorage.setItem(
-                ACTIVE_FILE_KEY,
-                activeFile
-            );
+    function loadHistory() {
+        const saved = localStorage.getItem(HISTORY_KEY);
+
+        if (!saved) return [];
+
+        const parsed = safeJSONParse(saved, []);
+
+        return Array.isArray(parsed)
+            ? parsed
+            : [];
+    }
+
+    function saveHistory() {
+        localStorage.setItem(
+            HISTORY_KEY,
+            JSON.stringify(
+                terminalHistory.slice(-200)
+            )
+        );
+    }
+
+    /* =====================================================
+       FILE HELPERS
+    ===================================================== */
+
+    function normalizePath(path) {
+        if (!path) return "/";
+
+        path = String(path)
+            .replaceAll("\\", "/")
+            .replace(/\/+/g, "/");
+
+        if (!path.startsWith("/")) {
+            path = "/" + path;
+        }
+
+        if (path.length > 1 && path.endsWith("/")) {
+            path = path.slice(0, -1);
+        }
+
+        return path;
+    }
+
+    function fileName(path) {
+        return path.split("/").pop();
+    }
+
+    function getExtension(name) {
+        const index = name.lastIndexOf(".");
+
+        if (index === -1) return "";
+
+        return name.slice(index + 1).toLowerCase();
+    }
+
+    function detectLanguage(name) {
+        const lower = name.toLowerCase();
+
+        if (lower === "package.json") return "json";
+        if (lower === "tsconfig.json") return "json";
+        if (lower === ".gitignore") return "plaintext";
+        if (lower === ".env") return "dotenv";
+        if (lower.endsWith(".html")) return "html";
+        if (lower.endsWith(".htm")) return "html";
+        if (lower.endsWith(".css")) return "css";
+        if (lower.endsWith(".scss")) return "scss";
+        if (lower.endsWith(".js")) return "javascript";
+        if (lower.endsWith(".mjs")) return "javascript";
+        if (lower.endsWith(".cjs")) return "javascript";
+        if (lower.endsWith(".ts")) return "typescript";
+        if (lower.endsWith(".tsx")) return "typescript";
+        if (lower.endsWith(".jsx")) return "javascript";
+        if (lower.endsWith(".json")) return "json";
+        if (lower.endsWith(".md")) return "markdown";
+        if (lower.endsWith(".txt")) return "plaintext";
+        if (lower.endsWith(".xml")) return "xml";
+        if (lower.endsWith(".svg")) return "xml";
+        if (lower.endsWith(".sh")) return "shell";
+        if (lower.endsWith(".bash")) return "shell";
+
+        return "plaintext";
+    }
+
+    function getLanguageLabel(name) {
+        const language = detectLanguage(name);
+
+        const labels = {
+            javascript: "JavaScript",
+            typescript: "TypeScript",
+            html: "HTML",
+            css: "CSS",
+            scss: "SCSS",
+            json: "JSON",
+            markdown: "Markdown",
+            plaintext: "Plain Text",
+            shell: "Shell",
+            dotenv: "Dotenv",
+            xml: "XML"
+        };
+
+        return labels[language] || language;
+    }
+
+    function getFileContent(name) {
+        return Object.prototype.hasOwnProperty.call(files, name)
+            ? files[name]
+            : "";
+    }
+
+    /* =====================================================
+       SYNTAX HIGHLIGHTING
+    ===================================================== */
+
+    function escapeHTML(text) {
+        return String(text)
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;");
+    }
+
+    function span(className, text) {
+        return `<span class="${className}">${escapeHTML(text)}</span>`;
+    }
+
+    function tokenizeJavaScript(source) {
+        const tokenRegex =
+            /(\/\/[^\n]*|\/\*[\s\S]*?\*\/)|(`(?:\\.|[^`])*`|'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*")|\b(import|export|from|default|const|let|var|function|return|if|else|for|while|do|switch|case|break|continue|class|extends|new|this|super|typeof|instanceof|in|of|try|catch|finally|throw|async|await|yield|static|get|set|delete|void|with|debugger)\b|\b(true|false|null|undefined|NaN)\b|\b(\d+(?:\.\d+)?)\b|\b([A-Za-z_$][\w$]*)\s*(?=\()/g;
+
+        let output = "";
+        let last = 0;
+        let match;
+
+        while ((match = tokenRegex.exec(source))) {
+            output += escapeHTML(source.slice(last, match.index));
+
+            if (match[1]) {
+                output += span("comment", match[1]);
+            } else if (match[2]) {
+                output += span("value", match[2]);
+            } else if (match[3]) {
+                output += span("selector", match[3]);
+            } else if (match[4]) {
+                output += span("value", match[4]);
+            } else if (match[5]) {
+                output += span("value", match[5]);
+            } else if (match[6]) {
+                output += span("property", match[6]);
+            }
+
+            last = tokenRegex.lastIndex;
+        }
+
+        output += escapeHTML(source.slice(last));
+
+        return output;
+    }
+
+    function tokenizeJSON(source) {
+        const regex =
+            /("(?:\\.|[^"\\])*")(\s*:)?|(-?\d+(?:\.\d+)?)|\b(true|false|null)\b/g;
+
+        let output = "";
+        let last = 0;
+        let match;
+
+        while ((match = regex.exec(source))) {
+            output += escapeHTML(source.slice(last, match.index));
+
+            if (match[1]) {
+                if (match[2]) {
+                    output += span("property", match[1]);
+                    output += escapeHTML(match[2]);
+                } else {
+                    output += span("value", match[1]);
+                }
+            } else if (match[3]) {
+                output += span("value", match[3]);
+            } else {
+                output += span("selector", match[4]);
+            }
+
+            last = regex.lastIndex;
+        }
+
+        output += escapeHTML(source.slice(last));
+
+        return output;
+    }
+
+    function tokenizeCSS(source) {
+        let result = escapeHTML(source);
+
+        result = result.replace(
+            /(\/\*[\s\S]*?\*\/)/g,
+            '<span class="comment">$1</span>'
+        );
+
+        result = result.replace(
+            /([a-zA-Z-]+)(\s*:)/g,
+            '<span class="property">$1</span>$2'
+        );
+
+        result = result.replace(
+            /(#?[a-zA-Z_-][\w-]*)(?=\s*\{)/g,
+            '<span class="selector">$1</span>'
+        );
+
+        result = result.replace(
+            /("[^"]*"|'[^']*'|\b\d+(?:\.\d+)?(?:px|rem|em|%|vh|vw|s|ms)?\b)/g,
+            '<span class="value">$1</span>'
+        );
+
+        return result;
+    }
+
+    function tokenizeHTML(source) {
+        let result = escapeHTML(source);
+
+        result = result.replace(
+            /(&lt;!--[\s\S]*?--&gt;)/g,
+            '<span class="comment">$1</span>'
+        );
+
+        result = result.replace(
+            /(&lt;\/?)([a-zA-Z][\w-]*)/g,
+            '$1<span class="selector">$2</span>'
+        );
+
+        result = result.replace(
+            /\s([a-zA-Z_:][\w:.-]*)(=)/g,
+            ' <span class="property">$1</span>$2'
+        );
+
+        result = result.replace(
+            /(&quot;[^&]*?&quot;)/g,
+            '<span class="value">$1</span>'
+        );
+
+        return result;
+    }
+
+    function tokenizeMarkdown(source) {
+        let result = escapeHTML(source);
+
+        result = result.replace(
+            /^(#{1,6})\s(.+)$/gm,
+            '<span class="selector">$1 $2</span>'
+        );
+
+        result = result.replace(
+            /(`[^`]+`)/g,
+            '<span class="value">$1</span>'
+        );
+
+        result = result.replace(
+            /(\*\*[^*]+\*\*)/g,
+            '<span class="property">$1</span>'
+        );
+
+        return result;
+    }
+
+    function highlightCode(source, language) {
+        source = String(source ?? "");
+
+        if (!source) return "";
+
+        switch (language) {
+            case "javascript":
+            case "typescript":
+                return tokenizeJavaScript(source);
+
+            case "json":
+                return tokenizeJSON(source);
+
+            case "css":
+            case "scss":
+                return tokenizeCSS(source);
+
+            case "html":
+            case "xml":
+                return tokenizeHTML(source);
+
+            case "markdown":
+                return tokenizeMarkdown(source);
+
+            default:
+                return escapeHTML(source);
         }
     }
 
     /* =====================================================
-       SYNTAX HIGHLIGHT
+       EDITOR
     ===================================================== */
 
-    function highlight(code, name) {
-        const lang =
-            getLanguage(name);
-
-        let text =
-            escapeHTML(code);
-
-        if (
-            lang === "HTML" ||
-            lang === "XML"
-        ) {
-            text = text
-                .replace(
-                    /(&lt;!--[\s\S]*?--&gt;)/g,
-                    '<span class="comment">$1</span>'
-                )
-                .replace(
-                    /(&lt;\/?[a-zA-Z0-9-]+)/g,
-                    '<span class="selector">$1</span>'
-                )
-                .replace(
-                    /([a-zA-Z-]+)(=)/g,
-                    '<span class="property">$1</span>$2'
-                )
-                .replace(
-                    /(&quot;.*?&quot;)/g,
-                    '<span class="value">$1</span>'
-                );
-        }
-
-        else if (lang === "CSS") {
-            text = text
-                .replace(
-                    /(\/\*[\s\S]*?\*\/)/g,
-                    '<span class="comment">$1</span>'
-                )
-                .replace(
-                    /(^|[{}]\s*)([.#a-zA-Z][^{\n]*)(?=\s*\{)/gm,
-                    '$1<span class="selector">$2</span>'
-                )
-                .replace(
-                    /([a-zA-Z-]+)(\s*:)/g,
-                    '<span class="property">$1</span>$2'
-                );
-        }
-
-        else if (
-            lang === "JavaScript" ||
-            lang === "TypeScript" ||
-            lang.includes("React")
-        ) {
-            text = text
-                .replace(
-                    /(\/\/.*)$/gm,
-                    '<span class="comment">$1</span>'
-                )
-                .replace(
-                    /(&quot;.*?&quot;|'[^']*'|`[^`]*`)/g,
-                    '<span class="value">$1</span>'
-                )
-                .replace(
-                    /\b(const|let|var|function|return|if|else|for|while|class|new|import|from|export|default|async|await|try|catch|throw)\b/g,
-                    '<span class="selector">$1</span>'
-                );
-        }
-
-        else if (lang === "JSON") {
-            text = text
-                .replace(
-                    /(&quot;.*?&quot;)(\s*:)/g,
-                    '<span class="property">$1</span>$2'
-                )
-                .replace(
-                    /(:\s*)(&quot;.*?&quot;|\d+(?:\.\d+)?|true|false|null)/g,
-                    '$1<span class="value">$2</span>'
-                );
-        }
-
-        else if (lang === "Markdown") {
-            text = text
-                .replace(
-                    /^(#{1,6} .*)$/gm,
-                    '<span class="selector">$1</span>'
-                );
-        }
-
-        return text;
-    }
-
-    /* =====================================================
-       EDITOR IOS
-    ===================================================== */
-
-    function configureEditor() {
+    function setEditorPlainText() {
         if (!codeDisplay) return;
 
-        codeDisplay.setAttribute(
-            "contenteditable",
-            "true"
-        );
+        const content = getFileContent(activeFile);
 
-        codeDisplay.setAttribute(
-            "spellcheck",
-            "false"
-        );
-
-        codeDisplay.setAttribute(
-            "autocorrect",
-            "off"
-        );
-
-        codeDisplay.setAttribute(
-            "autocapitalize",
-            "off"
-        );
-
-        codeDisplay.setAttribute(
-            "autocomplete",
-            "off"
-        );
-
-        codeDisplay.setAttribute(
-            "inputmode",
-            "text"
-        );
-
-        codeDisplay.setAttribute(
-            "role",
-            "textbox"
-        );
-
-        codeDisplay.setAttribute(
-            "aria-multiline",
-            "true"
-        );
-
-        codeDisplay.style.webkitUserModify =
-            "read-write";
-
-        codeDisplay.style.webkitUserSelect =
-            "text";
-
-        codeDisplay.style.userSelect =
-            "text";
-
-        codeDisplay.style.touchAction =
-            "manipulation";
-
-        codeDisplay.addEventListener(
-            "focus",
-            () => {
-                editorFocused = true;
-            }
-        );
-
-        codeDisplay.addEventListener(
-            "blur",
-            () => {
-                editorFocused = false;
-            }
-        );
+        codeDisplay.textContent = content;
     }
 
-    function editorText() {
-        if (!codeDisplay) {
-            return "";
-        }
-
-        return codeDisplay.innerText
-            .replace(/\r\n/g, "\n")
-            .replace(/\u00a0/g, " ");
-    }
-
-    function enterEditor() {
+    function renderEditor() {
         if (!codeDisplay) return;
 
-        const text =
-            editorText();
+        const content = getFileContent(activeFile);
+        const language = detectLanguage(activeFile);
 
-        codeDisplay.textContent =
-            text;
+        breadcrumbFile.textContent = activeFile;
 
-        codeDisplay.focus();
+        if (languageLabel) {
+            languageLabel.textContent =
+                getLanguageLabel(activeFile);
+        }
 
-        moveCaretEnd();
+        codeDisplay.innerHTML =
+            highlightCode(content, language);
+
+        updateLineNumbers(content);
+        updateCursorPosition();
+
+        renderTabs();
+        renderExplorer();
     }
-
-    function moveCaretEnd() {
-        try {
-            const range =
-                document.createRange();
-
-            range.selectNodeContents(
-                codeDisplay
-            );
-
-            range.collapse(false);
-
-            const selection =
-                window.getSelection();
-
-            selection.removeAllRanges();
-
-            selection.addRange(
-                range
-            );
-        } catch {}
-    }
-
-    /* =====================================================
-       LIGNES
-    ===================================================== */
 
     function updateLineNumbers(text) {
         if (!lineNumbers) return;
@@ -604,136 +531,189 @@ build/
         const count =
             Math.max(
                 1,
-                String(text || "")
-                    .split("\n")
-                    .length
+                String(text ?? "").split("\n").length
             );
 
-        lineNumbers.innerHTML = "";
-
-        for (
-            let i = 1;
-            i <= Math.max(count, 20);
-            i++
-        ) {
-            const span =
-                document.createElement(
-                    "span"
-                );
-
-            span.textContent =
-                String(i);
-
-            lineNumbers.appendChild(
-                span
-            );
-        }
+        lineNumbers.innerHTML =
+            Array.from(
+                { length: count },
+                (_, index) =>
+                    `<span>${index + 1}</span>`
+            ).join("");
     }
 
-    function updateCursor() {
-        if (!cursorPosition) return;
+    function updateCursorPosition() {
+        if (!cursorPosition || !codeDisplay) return;
 
-        try {
-            const selection =
-                window.getSelection();
+        const selection =
+            window.getSelection();
 
-            if (
-                !selection ||
-                !selection.rangeCount
-            ) {
-                return;
-            }
-
-            const range =
-                selection.getRangeAt(0);
-
-            if (
-                !codeDisplay.contains(
-                    range.startContainer
-                )
-            ) {
-                return;
-            }
-
-            const text =
-                editorText();
-
-            const before =
-                text.substring(
-                    0,
-                    Math.min(
-                        text.length,
-                        range.startOffset
-                    )
-                );
-
-            const lines =
-                before.split("\n");
-
-            const line =
-                lines.length;
-
-            const column =
-                lines[lines.length - 1]
-                    .length + 1;
-
+        if (
+            !selection ||
+            !selection.rangeCount
+        ) {
             cursorPosition.textContent =
-                `Ln ${line}, Col ${column}`;
-        } catch {}
+                "Ln 1, Col 1";
+            return;
+        }
+
+        const range = selection.getRangeAt(0);
+        const preRange = range.cloneRange();
+
+        preRange.selectNodeContents(codeDisplay);
+        preRange.setEnd(
+            range.startContainer,
+            range.startOffset
+        );
+
+        const text =
+            preRange.toString();
+
+        const lines = text.split("\n");
+
+        const line = lines.length;
+        const column =
+            lines[lines.length - 1].length + 1;
+
+        cursorPosition.textContent =
+            `Ln ${line}, Col ${column}`;
+    }
+
+    function enterEditorMode() {
+        if (!codeDisplay) return;
+
+        const current =
+            getFileContent(activeFile);
+
+        codeDisplay.textContent = current;
+
+        codeDisplay.setAttribute(
+            "contenteditable",
+            "true"
+        );
+
+        codeDisplay.focus();
+
+        placeCaretAtEnd(codeDisplay);
+    }
+
+    function placeCaretAtEnd(element) {
+        const selection =
+            window.getSelection();
+
+        const range =
+            document.createRange();
+
+        range.selectNodeContents(element);
+        range.collapse(false);
+
+        selection.removeAllRanges();
+        selection.addRange(range);
+    }
+
+    function leaveEditorMode() {
+        if (!codeDisplay) return;
+
+        const content =
+            codeDisplay.innerText
+                .replace(/\r\n/g, "\n");
+
+        pushUndoState();
+
+        files[activeFile] = content;
+
+        saveFiles();
+
+        codeDisplay.removeAttribute(
+            "contenteditable"
+        );
+
+        renderEditor();
+    }
+
+    function handleEditorInput() {
+        if (!codeDisplay) return;
+
+        const content =
+            codeDisplay.innerText
+                .replace(/\r\n/g, "\n");
+
+        files[activeFile] = content;
+
+        updateLineNumbers(content);
+        updateCursorPosition();
+
+        clearTimeout(saveTimer);
+
+        saveTimer = setTimeout(() => {
+            saveFiles();
+        }, 300);
     }
 
     /* =====================================================
-       RENDER EDITOR
+       UNDO / REDO
     ===================================================== */
 
-    function renderEditor(
-        path,
-        focus = false
-    ) {
-        if (!files[path]) return;
+    function pushUndoState() {
+        const current = {
+            file: activeFile,
+            content: getFileContent(activeFile)
+        };
 
-        activeFile = path;
+        const previous =
+            undoStack[undoStack.length - 1];
 
-        const name =
-            fileName(path);
-
-        const content =
-            files[path].content || "";
-
-        if (breadcrumbFile) {
-            breadcrumbFile.textContent =
-                name;
+        if (
+            previous &&
+            previous.file === current.file &&
+            previous.content === current.content
+        ) {
+            return;
         }
 
-        if (language) {
-            language.textContent =
-                getLanguage(name);
+        undoStack.push(current);
+
+        if (undoStack.length > 100) {
+            undoStack.shift();
         }
 
-        codeDisplay.innerHTML =
-            highlight(
-                content,
-                name
-            );
+        redoStack = [];
+    }
 
-        updateLineNumbers(
-            content
-        );
+    function undo() {
+        if (!undoStack.length) return;
 
-        renderTabs();
+        const state = undoStack.pop();
 
-        updateTreeSelection();
+        redoStack.push({
+            file: activeFile,
+            content: getFileContent(activeFile)
+        });
 
-        saveTabs();
+        files[state.file] = state.content;
 
-        if (focus) {
-            setTimeout(
-                () => {
-                    enterEditor();
-                },
-                80
-            );
-        }
+        activeFile = state.file;
+
+        saveFiles();
+        renderEditor();
+    }
+
+    function redo() {
+        if (!redoStack.length) return;
+
+        const state = redoStack.pop();
+
+        undoStack.push({
+            file: activeFile,
+            content: getFileContent(activeFile)
+        });
+
+        files[state.file] = state.content;
+
+        activeFile = state.file;
+
+        saveFiles();
+        renderEditor();
     }
 
     /* =====================================================
@@ -745,1014 +725,152 @@ build/
 
         editorTabs.innerHTML = "";
 
-        openTabs.forEach(path => {
+        openTabs.forEach(name => {
             const tab =
-                document.createElement(
-                    "div"
-                );
+                document.createElement("div");
 
             tab.className =
-                "editor-tab";
+                "editor-tab" +
+                (name === activeFile
+                    ? " active"
+                    : "");
 
-            tab.dataset.file =
-                path;
+            tab.dataset.file = name;
 
-            if (path === activeFile) {
-                tab.classList.add(
-                    "active"
-                );
-            }
+            const label =
+                document.createElement("span");
 
-            const name =
-                fileName(path);
+            label.textContent = name;
 
-            tab.innerHTML = `
-                <span class="tab-file-icon ${getLanguage(name).toLowerCase()}-symbol">
-                    ${getTabIcon(name)}
-                </span>
-                <span class="tab-name">
-                    ${escapeHTML(name)}
-                </span>
-                <button class="tab-close" type="button">×</button>
-            `;
+            const close =
+                document.createElement("button");
+
+            close.className = "tab-close";
+            close.textContent = "×";
+
+            close.addEventListener(
+                "click",
+                event => {
+                    event.stopPropagation();
+                    closeTab(name);
+                }
+            );
+
+            tab.appendChild(label);
+            tab.appendChild(close);
 
             tab.addEventListener(
                 "click",
-                event => {
-
-                    if (
-                        event.target.closest(
-                            ".tab-close"
-                        )
-                    ) {
-                        event.stopPropagation();
-                        closeTab(path);
-                        return;
-                    }
-
-                    openFile(path);
-                }
+                () => openFile(name)
             );
 
-            editorTabs.appendChild(
-                tab
-            );
+            editorTabs.appendChild(tab);
         });
     }
 
-    function getTabIcon(name) {
-        const lang =
-            getLanguage(name);
+    function openFile(name) {
+        if (!Object.prototype.hasOwnProperty.call(files, name)) {
+            files[name] = "";
+        }
 
-        if (lang === "CSS") return "#";
-        if (lang === "HTML") return "</>";
-        if (lang === "JavaScript") return "JS";
-        if (lang === "JSON") return "{ }";
-        if (lang === "Markdown") return "▤";
+        if (!openTabs.includes(name)) {
+            openTabs.push(name);
+        }
 
-        return "•";
+        activeFile = name;
+
+        saveTabs();
+
+        renderEditor();
     }
 
-    function closeTab(path) {
+    function closeTab(name) {
         const index =
-            openTabs.indexOf(path);
+            openTabs.indexOf(name);
 
         if (index === -1) return;
 
-        openTabs.splice(
-            index,
-            1
-        );
+        openTabs.splice(index, 1);
 
-        if (activeFile === path) {
+        if (activeFile === name) {
+            activeFile =
+                openTabs[index] ||
+                openTabs[index - 1] ||
+                "index.html";
 
-            if (openTabs.length) {
-
-                const next =
-                    openTabs[
-                        Math.max(
-                            0,
-                            index - 1
-                        )
-                    ];
-
-                openFile(next);
-
-            } else {
-
-                activeFile = null;
-
-                codeDisplay.textContent =
-                    "";
-
-                breadcrumbFile.textContent =
-                    "";
-
-                if (language) {
-                    language.textContent =
-                        "Plain Text";
-                }
+            if (!openTabs.includes(activeFile)) {
+                openTabs.push(activeFile);
             }
         }
 
         saveTabs();
-        renderTabs();
-    }
 
-    /* =====================================================
-       FICHIERS
-    ===================================================== */
-
-    async function openFile(path) {
-        const normalized =
-            normalizePath(path);
-
-        try {
-
-            let content;
-
-            if (
-                projectOpened &&
-                FS
-            ) {
-                content =
-                    await FS.readFile(
-                        normalized
-                    );
-            }
-
-            else if (
-                files[normalized]
-            ) {
-                content =
-                    files[normalized]
-                        .content;
-            }
-
-            else {
-                return;
-            }
-
-            files[normalized] = {
-                language:
-                    getLanguage(
-                        fileName(
-                            normalized
-                        )
-                    ),
-                content:
-                    content
-            };
-
-            if (
-                !openTabs.includes(
-                    normalized
-                )
-            ) {
-                openTabs.push(
-                    normalized
-                );
-            }
-
-            undoStack = [];
-            redoStack = [];
-
-            renderEditor(
-                normalized
-            );
-
-            setStatus(
-                `Ouvert : ${fileName(normalized)}`
-            );
-
-        } catch (error) {
-            console.error(error);
-
-            setStatus(
-                `Erreur : ${fileName(normalized)}`
-            );
-        }
-    }
-
-    async function saveFile(
-        path = activeFile,
-        content = editorText()
-    ) {
-        if (!path) return false;
-
-        if (!files[path]) {
-            files[path] = {
-                language:
-                    getLanguage(
-                        fileName(path)
-                    ),
-                content: ""
-            };
-        }
-
-        files[path].content =
-            content;
-
-        saveLocalFiles();
-
-        if (
-            projectOpened &&
-            FS
-        ) {
-            try {
-                await FS.writeFile(
-                    path,
-                    content
-                );
-            } catch (error) {
-                console.error(
-                    "Save error:",
-                    error
-                );
-
-                setStatus(
-                    "Erreur de sauvegarde"
-                );
-
-                return false;
-            }
-        }
-
-        setStatus(
-            `Sauvegardé : ${fileName(path)}`
-        );
-
-        return true;
-    }
-
-    /* =====================================================
-       INPUT EDITEUR
-    ===================================================== */
-
-    codeDisplay.addEventListener(
-        "input",
-        () => {
-
-            if (!activeFile) return;
-
-            const newContent =
-                editorText();
-
-            if (
-                !files[activeFile]
-            ) {
-                files[activeFile] = {
-                    language:
-                        getLanguage(
-                            fileName(
-                                activeFile
-                            )
-                        ),
-                    content: ""
-                };
-            }
-
-            undoStack.push(
-                files[activeFile]
-                    .content
-            );
-
-            if (
-                undoStack.length > 100
-            ) {
-                undoStack.shift();
-            }
-
-            redoStack = [];
-
-            files[activeFile]
-                .content =
-                newContent;
-
-            updateLineNumbers(
-                newContent
-            );
-
-            updateCursor();
-
-            saveLocalFiles();
-
-            clearTimeout(
-                saveTimer
-            );
-
-            saveTimer =
-                setTimeout(
-                    () => {
-                        saveFile(
-                            activeFile,
-                            newContent
-                        );
-                    },
-                    350
-                );
-        }
-    );
-
-    codeDisplay.addEventListener(
-        "keydown",
-        event => {
-
-            if (
-                event.key === "Tab"
-            ) {
-                event.preventDefault();
-
-                document.execCommand(
-                    "insertText",
-                    false,
-                    "    "
-                );
-
-                return;
-            }
-
-            if (
-                (event.ctrlKey ||
-                    event.metaKey) &&
-                event.key.toLowerCase() === "s"
-            ) {
-                event.preventDefault();
-
-                saveFile();
-
-                return;
-            }
-
-            if (
-                (event.ctrlKey ||
-                    event.metaKey) &&
-                event.key.toLowerCase() === "z"
-            ) {
-                event.preventDefault();
-
-                undo();
-
-                return;
-            }
-
-            if (
-                (event.ctrlKey ||
-                    event.metaKey) &&
-                (
-                    event.key.toLowerCase() ===
-                    "y" ||
-                    (
-                        event.shiftKey &&
-                        event.key.toLowerCase() ===
-                        "z"
-                    )
-                )
-            ) {
-                event.preventDefault();
-
-                redo();
-            }
-        }
-    );
-
-    codeDisplay.addEventListener(
-        "keyup",
-        updateCursor
-    );
-
-    codeDisplay.addEventListener(
-        "click",
-        updateCursor
-    );
-
-    codeDisplay.addEventListener(
-        "touchend",
-        updateCursor
-    );
-
-    /* =====================================================
-       UNDO / REDO
-    ===================================================== */
-
-    async function undo() {
-        if (!activeFile) return;
-
-        if (!undoStack.length) {
-            setStatus(
-                "Aucune modification à annuler"
-            );
-            return;
-        }
-
-        const current =
-            files[activeFile].content;
-
-        const previous =
-            undoStack.pop();
-
-        redoStack.push(
-            current
-        );
-
-        files[activeFile].content =
-            previous;
-
-        renderEditor(
-            activeFile,
-            true
-        );
-
-        await saveFile(
-            activeFile,
-            previous
-        );
-    }
-
-    async function redo() {
-        if (!activeFile) return;
-
-        if (!redoStack.length) {
-            setStatus(
-                "Aucune modification à rétablir"
-            );
-            return;
-        }
-
-        const current =
-            files[activeFile].content;
-
-        const next =
-            redoStack.pop();
-
-        undoStack.push(
-            current
-        );
-
-        files[activeFile].content =
-            next;
-
-        renderEditor(
-            activeFile,
-            true
-        );
-
-        await saveFile(
-            activeFile,
-            next
-        );
+        renderEditor();
     }
 
     /* =====================================================
        EXPLORER
     ===================================================== */
 
-    function updateTreeSelection() {
-        document
-            .querySelectorAll(
-                ".tree-item.file"
-            )
-            .forEach(item => {
+    function renderExplorer() {
+        $$(".tree-item.file").forEach(item => {
+            const dataName =
+                item.dataset.file;
 
-                const path =
-                    normalizePath(
-                        item.dataset.file ||
-                        item.querySelector(
-                            "span:last-child"
-                        )?.textContent ||
-                        ""
-                    );
+            let name =
+                dataName ||
+                item.textContent.trim();
 
+            name =
+                name.replace(/^[^A-Za-z0-9_.-]+/, "");
+
+            if (
+                name &&
+                Object.prototype.hasOwnProperty.call(
+                    files,
+                    name
+                )
+            ) {
                 item.classList.toggle(
                     "active",
-                    path === activeFile
+                    name === activeFile
                 );
-            });
-    }
 
-    function connectExistingFiles() {
-        document
-            .querySelectorAll(
-                ".tree-item.file"
-            )
-            .forEach(item => {
-
-                if (
-                    item.dataset.gcodeBound
-                ) {
-                    return;
-                }
-
-                item.dataset.gcodeBound =
-                    "true";
-
-                item.addEventListener(
-                    "click",
-                    async event => {
-
-                        event.stopPropagation();
-
-                        let path =
-                            item.dataset.file;
-
-                        if (!path) {
-                            const spans =
-                                item.querySelectorAll(
-                                    "span"
-                                );
-
-                            const last =
-                                spans[
-                                    spans.length - 1
-                                ];
-
-                            path =
-                                last?.textContent
-                                    .trim();
-                        }
-
-                        if (!path) return;
-
-                        await openFile(
-                            normalizePath(
-                                path
-                            )
-                        );
-                    }
-                );
-            });
-    }
-
-    function connectFolders() {
-        document
-            .querySelectorAll(
-                ".tree-item.folder"
-            )
-            .forEach(folder => {
-
-                if (
-                    folder.dataset.gcodeBound
-                ) {
-                    return;
-                }
-
-                folder.dataset.gcodeBound =
-                    "true";
-
-                folder.addEventListener(
-                    "click",
-                    event => {
-
-                        event.stopPropagation();
-
-                        const arrow =
-                            folder.querySelector(
-                                ".arrow"
-                            );
-
-                        const open =
-                            folder.classList.toggle(
-                                "opened"
-                            );
-
-                        if (arrow) {
-                            arrow.textContent =
-                                open
-                                    ? "⌄"
-                                    : "›";
-                        }
-
-                        setStatus(
-                            open
-                                ? "Dossier ouvert"
-                                : "Dossier fermé"
-                        );
-                    }
-                );
-            });
-    }
-
-    async function openProject() {
-        if (!FS) {
-            setStatus(
-                "filesystem.js manquant"
-            );
-            return;
-        }
-
-        if (
-            !FS.supportsFileSystemAccess()
-        ) {
-            setStatus(
-                "Accès dossier non disponible sur ce navigateur"
-            );
-
-            return;
-        }
-
-        try {
-
-            const directory =
-                await FS.openProject();
-
-            if (!directory) {
-                return;
+                item.dataset.file = name;
             }
-
-            projectOpened = true;
-
-            projectName =
-                FS.getProjectName();
-
-            currentDirectory = "/";
-
-            await refreshRealExplorer();
-
-            setStatus(
-                `Projet ouvert : ${projectName}`
-            );
-
-        } catch (error) {
-            console.error(error);
-
-            setStatus(
-                "Ouverture du projet annulée"
-            );
-        }
+        });
     }
 
-    async function refreshRealExplorer() {
-        if (!FS || !projectOpened) {
-            return;
-        }
-
-        try {
-
-            const items =
-                await FS.listDirectory(
-                    currentDirectory
-                );
-
-            /*
-             * On conserve le thème existant.
-             * On ne remplace pas le HTML de
-             * l'Explorer automatiquement.
-             *
-             * Les fichiers réels peuvent
-             * maintenant être ouverts par
-             * l'API GCODE.
-             */
-
-            console.log(
-                "GCODE real files:",
-                items
-            );
-
-        } catch (error) {
-            console.error(error);
-        }
-    }
-
-    /* =====================================================
-       NOUVEAU FICHIER
-    ===================================================== */
-
-    async function newFile() {
-        const name =
-            prompt(
-                "Nom du nouveau fichier :"
-            );
-
-        if (!name) return;
-
-        const path =
-            joinPath(
-                currentDirectory,
-                name
-            );
-
-        try {
-
-            if (projectOpened && FS) {
-                await FS.writeFile(
-                    path,
-                    ""
-                );
-            }
-
-            files[path] = {
-                language:
-                    getLanguage(name),
-                content: ""
-            };
-
-            openTabs.push(path);
-
-            await openFile(path);
-
-            connectExistingFiles();
-
-            setStatus(
-                `Créé : ${name}`
-            );
-
-        } catch (error) {
-            console.error(error);
-
-            setStatus(
-                "Impossible de créer le fichier"
-            );
-        }
-    }
-
-    /* =====================================================
-       NOUVEAU DOSSIER
-    ===================================================== */
-
-    async function newFolder() {
-        const name =
-            prompt(
-                "Nom du nouveau dossier :"
-            );
-
-        if (!name) return;
-
-        const path =
-            joinPath(
-                currentDirectory,
-                name
-            );
-
-        try {
-
-            if (projectOpened && FS) {
-                await FS.createDirectory(
-                    path
-                );
-            }
-
-            setStatus(
-                `Dossier créé : ${name}`
-            );
-
-            await refreshRealExplorer();
-
-        } catch (error) {
-            console.error(error);
-
-            setStatus(
-                "Impossible de créer le dossier"
-            );
-        }
-    }
-
-    /* =====================================================
-       RENOMMER
-    ===================================================== */
-
-    async function renameFile() {
-        if (!activeFile || !FS) return;
-
-        const oldName =
-            fileName(activeFile);
-
-        const newName =
-            prompt(
-                "Nouveau nom :",
-                oldName
-            );
-
-        if (
-            !newName ||
-            newName === oldName
-        ) {
-            return;
-        }
-
-        const newPath =
-            joinPath(
-                parentPath(activeFile),
-                newName
-            );
-
-        try {
-
-            await FS.renameFile(
-                activeFile,
-                newPath
-            );
-
-            files[newPath] =
-                files[activeFile];
-
-            delete files[activeFile];
-
-            const index =
-                openTabs.indexOf(
-                    activeFile
-                );
-
-            if (index !== -1) {
-                openTabs[index] =
-                    newPath;
-            }
-
-            activeFile =
-                newPath;
-
-            saveTabs();
-
-            renderEditor(
-                newPath
-            );
-
-            setStatus(
-                `Renommé : ${newName}`
-            );
-
-        } catch (error) {
-            console.error(error);
-
-            setStatus(
-                "Impossible de renommer"
-            );
-        }
-    }
-
-    /* =====================================================
-       SUPPRIMER
-    ===================================================== */
-
-    async function deleteFile() {
-        if (!activeFile) return;
-
-        const name =
-            fileName(activeFile);
-
-        if (
-            !confirm(
-                `Supprimer "${name}" ?`
-            )
-        ) {
-            return;
-        }
-
-        try {
-
-            if (projectOpened && FS) {
-                await FS.deletePath(
-                    activeFile
-                );
-            }
-
-            delete files[activeFile];
-
-            closeTab(
-                activeFile
-            );
-
-            saveLocalFiles();
-
-            setStatus(
-                `Supprimé : ${name}`
-            );
-
-        } catch (error) {
-            console.error(error);
-
-            setStatus(
-                "Impossible de supprimer"
-            );
-        }
-    }
-
-    /* =====================================================
-       IMPORT
-    ===================================================== */
-
-    function importFiles() {
-        const input =
-            document.createElement(
-                "input"
-            );
-
-        input.type = "file";
-        input.multiple = true;
-
-        input.addEventListener(
-            "change",
-            async () => {
-
-                for (
-                    const file
-                    of Array.from(
-                        input.files || []
-                    )
-                ) {
-
-                    try {
-
-                        const content =
-                            await file.text();
-
-                        const path =
-                            joinPath(
-                                currentDirectory,
-                                file.name
-                            );
-
-                        if (
-                            projectOpened &&
-                            FS
-                        ) {
-                            await FS.writeFile(
-                                path,
-                                content
-                            );
-                        }
-
-                        files[path] = {
-                            language:
-                                getLanguage(
-                                    file.name
-                                ),
-                            content
-                        };
-
-                        await openFile(
-                            path
+    function setupExplorer() {
+        $$(".tree-item.file").forEach(item => {
+            item.addEventListener(
+                "click",
+                () => {
+                    let name =
+                        item.dataset.file ||
+                        item.textContent.trim();
+
+                    name =
+                        name.replace(
+                            /^[^A-Za-z0-9_.-]+/,
+                            ""
                         );
 
-                    } catch (error) {
-                        console.error(
-                            error
-                        );
+                    if (files[name] !== undefined) {
+                        openFile(name);
                     }
                 }
-
-                setStatus(
-                    "Import terminé"
-                );
-            }
-        );
-
-        input.click();
-    }
-
-    /* =====================================================
-       EXPORT
-    ===================================================== */
-
-    async function exportFile() {
-        if (!activeFile) return;
-
-        const content =
-            files[activeFile]?.content ||
-            "";
-
-        if (
-            FS?.exportFile
-        ) {
-            await FS.exportFile(
-                activeFile,
-                content
             );
+        });
 
-            setStatus(
-                "Export terminé"
-            );
-
-            return;
-        }
-
-        const blob =
-            new Blob(
-                [content],
-                {
-                    type:
-                        "text/plain;charset=utf-8"
+        $$(".tree-item.folder").forEach(folder => {
+            folder.addEventListener(
+                "click",
+                () => {
+                    folder.classList.toggle("expanded");
                 }
             );
-
-        const url =
-            URL.createObjectURL(
-                blob
-            );
-
-        const link =
-            document.createElement(
-                "a"
-            );
-
-        link.href = url;
-        link.download =
-            fileName(activeFile);
-
-        link.click();
-
-        URL.revokeObjectURL(
-            url
-        );
+        });
     }
 
     /* =====================================================
@@ -1760,32 +878,14 @@ build/
     ===================================================== */
 
     function setupTerminal() {
-        if (!terminal) return;
-
-        terminalInput =
-            terminal.querySelector(
-                ".terminal-input"
-            );
-
-        if (!terminalInput) {
-            terminalInput =
-                document.createElement(
-                    "span"
-                );
-
-            terminalInput.className =
-                "terminal-input";
-
-            terminalInput.contentEditable =
-                "true";
-
-            terminal.appendChild(
-                terminalInput
-            );
+        if (!terminal || !terminalInput) {
+            return;
         }
 
-        terminalInput.contentEditable =
-            "true";
+        terminalInput.setAttribute(
+            "contenteditable",
+            "true"
+        );
 
         terminalInput.setAttribute(
             "spellcheck",
@@ -1803,1030 +903,1921 @@ build/
         );
 
         terminalInput.setAttribute(
-            "autocomplete",
-            "off"
-        );
-
-        terminalInput.setAttribute(
             "inputmode",
             "text"
         );
 
         terminalInput.setAttribute(
-            "role",
-            "textbox"
-        );
-
-        terminalInput.setAttribute(
-            "aria-label",
-            "Terminal input"
-        );
-
-        terminalInput.style.webkitUserModify =
-            "read-write";
-
-        terminalInput.style.webkitUserSelect =
-            "text";
-
-        terminalInput.style.userSelect =
-            "text";
-
-        terminalInput.addEventListener(
-            "click",
-            () => {
-                terminalInput.focus();
-            }
-        );
-
-        terminalInput.addEventListener(
-            "touchstart",
-            () => {
-                terminalInput.focus();
-            },
-            {
-                passive: true
-            }
+            "enterkeyhint",
+            "send"
         );
 
         terminalInput.addEventListener(
             "keydown",
-            terminalKeyDown
+            handleTerminalKeydown
         );
 
-        /*
-         * Sur iPhone, un clic dans le terminal
-         * doit toujours donner le focus au champ.
-         */
-        terminal.addEventListener(
-            "click",
-            event => {
+        terminalInput.addEventListener(
+            "input",
+            () => {
+                terminalInput.textContent =
+                    terminalInput.textContent
+                        .replace(/\n/g, "");
 
-                if (
-                    event.target.closest(
-                        ".terminal-input"
-                    )
-                ) {
-                    terminalInput.focus();
-                    return;
-                }
-
-                terminalInput.focus();
+                terminalBusy = false;
             }
         );
+
+        updateTerminalPath();
+
+        ensureTerminalOutput();
     }
 
-    function terminalText() {
-        return (
-            terminalInput?.textContent ||
-            ""
-        );
-    }
+    function ensureTerminalOutput() {
+        if (!terminal) return null;
 
-    function clearTerminalInput() {
-        if (terminalInput) {
-            terminalInput.textContent =
-                "";
+        let output =
+            $(".gcode-terminal-output", terminal);
+
+        if (!output) {
+            output =
+                document.createElement("div");
+
+            output.className =
+                "gcode-terminal-output";
+
+            const currentLine =
+                $(".terminal-input", terminal)
+                    ?.closest("*");
+
+            terminal.insertBefore(
+                output,
+                terminal.firstChild
+            );
         }
+
+        return output;
     }
 
-    function terminalPrint(text) {
-        if (!terminal) return;
+    function updateTerminalPath() {
+        if (!terminalPath) return;
+
+        terminalPath.textContent =
+            currentDirectory;
+    }
+
+    function terminalWrite(text = "", type = "normal") {
+        const output =
+            ensureTerminalOutput();
+
+        if (!output) return;
 
         const line =
-            document.createElement(
-                "div"
-            );
+            document.createElement("div");
 
         line.className =
-            "terminal-line";
+            `gcode-terminal-line gcode-terminal-${type}`;
 
-        line.textContent =
-            String(text);
+        line.textContent = String(text);
 
-        terminal.appendChild(
-            line
-        );
+        output.appendChild(line);
 
         terminal.scrollTop =
             terminal.scrollHeight;
     }
 
-    function terminalKeyDown(event) {
+    function terminalWriteBlock(text = "", type = "normal") {
+        String(text)
+            .split("\n")
+            .forEach(line =>
+                terminalWrite(line, type)
+            );
+    }
 
-        if (
-            event.key === "Enter"
-        ) {
+    function terminalPrompt(command) {
+        terminalWrite(
+            `${currentDirectory} $ ${command}`,
+            "command"
+        );
+    }
+
+    function clearTerminal() {
+        const output =
+            ensureTerminalOutput();
+
+        if (output) {
+            output.innerHTML = "";
+        }
+    }
+
+    function focusTerminal() {
+        if (!terminalInput) return;
+
+        terminalInput.focus();
+
+        placeCaretAtEnd(terminalInput);
+    }
+
+    async function handleTerminalKeydown(event) {
+        if (event.key === "Enter") {
             event.preventDefault();
+
+            if (terminalBusy) return;
 
             const command =
-                terminalText().trim();
+                terminalInput.textContent.trim();
 
-            if (command) {
-                terminalHistory.push(
-                    command
-                );
+            terminalInput.textContent = "";
 
-                terminalHistoryIndex =
-                    terminalHistory.length;
-
-                terminalPrint(
-                    `> ${command}`
-                );
-
-                executeCommand(
-                    command
-                );
+            if (!command) {
+                focusTerminal();
+                return;
             }
 
-            clearTerminalInput();
+            await executeTerminalCommand(command);
 
-            setTimeout(
-                () => terminalInput?.focus(),
-                10
-            );
+            focusTerminal();
+
+            return;
+        }
+
+        if (event.key === "ArrowUp") {
+            event.preventDefault();
+
+            navigateHistory(-1);
+
+            return;
+        }
+
+        if (event.key === "ArrowDown") {
+            event.preventDefault();
+
+            navigateHistory(1);
+
+            return;
+        }
+
+        if (event.key === "Tab") {
+            event.preventDefault();
+
+            autocompleteTerminal();
 
             return;
         }
 
         if (
-            event.key === "ArrowUp"
+            (event.ctrlKey || event.metaKey) &&
+            event.key.toLowerCase() === "l"
         ) {
             event.preventDefault();
 
-            if (
-                terminalHistory.length === 0
-            ) {
-                return;
-            }
-
-            terminalHistoryIndex =
-                Math.max(
-                    0,
-                    terminalHistoryIndex - 1
-                );
-
-            terminalInput.textContent =
-                terminalHistory[
-                    terminalHistoryIndex
-                ] || "";
-
-            moveTerminalCaretEnd();
+            clearTerminal();
 
             return;
         }
 
         if (
-            event.key === "ArrowDown"
+            event.ctrlKey &&
+            event.key.toLowerCase() === "c"
         ) {
             event.preventDefault();
 
-            if (
-                terminalHistory.length === 0
-            ) {
-                return;
-            }
+            terminalWrite(
+                "^C",
+                "error"
+            );
 
-            terminalHistoryIndex =
-                Math.min(
-                    terminalHistory.length,
-                    terminalHistoryIndex + 1
-                );
+            terminalInput.textContent = "";
 
-            terminalInput.textContent =
-                terminalHistory[
-                    terminalHistoryIndex
-                ] || "";
-
-            moveTerminalCaretEnd();
+            return;
         }
     }
 
-    function moveTerminalCaretEnd() {
-        try {
-            const range =
-                document.createRange();
+    function navigateHistory(direction) {
+        if (!terminalHistory.length) return;
 
-            range.selectNodeContents(
-                terminalInput
-            );
+        historyIndex += direction;
 
-            range.collapse(false);
+        if (historyIndex < 0) {
+            historyIndex = 0;
+        }
 
-            const selection =
-                window.getSelection();
+        if (
+            historyIndex >=
+            terminalHistory.length
+        ) {
+            historyIndex =
+                terminalHistory.length;
 
-            selection.removeAllRanges();
+            terminalInput.textContent = "";
 
-            selection.addRange(
-                range
-            );
-        } catch {}
+            return;
+        }
+
+        terminalInput.textContent =
+            terminalHistory[historyIndex];
+
+        placeCaretAtEnd(terminalInput);
     }
 
-    async function executeCommand(command) {
-
-        const cmd =
-            command.trim();
-
-        if (!cmd) return;
+    function commandSuggestions(input) {
+        const commands = [
+            "help",
+            "clear",
+            "cls",
+            "pwd",
+            "ls",
+            "dir",
+            "cd",
+            "mkdir",
+            "touch",
+            "cat",
+            "type",
+            "head",
+            "tail",
+            "rm",
+            "del",
+            "mv",
+            "ren",
+            "cp",
+            "copy",
+            "open",
+            "code",
+            "save",
+            "export",
+            "import",
+            "run",
+            "history",
+            "env",
+            "echo",
+            "whoami",
+            "which",
+            "version",
+            "npm",
+            "npx",
+            "node",
+            "git"
+        ];
 
         const parts =
-            cmd.split(/\s+/);
+            input.trim().split(/\s+/);
 
-        const main =
-            parts[0].toLowerCase();
+        if (parts.length === 1) {
+            return commands.filter(
+                command =>
+                    command.startsWith(parts[0])
+            );
+        }
 
-        switch (main) {
+        if (
+            parts[0] === "npm" &&
+            parts[1] === "run"
+        ) {
+            const pkg =
+                getPackageJSON();
 
+            return Object.keys(
+                pkg?.scripts || {}
+            ).filter(script =>
+                script.startsWith(
+                    parts[2] || ""
+                )
+            );
+        }
+
+        if (
+            parts[0] === "open" ||
+            parts[0] === "code" ||
+            parts[0] === "cat"
+        ) {
+            const partial =
+                parts[parts.length - 1] || "";
+
+            return Object.keys(files)
+                .filter(name =>
+                    name.startsWith(partial)
+                );
+        }
+
+        return [];
+    }
+
+    function autocompleteTerminal() {
+        const current =
+            terminalInput.textContent;
+
+        const suggestions =
+            commandSuggestions(current);
+
+        if (!suggestions.length) return;
+
+        if (suggestions.length === 1) {
+            const parts =
+                current.split(/\s+/);
+
+            parts[parts.length - 1] =
+                suggestions[0];
+
+            terminalInput.textContent =
+                parts.join(" ");
+
+            placeCaretAtEnd(terminalInput);
+
+            return;
+        }
+
+        terminalWriteBlock(
+            suggestions.join("    "),
+            "suggestion"
+        );
+    }
+
+    /* =====================================================
+       TERMINAL COMMAND PARSER
+    ===================================================== */
+
+    function parseCommand(input) {
+        const matches =
+            input.match(
+                /"[^"]*"|'[^']*'|\S+/g
+            ) || [];
+
+        return matches.map(
+            value =>
+                value.replace(
+                    /^['"]|['"]$/g,
+                    ""
+                )
+        );
+    }
+
+    async function executeTerminalCommand(input) {
+        const command =
+            input.trim();
+
+        if (!command) return;
+
+        terminalHistory =
+            terminalHistory.filter(
+                item => item !== command
+            );
+
+        terminalHistory.push(command);
+
+        historyIndex =
+            terminalHistory.length;
+
+        saveHistory();
+
+        terminalPrompt(command);
+
+        const args =
+            parseCommand(command);
+
+        const base =
+            (args.shift() || "")
+                .toLowerCase();
+
+        terminalBusy = true;
+
+        try {
+            await dispatchCommand(base, args);
+        } catch (error) {
+            terminalWrite(
+                error?.message ||
+                String(error),
+                "error"
+            );
+        }
+
+        terminalBusy = false;
+    }
+
+    async function dispatchCommand(command, args) {
+        switch (command) {
             case "help":
-
-                terminalPrint(
-                    "GCODE Terminal"
-                );
-
-                terminalPrint(
-                    "Commandes : help, clear, pwd, ls, cd, open, save"
-                );
-
-                break;
+                return commandHelp();
 
             case "clear":
-
-                terminal.innerHTML = "";
-
-                setupTerminal();
-
-                break;
+            case "cls":
+                return clearTerminal();
 
             case "pwd":
-
-                terminalPrint(
-                    projectOpened
-                        ? `/${projectName}${currentDirectory === "/" ? "" : currentDirectory}`
-                        : currentDirectory
-                );
-
-                break;
-
-            case "ls":
-
-                if (
-                    projectOpened &&
-                    FS
-                ) {
-
-                    try {
-
-                        const items =
-                            await FS.listDirectory(
-                                currentDirectory
-                            );
-
-                        if (!items.length) {
-                            terminalPrint(
-                                "(dossier vide)"
-                            );
-                        }
-
-                        items.forEach(
-                            item => {
-                                terminalPrint(
-                                    item.kind ===
-                                    "directory"
-                                        ? `[DIR] ${item.name}`
-                                        : item.name
-                                );
-                            }
-                        );
-
-                    } catch (error) {
-
-                        terminalPrint(
-                            `Erreur : ${error.message}`
-                        );
-                    }
-
-                } else {
-
-                    Object.keys(files)
-                        .forEach(path => {
-                            terminalPrint(
-                                fileName(path)
-                            );
-                        });
-                }
-
-                break;
-
-            case "cd":
-
-                if (!parts[1]) {
-                    currentDirectory =
-                        "/";
-                }
-
-                else if (
-                    parts[1] === ".."
-                ) {
-                    currentDirectory =
-                        parentPath(
-                            currentDirectory
-                        );
-                }
-
-                else {
-                    currentDirectory =
-                        joinPath(
-                            currentDirectory,
-                            parts[1]
-                        );
-                }
-
-                terminalPrint(
+                return terminalWrite(
                     currentDirectory
                 );
 
-                break;
+            case "ls":
+            case "dir":
+                return commandLS(args);
+
+            case "cd":
+                return commandCD(args);
+
+            case "mkdir":
+                return commandMkdir(args);
+
+            case "touch":
+                return commandTouch(args);
+
+            case "cat":
+            case "type":
+                return commandCat(args);
+
+            case "head":
+                return commandHead(args);
+
+            case "tail":
+                return commandTail(args);
+
+            case "rm":
+            case "del":
+                return commandRemove(args);
+
+            case "mv":
+            case "ren":
+                return commandMove(args);
+
+            case "cp":
+            case "copy":
+                return commandCopy(args);
 
             case "open":
-
-                if (parts[1]) {
-
-                    const path =
-                        normalizePath(
-                            parts[1]
-                        );
-
-                    await openFile(
-                        path
-                    );
-
-                    terminalPrint(
-                        `Ouverture : ${path}`
-                    );
-
-                } else {
-                    terminalPrint(
-                        "Utilisation : open fichier"
-                    );
-                }
-
-                break;
+            case "code":
+                return commandOpen(args);
 
             case "save":
-
-                await saveFile();
-
-                terminalPrint(
-                    "Fichier sauvegardé."
+                saveFiles();
+                return terminalWrite(
+                    "All files saved."
                 );
 
-                break;
+            case "export":
+                return commandExport(args);
+
+            case "import":
+                return commandImport();
+
+            case "run":
+                return commandRun(args);
+
+            case "history":
+                return commandHistory();
+
+            case "echo":
+                return terminalWrite(
+                    args.join(" ")
+                );
+
+            case "env":
+                return commandEnv();
+
+            case "set":
+                return commandSet(args);
+
+            case "whoami":
+                return terminalWrite(
+                    "gcode-user"
+                );
+
+            case "which":
+                return commandWhich(args);
+
+            case "version":
+                return terminalWrite(
+                    "GCODE V4.0.0"
+                );
+
+            case "npm":
+                return commandNPM(args);
+
+            case "npx":
+                return commandNPX(args);
+
+            case "node":
+                return commandNode(args);
+
+            case "git":
+                return commandGit(args);
 
             default:
-
-                terminalPrint(
-                    `Commande inconnue : ${cmd}`
-                );
-
-                terminalPrint(
-                    "Tapez help pour afficher les commandes."
+                return terminalWrite(
+                    `'${command}' is not recognized. Type "help" for commands.`,
+                    "error"
                 );
         }
     }
 
     /* =====================================================
-       RECHERCHE
+       BASIC COMMANDS
     ===================================================== */
 
-    function openSearch() {
+    function commandHelp() {
+        terminalWriteBlock(`
+GCODE Terminal V4
 
-        if (searchOverlay) {
-            searchOverlay.remove();
-        }
+FILES
+  ls / dir             List files
+  cd <path>            Change directory
+  pwd                  Current directory
+  mkdir <name>         Create folder
+  touch <file>         Create file
+  cat <file>           Display file
+  head <file>          First lines
+  tail <file>          Last lines
+  rm <file>            Delete file
+  mv <a> <b>           Move / rename
+  cp <a> <b>           Copy file
+  open <file>          Open in editor
+  save                 Save workspace
+  export <file>        Export file
+  import               Import local file
 
-        searchOverlay =
-            document.createElement(
-                "div"
-            );
+NPM
+  npm init
+  npm install
+  npm install <pkg>
+  npm uninstall <pkg>
+  npm update
+  npm list
+  npm run <script>
+  npm test
 
-        searchOverlay.style.position =
-            "fixed";
+NODE
+  node <file>
+  npx <command>
 
-        searchOverlay.style.inset =
-            "0";
+GIT
+  git status
+  git add <file>
+  git commit -m "message"
+  git log
+  git branch
 
-        searchOverlay.style.zIndex =
-            "99999";
+SYSTEM
+  clear / cls
+  history
+  echo <text>
+  env
+  set <name>=<value>
+  whoami
+  which <command>
+  version
 
-        searchOverlay.style.background =
-            "rgba(0,0,0,.45)";
+GCODE
+  run
+  help
 
-        const box =
-            document.createElement(
-                "div"
-            );
+Note:
+Browser GCODE provides a workspace shell.
+Real Node/npm/Git execution requires a connected runtime.
+`, "normal");
+    }
 
-        box.style.position =
-            "absolute";
-
-        box.style.top =
-            "20%";
-
-        box.style.left =
-            "50%";
-
-        box.style.transform =
-            "translateX(-50%)";
-
-        box.style.width =
-            "min(600px,90vw)";
-
-        box.style.padding =
-            "12px";
-
-        box.style.background =
-            "#1e1e1e";
-
-        const input =
-            document.createElement(
-                "input"
-            );
-
-        input.type = "search";
-        input.placeholder =
-            "Rechercher dans GCODE...";
-
-        input.style.width =
-            "100%";
-
-        input.style.boxSizing =
-            "border-box";
-
-        input.style.padding =
-            "12px";
-
-        input.style.background =
-            "#252526";
-
-        input.style.color =
-            "#fff";
-
-        input.style.border =
-            "1px solid #555";
-
-        box.appendChild(
-            input
-        );
-
-        searchOverlay.appendChild(
-            box
-        );
-
-        document.body.appendChild(
-            searchOverlay
-        );
-
-        input.focus();
-
-        input.addEventListener(
-            "keydown",
-            event => {
-
-                if (
-                    event.key === "Escape"
-                ) {
-                    searchOverlay.remove();
-                    searchOverlay = null;
-                }
-
-                if (
-                    event.key === "Enter"
-                ) {
-                    performSearch(
-                        input.value
-                    );
-                }
-            }
-        );
-
-        searchOverlay.addEventListener(
-            "click",
-            event => {
-                if (
-                    event.target ===
-                    searchOverlay
-                ) {
-                    searchOverlay.remove();
-                    searchOverlay = null;
-                }
-            }
+    function commandLS() {
+        terminalWriteBlock(
+            Object.keys(files)
+                .sort()
+                .join("\n") ||
+            "(empty workspace)"
         );
     }
 
-    function performSearch(query) {
+    function commandCD(args) {
+        const target =
+            args[0] || "/";
 
-        const q =
-            String(query || "")
-                .trim()
-                .toLowerCase();
+        if (
+            target === ".." ||
+            target === "../"
+        ) {
+            currentDirectory = "/";
+            updateTerminalPath();
+            return;
+        }
 
-        if (!q) return;
+        if (
+            target === "." ||
+            target === "./"
+        ) {
+            return;
+        }
 
-        const results = [];
+        currentDirectory =
+            normalizePath(target);
 
-        Object.entries(files)
-            .forEach(
-                ([path, data]) => {
+        updateTerminalPath();
 
-                    const content =
-                        data.content || "";
+        terminalWrite(
+            currentDirectory
+        );
+    }
 
-                    const index =
-                        content
-                            .toLowerCase()
-                            .indexOf(q);
+    function commandMkdir(args) {
+        const name = args[0];
 
-                    if (index !== -1) {
-
-                        const before =
-                            content.slice(
-                                0,
-                                index
-                            );
-
-                        const line =
-                            before.split(
-                                "\n"
-                            ).length;
-
-                        results.push(
-                            `${fileName(path)} : ligne ${line}`
-                        );
-                    }
-                }
-            );
-
-        if (!results.length) {
-            alert(
-                `"${query}" introuvable.`
-            );
-        } else {
-            alert(
-                results.join("\n")
+        if (!name) {
+            return terminalWrite(
+                "Usage: mkdir <folder>",
+                "error"
             );
         }
 
-        searchOverlay?.remove();
-        searchOverlay = null;
+        terminalWrite(
+            `Directory '${name}' created.`
+        );
     }
 
-    /* =====================================================
-       MENUS
-    ===================================================== */
-
-    function createMenu(items) {
-
-        closeMenu();
-
-        menuOverlay =
-            document.createElement(
-                "div"
+    function commandTouch(args) {
+        if (!args.length) {
+            return terminalWrite(
+                "Usage: touch <file>",
+                "error"
             );
+        }
 
-        menuOverlay.style.position =
-            "fixed";
-
-        menuOverlay.style.inset =
-            "0";
-
-        menuOverlay.style.zIndex =
-            "99998";
-
-        menuOverlay.addEventListener(
-            "click",
-            event => {
-
-                if (
-                    event.target ===
-                    menuOverlay
-                ) {
-                    closeMenu();
-                }
+        args.forEach(name => {
+            if (
+                !Object.prototype.hasOwnProperty.call(
+                    files,
+                    name
+                )
+            ) {
+                files[name] = "";
             }
-        );
 
-        const menu =
-            document.createElement(
-                "div"
-            );
-
-        menu.style.position =
-            "absolute";
-
-        menu.style.top =
-            "48px";
-
-        menu.style.left =
-            "10px";
-
-        menu.style.minWidth =
-            "220px";
-
-        menu.style.background =
-            "#252526";
-
-        menu.style.border =
-            "1px solid #454545";
-
-        menu.style.boxShadow =
-            "0 8px 25px rgba(0,0,0,.5)";
-
-        items.forEach(item => {
-
-            const button =
-                document.createElement(
-                    "button"
-                );
-
-            button.type =
-                "button";
-
-            button.textContent =
-                item.label;
-
-            button.style.display =
-                "block";
-
-            button.style.width =
-                "100%";
-
-            button.style.padding =
-                "10px 14px";
-
-            button.style.textAlign =
-                "left";
-
-            button.style.background =
-                "transparent";
-
-            button.style.color =
-                "#ddd";
-
-            button.style.border =
-                "0";
-
-            button.addEventListener(
-                "click",
-                () => {
-
-                    closeMenu();
-
-                    item.action();
-                }
-            );
-
-            menu.appendChild(
-                button
-            );
+            openFile(name);
         });
 
-        menuOverlay.appendChild(
-            menu
-        );
+        saveFiles();
 
-        document.body.appendChild(
-            menuOverlay
+        terminalWrite(
+            `Created ${args.join(", ")}`
         );
     }
 
-    function closeMenu() {
-        if (menuOverlay) {
-            menuOverlay.remove();
-            menuOverlay = null;
+    function commandCat(args) {
+        const name = args[0];
+
+        if (!name) {
+            return terminalWrite(
+                "Usage: cat <file>",
+                "error"
+            );
         }
+
+        if (
+            !Object.prototype.hasOwnProperty.call(
+                files,
+                name
+            )
+        ) {
+            return terminalWrite(
+                `File not found: ${name}`,
+                "error"
+            );
+        }
+
+        terminalWriteBlock(
+            files[name]
+        );
     }
 
-    function openFileMenu() {
-        createMenu([
-            {
-                label: "New File",
-                action: newFile
-            },
-            {
-                label: "New Folder",
-                action: newFolder
-            },
-            {
-                label: "Open Folder",
-                action: openProject
-            },
-            {
-                label: "Import",
-                action: importFiles
-            },
-            {
-                label: "Export",
-                action: exportFile
-            },
-            {
-                label: "Save",
-                action: saveFile
-            }
-        ]);
+    function commandHead(args) {
+        const name = args[0];
+
+        if (!name) {
+            return terminalWrite(
+                "Usage: head <file>",
+                "error"
+            );
+        }
+
+        const content = files[name];
+
+        if (content === undefined) {
+            return terminalWrite(
+                `File not found: ${name}`,
+                "error"
+            );
+        }
+
+        terminalWriteBlock(
+            content
+                .split("\n")
+                .slice(0, 10)
+                .join("\n")
+        );
     }
 
-    function openEditMenu() {
-        createMenu([
-            {
-                label: "Undo",
-                action: undo
-            },
-            {
-                label: "Redo",
-                action: redo
-            },
-            {
-                label: "Rename",
-                action: renameFile
-            },
-            {
-                label: "Delete",
-                action: deleteFile
-            }
-        ]);
+    function commandTail(args) {
+        const name = args[0];
+
+        if (!name) {
+            return terminalWrite(
+                "Usage: tail <file>",
+                "error"
+            );
+        }
+
+        const content = files[name];
+
+        if (content === undefined) {
+            return terminalWrite(
+                `File not found: ${name}`,
+                "error"
+            );
+        }
+
+        terminalWriteBlock(
+            content
+                .split("\n")
+                .slice(-10)
+                .join("\n")
+        );
     }
 
-    function openSelectionMenu() {
-        createMenu([
-            {
-                label: "Select All",
-                action: () => {
-                    codeDisplay.focus();
+    function commandRemove(args) {
+        const name = args[0];
 
-                    const range =
-                        document.createRange();
+        if (!name) {
+            return terminalWrite(
+                "Usage: rm <file>",
+                "error"
+            );
+        }
 
-                    range.selectNodeContents(
-                        codeDisplay
-                    );
+        if (
+            !Object.prototype.hasOwnProperty.call(
+                files,
+                name
+            )
+        ) {
+            return terminalWrite(
+                `File not found: ${name}`,
+                "error"
+            );
+        }
 
-                    const selection =
-                        window.getSelection();
+        delete files[name];
 
-                    selection.removeAllRanges();
-                    selection.addRange(
-                        range
-                    );
-                }
-            },
-            {
-                label: "Search",
-                action: openSearch
-            }
-        ]);
+        openTabs =
+            openTabs.filter(
+                tab => tab !== name
+            );
+
+        if (activeFile === name) {
+            activeFile =
+                openTabs[0] ||
+                "index.html";
+        }
+
+        saveFiles();
+        saveTabs();
+        renderEditor();
+
+        terminalWrite(
+            `Deleted ${name}`
+        );
     }
 
-    function openViewMenu() {
-        createMenu([
-            {
-                label: "Explorer",
-                action: () =>
-                    activatePanel(
-                        "explorer"
-                    )
-            },
-            {
-                label: "Search",
-                action: openSearch
-            },
-            {
-                label: "Terminal",
-                action: showBottomPanel
-            }
-        ]);
+    function commandMove(args) {
+        const from = args[0];
+        const to = args[1];
+
+        if (!from || !to) {
+            return terminalWrite(
+                "Usage: mv <source> <destination>",
+                "error"
+            );
+        }
+
+        if (files[from] === undefined) {
+            return terminalWrite(
+                `File not found: ${from}`,
+                "error"
+            );
+        }
+
+        files[to] = files[from];
+        delete files[from];
+
+        openTabs =
+            openTabs.map(
+                tab =>
+                    tab === from
+                        ? to
+                        : tab
+            );
+
+        if (activeFile === from) {
+            activeFile = to;
+        }
+
+        saveFiles();
+        saveTabs();
+        renderEditor();
+
+        terminalWrite(
+            `${from} -> ${to}`
+        );
     }
 
-    function openGoMenu() {
-        createMenu([
-            {
-                label: "Back",
-                action: () =>
-                    history.back()
-            },
-            {
-                label: "Forward",
-                action: () =>
-                    history.forward()
-            },
-            {
-                label: "Search",
-                action: openSearch
-            }
-        ]);
+    function commandCopy(args) {
+        const from = args[0];
+        const to = args[1];
+
+        if (!from || !to) {
+            return terminalWrite(
+                "Usage: cp <source> <destination>",
+                "error"
+            );
+        }
+
+        if (files[from] === undefined) {
+            return terminalWrite(
+                `File not found: ${from}`,
+                "error"
+            );
+        }
+
+        files[to] = files[from];
+
+        saveFiles();
+
+        terminalWrite(
+            `${from} -> ${to}`
+        );
+    }
+
+    function commandOpen(args) {
+        const name = args[0];
+
+        if (!name) {
+            return terminalWrite(
+                "Usage: open <file>",
+                "error"
+            );
+        }
+
+        if (files[name] === undefined) {
+            return terminalWrite(
+                `File not found: ${name}`,
+                "error"
+            );
+        }
+
+        openFile(name);
     }
 
     /* =====================================================
-       ACTIVITY BAR
+       NPM
     ===================================================== */
 
-    function activatePanel(name) {
+    function getPackageJSON() {
+        if (!files["package.json"]) {
+            return null;
+        }
 
-        document
-            .querySelectorAll(
-                ".activity-item"
-            )
-            .forEach(button => {
+        try {
+            return JSON.parse(
+                files["package.json"]
+            );
+        } catch {
+            return null;
+        }
+    }
 
-                button.classList.toggle(
-                    "active",
-                    button.dataset.panel ===
-                    name
+    function savePackageJSON(pkg) {
+        files["package.json"] =
+            JSON.stringify(
+                pkg,
+                null,
+                4
+            );
+
+        saveFiles();
+
+        if (
+            activeFile === "package.json"
+        ) {
+            renderEditor();
+        }
+    }
+
+    function commandNPM(args) {
+        const sub =
+            (args[0] || "")
+                .toLowerCase();
+
+        if (!sub) {
+            terminalWrite(
+                "npm 10.x compatible command interface - GCODE"
+            );
+
+            terminalWrite(
+                "Use 'npm help' or 'npm run'."
+            );
+
+            return;
+        }
+
+        switch (sub) {
+            case "help":
+                return terminalWriteBlock(`
+npm init
+npm install
+npm install <package>
+npm uninstall <package>
+npm update
+npm list
+npm run <script>
+npm test
+npm start
+`);
+
+            case "init":
+                return npmInit();
+
+            case "install":
+            case "i":
+                return npmInstall(
+                    args.slice(1)
+                );
+
+            case "uninstall":
+            case "remove":
+            case "un":
+                return npmUninstall(
+                    args.slice(1)
+                );
+
+            case "update":
+                return npmUpdate();
+
+            case "list":
+            case "ls":
+                return npmList();
+
+            case "run":
+                return npmRun(
+                    args.slice(1)
+                );
+
+            case "test":
+                return npmRun(["test"]);
+
+            case "start":
+                return npmRun(["start"]);
+
+            default:
+                terminalWrite(
+                    `npm: unknown command '${sub}'`,
+                    "error"
+                );
+        }
+    }
+
+    function npmInit() {
+        if (files["package.json"]) {
+            terminalWrite(
+                "package.json already exists."
+            );
+
+            return;
+        }
+
+        files["package.json"] =
+            JSON.stringify(
+                {
+                    name: "gcode-project",
+                    version: "1.0.0",
+                    description: "",
+                    main: "index.js",
+                    scripts: {},
+                    keywords: [],
+                    author: "",
+                    license: "ISC"
+                },
+                null,
+                4
+            );
+
+        saveFiles();
+        openFile("package.json");
+
+        terminalWrite(
+            "Created package.json"
+        );
+    }
+
+    function npmInstall(packages) {
+        const pkg =
+            getPackageJSON();
+
+        if (!pkg) {
+            terminalWrite(
+                "Cannot install: package.json is invalid or missing.",
+                "error"
+            );
+
+            return;
+        }
+
+        pkg.dependencies =
+            pkg.dependencies || {};
+
+        pkg.devDependencies =
+            pkg.devDependencies || {};
+
+        if (!packages.length) {
+            const all = [
+                ...Object.keys(
+                    pkg.dependencies
+                ),
+                ...Object.keys(
+                    pkg.devDependencies
+                )
+            ];
+
+            if (!all.length) {
+                terminalWrite(
+                    "Nothing to install."
+                );
+
+                return;
+            }
+
+            terminalWrite(
+                "Reading package.json..."
+            );
+
+            all.forEach(packageName => {
+                terminalWrite(
+                    `Installing ${packageName}...`
                 );
             });
 
-        if (name === "explorer") {
-            if (sidebar) {
-                sidebar.style.display =
-                    "";
+            terminalWrite(
+                "Workspace dependency map updated."
+            );
+
+            terminalWrite(
+                "Real package download requires a Node/npm runtime."
+            );
+
+            return;
+        }
+
+        packages.forEach(packageSpec => {
+            const match =
+                packageSpec.match(
+                    /^(@?[^@]+)(?:@(.+))?$/
+                );
+
+            const name =
+                match?.[1] ||
+                packageSpec;
+
+            const version =
+                match?.[2] ||
+                "latest";
+
+            pkg.dependencies[name] =
+                version;
+
+            terminalWrite(
+                `+ ${name}@${version}`
+            );
+        });
+
+        savePackageJSON(pkg);
+
+        terminalWrite(
+            "package.json updated."
+        );
+
+        terminalWrite(
+            "GCODE workspace npm simulation complete."
+        );
+
+        terminalWrite(
+            "Real npm package installation requires a connected Node runtime."
+        );
+    }
+
+    function npmUninstall(packages) {
+        const pkg =
+            getPackageJSON();
+
+        if (!pkg) {
+            terminalWrite(
+                "package.json is invalid or missing.",
+                "error"
+            );
+
+            return;
+        }
+
+        packages.forEach(name => {
+            let removed = false;
+
+            if (
+                pkg.dependencies &&
+                pkg.dependencies[name]
+            ) {
+                delete pkg.dependencies[name];
+                removed = true;
             }
-        }
 
-        if (name === "search") {
-            openSearch();
-        }
+            if (
+                pkg.devDependencies &&
+                pkg.devDependencies[name]
+            ) {
+                delete pkg.devDependencies[name];
+                removed = true;
+            }
 
-        if (name === "source") {
-            alert(
-                "Source Control : panneau prêt pour l'intégration Git."
+            if (removed) {
+                terminalWrite(
+                    `removed ${name}`
+                );
+            } else {
+                terminalWrite(
+                    `${name} is not installed.`,
+                    "error"
+                );
+            }
+        });
+
+        savePackageJSON(pkg);
+    }
+
+    function npmUpdate() {
+        terminalWrite(
+            "Checking dependencies..."
+        );
+
+        terminalWrite(
+            "package.json dependency ranges preserved."
+        );
+
+        terminalWrite(
+            "Real npm update requires a Node/npm runtime."
+        );
+    }
+
+    function npmList() {
+        const pkg =
+            getPackageJSON();
+
+        if (!pkg) {
+            return terminalWrite(
+                "package.json not found.",
+                "error"
             );
         }
 
-        if (name === "run") {
-            runCurrentFile();
+        terminalWrite(
+            `${pkg.name || "project"}@${pkg.version || "1.0.0"}`
+        );
+
+        const dependencies = {
+            ...(pkg.dependencies || {}),
+            ...(pkg.devDependencies || {})
+        };
+
+        const names =
+            Object.keys(dependencies);
+
+        if (!names.length) {
+            terminalWrite(
+                "└── (no dependencies)"
+            );
+
+            return;
         }
 
-        if (name === "extensions") {
-            alert(
-                "Extensions : gestionnaire d'extensions GCODE."
+        names.forEach(name => {
+            terminalWrite(
+                `├── ${name}@${dependencies[name]}`
+            );
+        });
+    }
+
+    function npmRun(args) {
+        const scriptName =
+            args[0];
+
+        if (!scriptName) {
+            const pkg =
+                getPackageJSON();
+
+            if (!pkg) {
+                return terminalWrite(
+                    "package.json not found.",
+                    "error"
+                );
+            }
+
+            terminalWriteBlock(
+                Object.keys(
+                    pkg.scripts || {}
+                ).join("\n") ||
+                "No scripts."
+            );
+
+            return;
+        }
+
+        const pkg =
+            getPackageJSON();
+
+        if (!pkg) {
+            return terminalWrite(
+                "package.json not found.",
+                "error"
             );
         }
+
+        const script =
+            pkg.scripts?.[scriptName];
+
+        if (!script) {
+            return terminalWrite(
+                `Missing script: "${scriptName}"`,
+                "error"
+            );
+        }
+
+        terminalWrite(
+            `> ${pkg.name || "project"}@${pkg.version || "1.0.0"} ${scriptName}`
+        );
+
+        terminalWrite(
+            `> ${script}`
+        );
+
+        if (
+            window.GCODERuntime &&
+            typeof window.GCODERuntime.run ===
+                "function"
+        ) {
+            return window.GCODERuntime.run(
+                "npm",
+                ["run", scriptName],
+                {
+                    cwd: currentDirectory,
+                    files
+                }
+            ).then(result => {
+                terminalWriteBlock(
+                    result?.output ||
+                    result?.stdout ||
+                    ""
+                );
+            });
+        }
+
+        terminalWrite(
+            "Runtime Node/npm not connected."
+        );
+
+        terminalWrite(
+            "The command was parsed successfully, but GCODE cannot execute a real npm process inside the browser."
+        );
+    }
+
+    /* =====================================================
+       NODE / NPX
+    ===================================================== */
+
+    function commandNode(args) {
+        if (!args.length) {
+            return terminalWrite(
+                "Node.js runtime is not connected."
+            );
+        }
+
+        if (
+            window.GCODERuntime &&
+            typeof window.GCODERuntime.run ===
+                "function"
+        ) {
+            return window.GCODERuntime.run(
+                "node",
+                args,
+                {
+                    cwd: currentDirectory,
+                    files
+                }
+            ).then(result => {
+                terminalWriteBlock(
+                    result?.output ||
+                    result?.stdout ||
+                    ""
+                );
+            });
+        }
+
+        terminalWrite(
+            `node ${args.join(" ")}`
+        );
+
+        terminalWrite(
+            "Node.js runtime not connected."
+        );
+    }
+
+    function commandNPX(args) {
+        if (!args.length) {
+            return terminalWrite(
+                "Usage: npx <command>",
+                "error"
+            );
+        }
+
+        if (
+            window.GCODERuntime &&
+            typeof window.GCODERuntime.run ===
+                "function"
+        ) {
+            return window.GCODERuntime.run(
+                "npx",
+                args,
+                {
+                    cwd: currentDirectory,
+                    files
+                }
+            ).then(result => {
+                terminalWriteBlock(
+                    result?.output ||
+                    result?.stdout ||
+                    ""
+                );
+            });
+        }
+
+        terminalWrite(
+            `npx ${args.join(" ")}`
+        );
+
+        terminalWrite(
+            "npx runtime not connected."
+        );
+    }
+
+    /* =====================================================
+       GIT
+    ===================================================== */
+
+    const gitState = {
+        staged: [],
+        commits: []
+    };
+
+    function commandGit(args) {
+        const sub =
+            (args[0] || "")
+                .toLowerCase();
+
+        switch (sub) {
+            case "status":
+                return gitStatus();
+
+            case "add":
+                return gitAdd(
+                    args.slice(1)
+                );
+
+            case "commit":
+                return gitCommit(
+                    args.slice(1)
+                );
+
+            case "log":
+                return gitLog();
+
+            case "branch":
+                return terminalWrite(
+                    "* main"
+                );
+
+            default:
+                terminalWrite(
+                    "GCODE Git interface: status, add, commit, log, branch"
+                );
+
+                terminalWrite(
+                    "Real Git operations require a connected Git runtime."
+                );
+        }
+    }
+
+    function gitStatus() {
+        terminalWrite(
+            "On branch main"
+        );
+
+        const tracked =
+            Object.keys(files);
+
+        if (!tracked.length) {
+            terminalWrite(
+                "nothing to commit"
+            );
+
+            return;
+        }
+
+        terminalWrite(
+            "Changes available in GCODE workspace:"
+        );
+
+        tracked.forEach(name => {
+            terminalWrite(
+                `  modified: ${name}`
+            );
+        });
+    }
+
+    function gitAdd(args) {
+        if (!args.length) {
+            return terminalWrite(
+                "Nothing specified, nothing added.",
+                "error"
+            );
+        }
+
+        if (args[0] === ".") {
+            gitState.staged =
+                Object.keys(files);
+        } else {
+            gitState.staged =
+                args.filter(
+                    name =>
+                        files[name] !== undefined
+                );
+        }
+
+        terminalWrite(
+            `${gitState.staged.length} file(s) staged.`
+        );
+    }
+
+    function gitCommit(args) {
+        let message = "Update";
+
+        const index =
+            args.indexOf("-m");
+
+        if (
+            index !== -1 &&
+            args[index + 1]
+        ) {
+            message =
+                args[index + 1];
+        }
+
+        const commit = {
+            id:
+                Math.random()
+                    .toString(16)
+                    .slice(2, 10),
+            message,
+            date:
+                new Date().toISOString()
+        };
+
+        gitState.commits.push(commit);
+
+        gitState.staged = [];
+
+        terminalWrite(
+            `[main ${commit.id}] ${message}`
+        );
+
+        terminalWrite(
+            "Local GCODE Git simulation complete."
+        );
+    }
+
+    function gitLog() {
+        if (!gitState.commits.length) {
+            return terminalWrite(
+                "No commits yet."
+            );
+        }
+
+        [...gitState.commits]
+            .reverse()
+            .forEach(commit => {
+                terminalWrite(
+                    `commit ${commit.id}\n    ${commit.message}`
+                );
+            });
+    }
+
+    /* =====================================================
+       ENV
+    ===================================================== */
+
+    const environment = {
+        NODE_ENV: "development",
+        GCODE_VERSION: "4.0.0",
+        SHELL: "GCODE"
+    };
+
+    function commandEnv() {
+        Object.entries(environment)
+            .forEach(
+                ([key, value]) =>
+                    terminalWrite(
+                        `${key}=${value}`
+                    )
+            );
+    }
+
+    function commandSet(args) {
+        const expression =
+            args.join(" ");
+
+        const index =
+            expression.indexOf("=");
+
+        if (index === -1) {
+            return terminalWrite(
+                "Usage: set NAME=value",
+                "error"
+            );
+        }
+
+        const key =
+            expression
+                .slice(0, index)
+                .trim();
+
+        const value =
+            expression
+                .slice(index + 1)
+                .trim();
+
+        environment[key] = value;
+
+        terminalWrite(
+            `${key}=${value}`
+        );
+    }
+
+    function commandWhich(args) {
+        const name = args[0];
+
+        const commands = [
+            "npm",
+            "node",
+            "npx",
+            "git",
+            "gcode"
+        ];
+
+        if (commands.includes(name)) {
+            terminalWrite(
+                `/gcode/bin/${name}`
+            );
+        } else {
+            terminalWrite(
+                `${name}: not found`,
+                "error"
+            );
+        }
+    }
+
+    /* =====================================================
+       EXPORT / IMPORT
+    ===================================================== */
+
+    async function commandExport(args) {
+        const name =
+            args[0] || activeFile;
+
+        if (files[name] === undefined) {
+            return terminalWrite(
+                `File not found: ${name}`,
+                "error"
+            );
+        }
+
+        const blob =
+            new Blob(
+                [files[name]],
+                {
+                    type:
+                        "text/plain;charset=utf-8"
+                }
+            );
+
+        const url =
+            URL.createObjectURL(blob);
+
+        const link =
+            document.createElement("a");
+
+        link.href = url;
+        link.download = name;
+
+        document.body.appendChild(link);
+
+        link.click();
+
+        link.remove();
+
+        URL.revokeObjectURL(url);
+
+        terminalWrite(
+            `Exported ${name}`
+        );
+    }
+
+    function commandImport() {
+        const input =
+            document.createElement("input");
+
+        input.type = "file";
+        input.multiple = true;
+
+        input.addEventListener(
+            "change",
+            async () => {
+                const selected =
+                    [...input.files];
+
+                for (const file of selected) {
+                    const content =
+                        await file.text();
+
+                    files[file.name] =
+                        content;
+
+                    openFile(file.name);
+
+                    terminalWrite(
+                        `Imported ${file.name}`
+                    );
+                }
+
+                saveFiles();
+            }
+        );
+
+        input.click();
     }
 
     /* =====================================================
        RUN
     ===================================================== */
 
-    function runCurrentFile() {
-
-        if (!activeFile) {
-            setStatus(
-                "Aucun fichier à exécuter"
-            );
-            return;
-        }
-
-        const lang =
-            getLanguage(
-                fileName(activeFile)
-            );
+    async function commandRun(args) {
+        const target =
+            args[0] || activeFile;
 
         if (
-            lang === "HTML"
+            target.endsWith(".html") ||
+            target === "index.html"
         ) {
-            previewHTML();
-            return;
+            return runHTMLPreview(target);
         }
 
         if (
-            lang === "JavaScript"
+            target.endsWith(".js") ||
+            target.endsWith(".mjs")
         ) {
-            try {
-                const result =
-                    Function(
-                        files[activeFile]
-                            .content
-                    )();
-
-                terminalPrint(
-                    String(
-                        result ??
-                        "JavaScript exécuté."
-                    )
-                );
-
-            } catch (error) {
-
-                terminalPrint(
-                    `Erreur JS : ${error.message}`
-                );
-            }
-
-            return;
+            return commandNode([target]);
         }
 
-        terminalPrint(
-            `Run : ${fileName(activeFile)}`
+        terminalWrite(
+            `No browser preview available for ${target}.`
         );
     }
 
-    function previewHTML() {
+    function runHTMLPreview(name) {
+        const content =
+            files[name];
 
-        const html =
-            files[activeFile]?.content;
-
-        if (!html) return;
-
-        const win =
-            window.open(
-                "",
-                "_blank"
+        if (content === undefined) {
+            return terminalWrite(
+                `File not found: ${name}`,
+                "error"
             );
-
-        if (!win) {
-            alert(
-                "Autorise les fenêtres contextuelles pour le preview."
-            );
-            return;
         }
 
-        win.document.open();
+        const overlay =
+            document.createElement("div");
 
-        win.document.write(
-            html
+        overlay.style.position = "fixed";
+        overlay.style.inset = "0";
+        overlay.style.zIndex = "99999";
+        overlay.style.background = "#000";
+
+        const header =
+            document.createElement("div");
+
+        header.style.height = "42px";
+        header.style.display = "flex";
+        header.style.alignItems = "center";
+        header.style.justifyContent = "space-between";
+        header.style.padding = "0 12px";
+
+        const title =
+            document.createElement("span");
+
+        title.textContent =
+            `GCODE Preview — ${name}`;
+
+        const close =
+            document.createElement("button");
+
+        close.textContent = "×";
+
+        close.style.fontSize = "22px";
+
+        close.addEventListener(
+            "click",
+            () => overlay.remove()
         );
 
-        win.document.close();
+        header.appendChild(title);
+        header.appendChild(close);
+
+        const iframe =
+            document.createElement("iframe");
+
+        iframe.style.width = "100%";
+        iframe.style.height =
+            "calc(100% - 42px)";
+        iframe.style.border = "0";
+
+        iframe.setAttribute(
+            "sandbox",
+            "allow-scripts allow-forms allow-modals"
+        );
+
+        overlay.appendChild(header);
+        overlay.appendChild(iframe);
+
+        document.body.appendChild(overlay);
+
+        iframe.srcdoc = content;
+
+        terminalWrite(
+            `Preview started: ${name}`
+        );
     }
 
     /* =====================================================
-       PANNEAU BAS
+       TERMINAL PANEL
     ===================================================== */
 
-    function showBottomPanel() {
+    function setupPanelTabs() {
+        $$(".panel-tab").forEach(tab => {
+            tab.addEventListener(
+                "click",
+                () => {
+                    $$(".panel-tab")
+                        .forEach(item =>
+                            item.classList.remove(
+                                "active"
+                            )
+                        );
 
-        if (!bottomPanel) return;
-
-        bottomPanel.style.display =
-            "";
-
-        bottomPanel.scrollIntoView({
-            behavior: "smooth",
-            block: "nearest"
+                    tab.classList.add(
+                        "active"
+                    );
+                }
+            );
         });
 
-        setTimeout(
-            () => terminalInput?.focus(),
-            100
+        const close =
+            $(
+                '#bottomPanel .panel-actions button[title="Close Panel"]'
+            );
+
+        if (close) {
+            close.addEventListener(
+                "click",
+                () => {
+                    bottomPanel?.classList.add(
+                        "hidden"
+                    );
+                }
+            );
+        }
+    }
+
+    /* =====================================================
+       SEARCH
+    ===================================================== */
+
+    function setupSearch() {
+        const searchBox =
+            $(".command-search");
+
+        if (!searchBox) return;
+
+        searchBox.addEventListener(
+            "click",
+            () => {
+                const query =
+                    window.prompt(
+                        "Search in GCODE"
+                    );
+
+                if (!query) return;
+
+                searchWorkspace(query);
+            }
         );
     }
 
-    function connectPanelTabs() {
+    function searchWorkspace(query) {
+        let found = 0;
 
-        document
-            .querySelectorAll(
-                ".panel-tab"
-            )
-            .forEach(tab => {
+        Object.entries(files)
+            .forEach(
+                ([name, content]) => {
+                    const lines =
+                        content.split("\n");
 
-                tab.addEventListener(
+                    lines.forEach(
+                        (line, index) => {
+                            if (
+                                line
+                                    .toLowerCase()
+                                    .includes(
+                                        query.toLowerCase()
+                                    )
+                            ) {
+                                terminalWrite(
+                                    `${name}:${index + 1}: ${line.trim()}`
+                                );
+
+                                found++;
+                            }
+                        }
+                    );
+                }
+            );
+
+        terminalWrite(
+            `${found} result(s).`
+        );
+    }
+
+    /* =====================================================
+       ACTIVITY BAR
+    ===================================================== */
+
+    function setupActivityBar() {
+        $$(".activity-item[data-panel]")
+            .forEach(item => {
+                item.addEventListener(
                     "click",
                     () => {
-
-                        document
-                            .querySelectorAll(
-                                ".panel-tab"
-                            )
+                        $$(".activity-item")
                             .forEach(
-                                t =>
-                                    t.classList.remove(
+                                element =>
+                                    element.classList.remove(
                                         "active"
                                     )
                             );
 
-                        tab.classList.add(
+                        item.classList.add(
                             "active"
                         );
 
-                        const name =
-                            tab.textContent
-                                .trim();
-
-                        setStatus(
-                            name
-                        );
+                        const panel =
+                            item.dataset.panel;
 
                         if (
-                            name ===
-                            "TERMINAL"
+                            panel === "run"
                         ) {
-                            setupTerminal();
-
-                            setTimeout(
-                                () =>
-                                    terminalInput?.focus(),
-                                80
+                            runHTMLPreview(
+                                "index.html"
                             );
+                        }
+
+                        if (
+                            panel === "search"
+                        ) {
+                            const query =
+                                window.prompt(
+                                    "Search"
+                                );
+
+                            if (query) {
+                                searchWorkspace(
+                                    query
+                                );
+                            }
                         }
                     }
                 );
@@ -2834,624 +2825,274 @@ build/
     }
 
     /* =====================================================
-       BOUTONS TOP BAR
+       KEYBOARD SHORTCUTS
     ===================================================== */
 
-    function connectTopButtons() {
+    function setupShortcuts() {
+        document.addEventListener(
+            "keydown",
+            event => {
+                const mod =
+                    event.ctrlKey ||
+                    event.metaKey;
 
-        const menuButtons =
-            document.querySelectorAll(
-                ".menu-button"
-            );
-
-        menuButtons.forEach(
-            button => {
-
-                button.addEventListener(
-                    "click",
-                    () => {
-
-                        const text =
-                            button.textContent
-                                .trim();
-
-                        switch (text) {
-
-                            case "File":
-                                openFileMenu();
-                                break;
-
-                            case "Edit":
-                                openEditMenu();
-                                break;
-
-                            case "Selection":
-                                openSelectionMenu();
-                                break;
-
-                            case "View":
-                                openViewMenu();
-                                break;
-
-                            case "Go":
-                                openGoMenu();
-                                break;
-
-                            case "•••":
-                                openFileMenu();
-                                break;
-                        }
-                    }
-                );
-            }
-        );
-
-        if (commandSearch) {
-
-            commandSearch.addEventListener(
-                "click",
-                openSearch
-            );
-
-            commandSearch.setAttribute(
-                "role",
-                "button"
-            );
-
-            commandSearch.setAttribute(
-                "tabindex",
-                "0"
-            );
-
-            commandSearch.addEventListener(
-                "keydown",
-                event => {
+                if (
+                    mod &&
+                    event.key.toLowerCase() === "s"
+                ) {
+                    event.preventDefault();
 
                     if (
-                        event.key ===
-                        "Enter" ||
-                        event.key === " "
+                        document.activeElement ===
+                        codeDisplay
                     ) {
-                        event.preventDefault();
-                        openSearch();
+                        leaveEditorMode();
                     }
+
+                    saveFiles();
+
+                    terminalWrite(
+                        "Saved."
+                    );
                 }
-            );
-        }
 
-        if (backBtn) {
-            backBtn.addEventListener(
-                "click",
-                () => {
-                    history.back();
+                if (
+                    mod &&
+                    event.key.toLowerCase() === "z"
+                ) {
+                    event.preventDefault();
+
+                    undo();
                 }
-            );
-        }
 
-        if (forwardBtn) {
-            forwardBtn.addEventListener(
-                "click",
-                () => {
-                    history.forward();
+                if (
+                    mod &&
+                    event.key.toLowerCase() === "y"
+                ) {
+                    event.preventDefault();
+
+                    redo();
                 }
-            );
-        }
 
-        if (closeWindow) {
-            closeWindow.addEventListener(
-                "click",
-                () => {
+                if (
+                    mod &&
+                    event.key.toLowerCase() === "p"
+                ) {
+                    event.preventDefault();
 
-                    if (
-                        confirm(
-                            "Fermer GCODE ?"
-                        )
-                    ) {
-                        window.close();
-
-                        setStatus(
-                            "GCODE prêt à être fermé"
+                    const query =
+                        window.prompt(
+                            "Quick Open"
                         );
-                    }
-                }
-            );
-        }
-    }
 
-    /* =====================================================
-       TOP ACTIONS
-    ===================================================== */
+                    if (!query) return;
 
-    function connectTopActions() {
-
-        const buttons =
-            document.querySelectorAll(
-                ".top-actions button"
-            );
-
-        buttons.forEach(
-            (button, index) => {
-
-                button.addEventListener(
-                    "click",
-                    () => {
-
-                        if (index === 0) {
-                            toggleSplit();
-                        }
-
-                        else if (index === 1) {
-                            setStatus(
-                                "Layout"
+                    const match =
+                        Object.keys(files)
+                            .find(
+                                name =>
+                                    name
+                                        .toLowerCase()
+                                        .includes(
+                                            query.toLowerCase()
+                                        )
                             );
-                        }
 
-                        else if (index === 2) {
-                            showBottomPanel();
-                        }
+                    if (match) {
+                        openFile(match);
                     }
-                );
+                }
+
+                if (
+                    mod &&
+                    event.key.toLowerCase() === "j"
+                ) {
+                    event.preventDefault();
+
+                    bottomPanel?.classList.toggle(
+                        "hidden"
+                    );
+
+                    focusTerminal();
+                }
+
+                if (
+                    event.key === "F5"
+                ) {
+                    event.preventDefault();
+
+                    commandRun([]);
+                }
             }
         );
     }
 
-    function toggleSplit() {
-        if (!codeEditor) return;
-
-        codeEditor.classList.toggle(
-            "gcode-split-active"
-        );
-
-        setStatus(
-            "Split editor"
-        );
-    }
-
     /* =====================================================
-       SIDEBAR MORE
+       EDITOR EVENTS
     ===================================================== */
 
-    function connectSidebarMore() {
+    function setupEditor() {
+        if (!codeDisplay) return;
 
-        const button =
-            document.querySelector(
-                ".sidebar-more"
-            );
-
-        if (!button) return;
-
-        button.addEventListener(
-            "click",
+        codeDisplay.addEventListener(
+            "focus",
             () => {
-
-                createMenu([
-                    {
-                        label: "New File",
-                        action: newFile
-                    },
-                    {
-                        label: "New Folder",
-                        action: newFolder
-                    },
-                    {
-                        label: "Open Folder",
-                        action: openProject
-                    },
-                    {
-                        label: "Refresh",
-                        action: refreshRealExplorer
-                    }
-                ]);
+                enterEditorMode();
             }
         );
-    }
 
-    /* =====================================================
-       ACTIVITY BUTTONS
-    ===================================================== */
+        codeDisplay.addEventListener(
+            "input",
+            handleEditorInput
+        );
 
-    function connectActivityBar() {
+        codeDisplay.addEventListener(
+            "keyup",
+            updateCursorPosition
+        );
 
-        document
-            .querySelectorAll(
-                ".activity-item[data-panel]"
-            )
-            .forEach(
-                button => {
+        codeDisplay.addEventListener(
+            "mouseup",
+            updateCursorPosition
+        );
 
-                    button.addEventListener(
-                        "click",
-                        () => {
-
-                            activatePanel(
-                                button.dataset.panel
-                            );
-                        }
-                    );
-                }
-            );
-
-        const settings =
-            Array.from(
-                document.querySelectorAll(
-                    ".activity-item"
-                )
-            )
-            .find(
-                item =>
-                    item.textContent
-                        .includes(
-                            "Settings"
-                        )
-            );
-
-        if (settings) {
-            settings.addEventListener(
-                "click",
-                () => {
-                    alert(
-                        "GCODE Settings"
-                    );
-                }
-            );
-        }
-
-        const account =
-            Array.from(
-                document.querySelectorAll(
-                    ".activity-item"
-                )
-            )
-            .find(
-                item =>
-                    item.textContent
-                        .includes(
-                            "Account"
-                        )
-            );
-
-        if (account) {
-            account.addEventListener(
-                "click",
-                () => {
-                    alert(
-                        "GCODE Account"
-                    );
-                }
-            );
-        }
-    }
-
-    /* =====================================================
-       WORKSPACE
-    ===================================================== */
-
-    function connectWorkspace() {
-
-        const workspace =
-            document.querySelector(
-                ".workspace-title"
-            );
-
-        if (!workspace) return;
-
-        workspace.addEventListener(
-            "click",
+        codeDisplay.addEventListener(
+            "blur",
             () => {
+                leaveEditorMode();
+            }
+        );
 
-                const arrow =
-                    workspace.querySelector(
-                        ".arrow"
+        codeDisplay.addEventListener(
+            "keydown",
+            event => {
+                if (event.key === "Tab") {
+                    event.preventDefault();
+
+                    document.execCommand(
+                        "insertText",
+                        false,
+                        "    "
                     );
-
-                const tree =
-                    fileTree;
-
-                if (!tree) return;
-
-                const hidden =
-                    tree.style.display ===
-                    "none";
-
-                tree.style.display =
-                    hidden
-                        ? ""
-                        : "none";
-
-                if (arrow) {
-                    arrow.textContent =
-                        hidden
-                            ? "⌄"
-                            : "›";
                 }
             }
         );
     }
 
     /* =====================================================
-       RACCOURCIS GLOBAUX
+       FILE SYSTEM API
     ===================================================== */
 
-    document.addEventListener(
-        "keydown",
-        event => {
-
-            const modifier =
-                event.ctrlKey ||
-                event.metaKey;
-
-            if (
-                modifier &&
-                event.key.toLowerCase() ===
-                "s"
-            ) {
-                event.preventDefault();
-
-                saveFile();
-
-                return;
-            }
-
-            if (
-                modifier &&
-                event.key.toLowerCase() ===
-                "o"
-            ) {
-                event.preventDefault();
-
-                openProject();
-
-                return;
-            }
-
-            if (
-                modifier &&
-                event.key.toLowerCase() ===
-                "n"
-            ) {
-                event.preventDefault();
-
-                newFile();
-
-                return;
-            }
-
-            if (
-                modifier &&
-                event.key.toLowerCase() ===
-                "f"
-            ) {
-                event.preventDefault();
-
-                openSearch();
-
-                return;
-            }
-
-            if (
-                event.key === "Escape"
-            ) {
-                closeMenu();
-
-                if (searchOverlay) {
-                    searchOverlay.remove();
-                    searchOverlay = null;
-                }
-            }
+    async function syncWithGCODEFileSystem() {
+        if (
+            !window.GCODEFileSystem
+        ) {
+            return;
         }
-    );
-
-    /* =====================================================
-       FILE SYSTEM EVENTS
-    ===================================================== */
-
-    if (FS?.on) {
-
-        FS.on(
-            "save",
-            data => {
-
-                if (data?.path) {
-                    setStatus(
-                        `Sauvegardé : ${fileName(
-                            data.path
-                        )}`
-                    );
-                }
-            }
-        );
-
-        FS.on(
-            "error",
-            error => {
-
-                console.error(
-                    "GCODE FS:",
-                    error
-                );
-            }
-        );
-
-        FS.on(
-            "open",
-            data => {
-
-                projectOpened = true;
-
-                projectName =
-                    data?.name ||
-                    "GCODE";
-            }
-        );
-    }
-
-    /* =====================================================
-       INITIALISATION DES FICHIERS
-    ===================================================== */
-
-    function initializeFiles() {
-
-        files =
-            loadLocalFiles();
-
-        openTabs =
-            loadTabs();
-
-        activeFile =
-            localStorage.getItem(
-                ACTIVE_FILE_KEY
-            );
 
         /*
-         * Si aucun onglet valide n'existe,
-         * utiliser style.css comme dans
-         * l'interface actuelle.
+         * The existing filesystem.js remains
+         * responsible for real directories.
+         * This controller keeps the browser
+         * workspace available as a fallback.
          */
-
-        openTabs =
-            openTabs.filter(
-                path =>
-                    files[path] ||
-                    projectOpened
-            );
-
-        if (
-            !activeFile ||
-            (
-                !files[activeFile] &&
-                !projectOpened
-            )
-        ) {
-            activeFile =
-                openTabs[0] ||
-                "/style.css";
-        }
-
-        if (
-            !openTabs.includes(
-                activeFile
-            )
-        ) {
-            openTabs.push(
-                activeFile
-            );
-        }
     }
 
     /* =====================================================
-       INITIALISATION
-    ===================================================== */
-
-    async function initialize() {
-
-        console.log(
-            "GCODE V3 : initialisation..."
-        );
-
-        configureEditor();
-
-        initializeFiles();
-
-        connectExistingFiles();
-        connectFolders();
-
-        connectTopButtons();
-        connectTopActions();
-        connectSidebarMore();
-        connectActivityBar();
-        connectWorkspace();
-
-        connectPanelTabs();
-
-        setupTerminal();
-
-        renderTabs();
-
-        if (
-            activeFile &&
-            files[activeFile]
-        ) {
-            renderEditor(
-                activeFile
-            );
-        }
-
-        updateTreeSelection();
-
-        if (
-            FS &&
-            FS.hasRealProject &&
-            FS.hasRealProject()
-        ) {
-            projectOpened = true;
-
-            projectName =
-                FS.getProjectName();
-
-            await refreshRealExplorer();
-        }
-
-        setStatus(
-            projectOpened
-                ? `Projet : ${projectName}`
-                : "GCODE prêt"
-        );
-
-        console.log(
-            "GCODE V3 : système prêt."
-        );
-    }
-
-    /* =====================================================
-       API PUBLIQUE
+       GLOBAL GCODE API
     ===================================================== */
 
     window.GCODE = {
+        version: "4.0.0",
 
-        openProject,
+        files,
 
         openFile,
 
-        newFile,
-
-        newFolder,
-
-        saveFile,
-
-        deleteFile,
-
-        renameFile,
-
-        importFiles,
-
-        exportFile,
-
-        undo,
-
-        redo,
-
-        openSearch,
-
-        runCurrentFile,
-
-        executeCommand,
-
-        refreshExplorer:
-            refreshRealExplorer,
-
-        getActiveFile() {
-            return activeFile;
+        save() {
+            saveFiles();
         },
 
-        getProjectName() {
-            return projectName;
+        run() {
+            return commandRun([]);
+        },
+
+        terminal(command) {
+            return executeTerminalCommand(
+                command
+            );
+        },
+
+        getFile(name) {
+            return files[name];
+        },
+
+        setFile(name, content) {
+            files[name] =
+                String(content ?? "");
+
+            saveFiles();
+
+            if (name === activeFile) {
+                renderEditor();
+            }
+        },
+
+        getFiles() {
+            return {
+                ...files
+            };
         }
     };
 
     /* =====================================================
-       START
+       INITIALIZATION
     ===================================================== */
 
-    initialize();
+    function initialize() {
+        setupExplorer();
+        setupTerminal();
+        setupPanelTabs();
+        setupSearch();
+        setupActivityBar();
+        setupShortcuts();
+        setupEditor();
+
+        renderEditor();
+        renderTabs();
+        renderExplorer();
+
+        updateTerminalPath();
+
+        terminalWrite(
+            "GCODE Terminal V4.0.0"
+        );
+
+        terminalWrite(
+            'Type "help" to see available commands.'
+        );
+
+        terminalWrite(
+            "Workspace ready."
+        );
+
+        syncWithGCODEFileSystem();
+
+        console.log(
+            "GCODE V4 initialized."
+        );
+    }
+
+    if (
+        document.readyState ===
+        "loading"
+    ) {
+        document.addEventListener(
+            "DOMContentLoaded",
+            initialize
+        );
+    } else {
+        initialize();
+    }
 
 })();
