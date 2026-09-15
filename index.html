@@ -2,7 +2,13 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    >
+
+    <meta name="theme-color" content="#181818">
 
     <title>GCODE</title>
 
@@ -11,40 +17,36 @@
 
 <body>
 
-<div id="app">
-
-    <!-- =====================================================
+    <!-- =========================================================
          TOP BAR
-    ====================================================== -->
+    ========================================================== -->
 
     <header class="top-bar">
 
         <div class="top-left">
-
-            <div class="gcode-logo">
-                <span>&lt;/&gt;</span>
-            </div>
 
             <button class="menu-button">File</button>
             <button class="menu-button">Edit</button>
             <button class="menu-button">Selection</button>
             <button class="menu-button">View</button>
             <button class="menu-button">Go</button>
-
-            <button class="menu-button more-button">•••</button>
-
-        </div>
-
-
-        <div class="navigation">
-
-            <button id="backBtn" title="Back">‹</button>
-            <button id="forwardBtn" title="Forward">›</button>
+            <button class="more-button">•••</button>
 
         </div>
 
+        <div class="navigation-buttons">
 
-        <div class="command-search">
+            <button id="backBtn" title="Back">
+                ←
+            </button>
+
+            <button id="forwardBtn" title="Forward">
+                →
+            </button>
+
+        </div>
+
+        <div class="command-search" id="commandSearch">
 
             <span class="command-icon">⌕</span>
 
@@ -54,243 +56,318 @@
 
         </div>
 
-
         <div class="top-actions">
 
-            <button title="Split editor">▯</button>
-            <button title="Layout">▥</button>
-            <button title="Panels">▥</button>
+            <button
+                title="Split editor"
+                aria-label="Split editor"
+            >
+                ▯
+            </button>
+
+            <button
+                title="Layout"
+                aria-label="Layout"
+            >
+                ⊞
+            </button>
+
+            <button
+                title="Panels"
+                aria-label="Panels"
+            >
+                ▤
+            </button>
 
         </div>
 
-
         <div class="window-controls">
 
-            <button>—</button>
-            <button>□</button>
-            <button id="closeWindow">×</button>
+            <button title="Minimize">
+                —
+            </button>
+
+            <button title="Maximize">
+                □
+            </button>
+
+            <button
+                id="closeWindow"
+                title="Close"
+            >
+                ×
+            </button>
 
         </div>
 
     </header>
 
 
-    <!-- =====================================================
-         MAIN
-    ====================================================== -->
+    <!-- =========================================================
+         MAIN APPLICATION
+    ========================================================== -->
 
-    <main class="main-container">
+    <main class="app-container">
 
 
-        <!-- =================================================
+        <!-- =====================================================
              ACTIVITY BAR
-        ================================================== -->
+        ====================================================== -->
 
         <aside class="activity-bar">
 
-            <button class="activity-item active" data-panel="explorer">
-                <span class="activity-icon">▣</span>
-                <span class="activity-label">Explorer</span>
-            </button>
+            <div
+                class="activity-item active"
+                data-panel="explorer"
+                title="Explorer"
+            >
+                <span>▤</span>
+            </div>
 
-            <button class="activity-item" data-panel="search">
-                <span class="activity-icon">⌕</span>
-                <span class="activity-label">Search</span>
-            </button>
+            <div
+                class="activity-item"
+                data-panel="search"
+                title="Search"
+            >
+                <span>⌕</span>
+            </div>
 
-            <button class="activity-item" data-panel="source">
-                <span class="activity-icon">⑂</span>
-                <span class="activity-label">Source Control</span>
-            </button>
+            <div
+                class="activity-item"
+                data-panel="source"
+                title="Source Control"
+            >
+                <span>⑂</span>
+            </div>
 
-            <button class="activity-item" data-panel="run">
-                <span class="activity-icon">▷</span>
-                <span class="activity-label">Run</span>
-            </button>
+            <div
+                class="activity-item"
+                data-panel="run"
+                title="Run and Debug"
+            >
+                <span>▷</span>
+            </div>
 
-            <button class="activity-item" data-panel="extensions">
-                <span class="activity-icon">▦</span>
-                <span class="activity-label">Extensions</span>
-            </button>
+            <div
+                class="activity-item"
+                data-panel="extensions"
+                title="Extensions"
+            >
+                <span>⊞</span>
+            </div>
+
 
             <div class="activity-spacer"></div>
 
-            <button class="activity-item">
-                <span class="activity-icon">⚙</span>
-                <span class="activity-label">Settings</span>
-            </button>
 
-            <button class="activity-item">
-                <span class="activity-icon">●</span>
-                <span class="activity-label">Account</span>
-            </button>
+            <div
+                class="activity-item"
+                title="Settings"
+            >
+                <span>⚙</span>
+            </div>
+
+            <div
+                class="activity-item"
+                title="Account"
+            >
+                <span>●</span>
+            </div>
 
         </aside>
 
 
-        <!-- =================================================
+        <!-- =====================================================
              SIDEBAR
-        ================================================== -->
+        ====================================================== -->
 
-        <aside class="sidebar" id="sidebar">
+        <aside id="sidebar" class="sidebar">
 
             <div class="sidebar-header">
 
-                <span>EXPLORER</span>
+                <span>
+                    EXPLORER
+                </span>
 
-                <button class="sidebar-more">
+                <button
+                    class="sidebar-more"
+                    title="More Actions"
+                >
                     •••
                 </button>
 
             </div>
 
 
-            <!-- Workspace -->
-
             <div class="workspace-section">
 
                 <div class="workspace-title">
-
-                    <span class="arrow opened">›</span>
-
-                    <span class="workspace-name">
-                        GCODE
-                    </span>
-
+                    <span class="workspace-arrow">⌄</span>
+                    GCODE
                 </div>
 
-
-                <!-- FILE TREE -->
 
                 <div class="file-tree">
 
 
-                    <!-- Folder -->
+                    <!-- GITHUB -->
 
-                    <div class="tree-item folder" data-folder="github">
-
-                        <span class="arrow">›</span>
-                        <span class="file-symbol folder-symbol">▰</span>
-                        <span>.github</span>
-
+                    <div
+                        class="tree-item folder"
+                        data-folder="github"
+                    >
+                        <span class="tree-arrow">›</span>
+                        <span class="tree-icon">▰</span>
+                        <span class="tree-name">github</span>
                     </div>
 
 
-                    <div class="tree-item folder">
+                    <!-- SRC -->
 
-                        <span class="arrow">›</span>
-                        <span class="file-symbol folder-symbol">▰</span>
-                        <span>src</span>
-
+                    <div
+                        class="tree-item folder"
+                        data-folder="src"
+                    >
+                        <span class="tree-arrow">›</span>
+                        <span class="tree-icon">▰</span>
+                        <span class="tree-name">src</span>
                     </div>
 
 
-                    <div class="tree-item folder">
+                    <!-- ASSETS -->
 
-                        <span class="arrow">›</span>
-                        <span class="file-symbol folder-symbol">▰</span>
-                        <span>assets</span>
-
+                    <div
+                        class="tree-item folder"
+                        data-folder="assets"
+                    >
+                        <span class="tree-arrow">›</span>
+                        <span class="tree-icon">▰</span>
+                        <span class="tree-name">assets</span>
                     </div>
 
 
-                    <div class="tree-item folder">
+                    <!-- COMPONENTS -->
 
-                        <span class="arrow">›</span>
-                        <span class="file-symbol folder-symbol">▰</span>
-                        <span>components</span>
-
+                    <div
+                        class="tree-item folder"
+                        data-folder="components"
+                    >
+                        <span class="tree-arrow">›</span>
+                        <span class="tree-icon">▰</span>
+                        <span class="tree-name">components</span>
                     </div>
 
 
-                    <div class="tree-item folder">
+                    <!-- PAGES -->
 
-                        <span class="arrow">›</span>
-                        <span class="file-symbol folder-symbol">▰</span>
-                        <span>pages</span>
-
+                    <div
+                        class="tree-item folder"
+                        data-folder="pages"
+                    >
+                        <span class="tree-arrow">›</span>
+                        <span class="tree-icon">▰</span>
+                        <span class="tree-name">pages</span>
                     </div>
 
 
-                    <div class="tree-item folder">
+                    <!-- STYLES -->
 
-                        <span class="arrow">›</span>
-                        <span class="file-symbol folder-symbol">▰</span>
-                        <span>styles</span>
-
+                    <div
+                        class="tree-item folder"
+                        data-folder="styles"
+                    >
+                        <span class="tree-arrow">›</span>
+                        <span class="tree-icon">▰</span>
+                        <span class="tree-name">styles</span>
                     </div>
 
 
-                    <!-- Files -->
+                    <!-- INDEX -->
 
-                    <div class="tree-item file" data-file="index.html">
-
-                        <span class="file-indent"></span>
-                        <span class="file-symbol html-symbol">&lt;/&gt;</span>
-                        <span>index.html</span>
-
+                    <div
+                        class="tree-item file"
+                        data-file="index.html"
+                    >
+                        <span class="tree-indent"></span>
+                        <span class="file-icon html-icon">‹›</span>
+                        <span class="tree-name">index.html</span>
                     </div>
 
 
-                    <div class="tree-item file" data-file="style.css">
+                    <!-- STYLE -->
 
-                        <span class="file-indent"></span>
-                        <span class="file-symbol css-symbol">#</span>
-                        <span>style.css</span>
-
+                    <div
+                        class="tree-item file"
+                        data-file="style.css"
+                    >
+                        <span class="tree-indent"></span>
+                        <span class="file-icon css-icon">#</span>
+                        <span class="tree-name">style.css</span>
                     </div>
 
 
-                    <div class="tree-item file" data-file="script.js">
+                    <!-- SCRIPT -->
 
-                        <span class="file-indent"></span>
-                        <span class="file-symbol js-symbol">JS</span>
-                        <span>script.js</span>
-
+                    <div
+                        class="tree-item file"
+                        data-file="script.js"
+                    >
+                        <span class="tree-indent"></span>
+                        <span class="file-icon js-icon">JS</span>
+                        <span class="tree-name">script.js</span>
                     </div>
 
 
-                    <div class="tree-item file">
+                    <!-- PACKAGE -->
 
-                        <span class="file-indent"></span>
-                        <span class="file-symbol json-symbol">{ }</span>
-                        <span>package.json</span>
-
+                    <div
+                        class="tree-item file"
+                    >
+                        <span class="tree-indent"></span>
+                        <span class="file-icon json-icon">{ }</span>
+                        <span class="tree-name">package.json</span>
                     </div>
 
 
-                    <div class="tree-item file">
+                    <!-- README -->
 
-                        <span class="file-indent"></span>
-                        <span class="file-symbol md-symbol">▤</span>
-                        <span>README.md</span>
-
+                    <div
+                        class="tree-item file"
+                    >
+                        <span class="tree-indent"></span>
+                        <span class="file-icon md-icon">M</span>
+                        <span class="tree-name">README.md</span>
                     </div>
 
 
-                    <div class="tree-item file">
+                    <!-- ENV -->
 
-                        <span class="file-indent"></span>
-                        <span class="file-symbol env-symbol">◇</span>
-                        <span>.env</span>
-
+                    <div
+                        class="tree-item file"
+                    >
+                        <span class="tree-indent"></span>
+                        <span class="file-icon env-icon">⚙</span>
+                        <span class="tree-name">.env</span>
                     </div>
 
 
-                    <div class="tree-item file">
+                    <!-- GITIGNORE -->
 
-                        <span class="file-indent"></span>
-                        <span class="file-symbol git-symbol">◇</span>
-                        <span>.gitignore</span>
-
+                    <div
+                        class="tree-item file"
+                    >
+                        <span class="tree-indent"></span>
+                        <span class="file-icon git-icon">G</span>
+                        <span class="tree-name">.gitignore</span>
                     </div>
+
 
                 </div>
 
             </div>
 
 
-            <!-- Bottom sidebar -->
+            <!-- SIDEBAR BOTTOM -->
 
             <div class="sidebar-bottom">
 
@@ -309,234 +386,279 @@
         </aside>
 
 
-        <!-- =================================================
-             CENTRAL WORKSPACE
-        ================================================== -->
+        <!-- =====================================================
+             WORKSPACE
+        ====================================================== -->
 
-        <section class="workspace-area">
-
-
-            <!-- =================================================
-                 EDITOR
-            ================================================== -->
-
-            <section class="editor-area">
+        <section class="workspace">
 
 
-                <!-- TABS -->
+            <!-- EDITOR TABS -->
 
-                <div class="editor-tabs" id="editorTabs">
+            <div
+                class="editor-tabs"
+                id="editorTabs"
+            >
 
-                    <div class="editor-tab active" data-file="style.css">
+                <div
+                    class="editor-tab active"
+                    data-file="style.css"
+                >
 
-                        <span class="tab-file-icon css-symbol">#</span>
+                    <span class="tab-icon css-icon">
+                        #
+                    </span>
 
-                        <span class="tab-name">
-                            style.css
-                        </span>
-
-                        <button class="tab-close">
-                            ×
-                        </button>
-
-                    </div>
-
-
-                    <div class="editor-tab" data-file="index.html">
-
-                        <span class="tab-file-icon html-symbol">
-                            &lt;/&gt;
-                        </span>
-
-                        <span class="tab-name">
-                            index.html
-                        </span>
-
-                        <button class="tab-close">
-                            ×
-                        </button>
-
-                    </div>
-
-                </div>
-
-
-                <!-- BREADCRUMB -->
-
-                <div class="breadcrumb">
-
-                    <span>GCODE</span>
-                    <span>›</span>
-                    <span id="breadcrumbFile">
+                    <span class="tab-name">
                         style.css
                     </span>
 
-                </div>
-
-
-                <!-- CODE EDITOR -->
-
-                <div class="code-editor" id="codeEditor">
-
-                    <div class="line-numbers" id="lineNumbers">
-
-                        <span>1</span>
-                        <span>2</span>
-                        <span>3</span>
-                        <span>4</span>
-                        <span>5</span>
-                        <span>6</span>
-                        <span>7</span>
-                        <span>8</span>
-                        <span>9</span>
-                        <span>10</span>
-                        <span>11</span>
-                        <span>12</span>
-                        <span>13</span>
-                        <span>14</span>
-                        <span>15</span>
-                        <span>16</span>
-                        <span>17</span>
-                        <span>18</span>
-                        <span>19</span>
-                        <span>20</span>
-
-                    </div>
-
-
-                    <div class="code-content">
-
-                        <pre id="codeDisplay"><code>
-<span class="comment">/* GCODE Editor */</span>
-
-<span class="selector">body</span> {
-    <span class="property">margin</span>: <span class="value">0</span>;
-    <span class="property">padding</span>: <span class="value">0</span>;
-    <span class="property">background</span>: <span class="value">#1e1e1e</span>;
-    <span class="property">color</span>: <span class="value">#cccccc</span>;
-}
-
-<span class="selector">.editor</span> {
-    <span class="property">display</span>: <span class="value">flex</span>;
-    <span class="property">height</span>: <span class="value">100vh</span>;
-}
-
-<span class="comment">/* Terminal */</span>
-
-<span class="selector">.terminal</span> {
-    <span class="property">height</span>: <span class="value">240px</span>;
-}
-
-<span class="comment">/* End */</span>
-                        </code></pre>
-
-                    </div>
-
-                </div>
-
-            </section>
-
-
-            <!-- =================================================
-                 BOTTOM PANEL
-            ================================================== -->
-
-            <section class="bottom-panel" id="bottomPanel">
-
-
-                <!-- PANEL HEADER -->
-
-                <div class="panel-header">
-
-                    <div class="panel-tabs">
-
-                        <button class="panel-tab">
-                            PROBLEMS
-                            <span class="count">0</span>
-                        </button>
-
-                        <button class="panel-tab">
-                            OUTPUT
-                        </button>
-
-                        <button class="panel-tab">
-                            DEBUG CONSOLE
-                        </button>
-
-                        <button class="panel-tab active">
-                            TERMINAL
-                        </button>
-
-                        <button class="panel-tab">
-                            PORTS
-                        </button>
-
-                    </div>
-
-
-                    <div class="panel-actions">
-
-                        <span>powershell</span>
-                        <span>⌄</span>
-                        <button>＋</button>
-                        <button>□</button>
-                        <button>×</button>
-
-                    </div>
+                    <button
+                        class="tab-close"
+                        title="Close"
+                    >
+                        ×
+                    </button>
 
                 </div>
 
 
-                <!-- TERMINAL CONTENT -->
+                <div
+                    class="editor-tab"
+                    data-file="index.html"
+                >
 
-                <div class="terminal-content" id="terminal">
+                    <span class="tab-icon html-icon">
+                        ‹›
+                    </span>
 
-                    <div class="terminal-line">
+                    <span class="tab-name">
+                        index.html
+                    </span>
 
-                        <span class="terminal-prompt">
-                            PS
-                        </span>
-
-                        <span class="terminal-path">
-                            D:\GCODE&gt;
-                        </span>
-
-                        <span
-                            class="terminal-input"
-                            contenteditable="true"
-                            spellcheck="false"
-                        ></span>
-
-                        <span class="terminal-cursor">
-                            █
-                        </span>
-
-                    </div>
+                    <button
+                        class="tab-close"
+                        title="Close"
+                    >
+                        ×
+                    </button>
 
                 </div>
 
-            </section>
+            </div>
+
+
+            <!-- BREADCRUMB -->
+
+            <div class="breadcrumb">
+
+                <span>
+                    GCODE
+                </span>
+
+                <span>
+                    ›
+                </span>
+
+                <span id="breadcrumbFile">
+                    style.css
+                </span>
+
+            </div>
+
+
+            <!-- CODE EDITOR -->
+
+            <div
+                class="code-editor"
+                id="codeEditor"
+            >
+
+                <div
+                    id="lineNumbers"
+                    class="line-numbers"
+                ></div>
+
+
+                <div class="code-content">
+
+                    <pre
+                        id="codeDisplay"
+                        spellcheck="false"
+                    ><code></code></pre>
+
+                </div>
+
+            </div>
 
         </section>
+
 
     </main>
 
 
-    <!-- =====================================================
+    <!-- =========================================================
+         BOTTOM PANEL
+    ========================================================== -->
+
+    <section
+        id="bottomPanel"
+        class="bottom-panel"
+    >
+
+
+        <!-- PANEL TABS -->
+
+        <div class="panel-header">
+
+            <div class="panel-tabs">
+
+                <button
+                    class="panel-tab"
+                    data-panel="problems"
+                >
+                    PROBLEMS
+                </button>
+
+                <button
+                    class="panel-tab"
+                    data-panel="output"
+                >
+                    OUTPUT
+                </button>
+
+                <button
+                    class="panel-tab"
+                    data-panel="debug"
+                >
+                    DEBUG CONSOLE
+                </button>
+
+                <button
+                    class="panel-tab active"
+                    data-panel="terminal"
+                >
+                    TERMINAL
+                </button>
+
+                <button
+                    class="panel-tab"
+                    data-panel="ports"
+                >
+                    PORTS
+                </button>
+
+            </div>
+
+
+            <!-- PANEL ACTIONS -->
+
+            <div class="panel-actions">
+
+                <button
+                    title="Terminal Profile"
+                    class="terminal-profile"
+                >
+                    powershell
+                </button>
+
+                <button
+                    title="Terminal Menu"
+                >
+                    ⌄
+                </button>
+
+                <button
+                    title="New Terminal"
+                >
+                    ＋
+                </button>
+
+                <button
+                    title="Maximize Panel"
+                >
+                    □
+                </button>
+
+                <button
+                    title="Close Panel"
+                >
+                    ×
+                </button>
+
+            </div>
+
+        </div>
+
+
+        <!-- =====================================================
+             TERMINAL
+        ====================================================== -->
+
+        <div
+            id="terminal"
+            class="terminal"
+        >
+
+            <div class="terminal-line">
+
+                <span class="terminal-prompt">
+                    PS
+                </span>
+
+                <span class="terminal-path">
+                    C:\GCODE
+                </span>
+
+                <span class="terminal-symbol">
+                    &gt;
+                </span>
+
+                <span
+                    class="terminal-input"
+                    contenteditable="true"
+                    spellcheck="false"
+                    autocomplete="off"
+                    autocorrect="off"
+                    autocapitalize="off"
+                ></span>
+
+                <span class="terminal-cursor">
+                    █
+                </span>
+
+            </div>
+
+        </div>
+
+
+    </section>
+
+
+    <!-- =========================================================
          STATUS BAR
-    ====================================================== -->
+    ========================================================== -->
 
     <footer class="status-bar">
 
+
         <div class="status-left">
 
-            <span>⎇ main</span>
+            <span>
+                ⎇ main
+            </span>
 
-            <span>↻</span>
+            <span>
+                ↻
+            </span>
 
-            <span>× 0</span>
+            <span>
+                × 0
+            </span>
 
-            <span>⚠ 0</span>
+            <span>
+                ⚠ 0
+            </span>
 
         </div>
 
@@ -547,27 +669,51 @@
                 Ln 1, Col 1
             </span>
 
-            <span>Spaces: 4</span>
+            <span>
+                Spaces: 4
+            </span>
 
-            <span>UTF-8</span>
+            <span>
+                UTF-8
+            </span>
 
-            <span>LF</span>
+            <span>
+                LF
+            </span>
 
             <span id="language">
                 CSS
             </span>
 
-            <span>●</span>
+            <span>
+                ●
+            </span>
 
         </div>
 
     </footer>
 
-</div>
+
+    <!-- =========================================================
+         FILESYSTEM
+    ========================================================== -->
+
+    <script src="filesystem.js"></script>
 
 
-<script src="filesystem.js"></script>
-<script src="script.js"></script>
+    <!-- =========================================================
+         MAIN GCODE ENGINE
+    ========================================================== -->
+
+    <script src="script.js"></script>
+
+
+    <!-- =========================================================
+         TERMINAL RUNTIME BRIDGE
+    ========================================================== -->
+
+    <script src="terminal.js"></script>
+
 
 </body>
 </html>
